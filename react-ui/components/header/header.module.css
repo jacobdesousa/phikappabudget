@@ -1,0 +1,21 @@
+.header {
+    width: 100%;
+    padding: 10px;
+    text-align: left;
+    background: #cfb53b;
+    color: white;
+    font-size: 30px;
+    font-family: var(--font-mono);
+    display: flex;
+    align-items: center;
+}
+
+.headerText {
+    padding-left: 60px;
+}
+
+.buttons {
+    align-items: flex-end;
+    padding-right: 100px;
+}
+
