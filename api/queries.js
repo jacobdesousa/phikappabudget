@@ -3,16 +3,27 @@ const Pool = require('pg').Pool
 const pool = new Pool({
     user: 'pks',
     host: 'localhost',
-    database: 'api',
+    database: 'pks',
     password: '1895',
     port: 5432,
 });
+
+const setupTables = () => {
+    pool.query('CREATE TABLE IF NOT EXISTS brothers (id SERIAL PRIMARY KEY, last_name TEXT, first_name TEXT, email TEXT, phone TEXT, pledge_class TEXT, graduation NUMERIC, office TEXT, status TEXT);',
+        (error, results) => {
+            if (error) {
+                throw error;
+            }
+            console.log('Tables setup.');
+        });
+}
 
 const getBrothers = (request, response) => {
     pool.query('SELECT * FROM brothers ORDER BY last_name ASC', (error, results) => {
         if (error) {
             throw error;
         }
+        console.log(results.rows);
         response.status(200).json(results.rows);
     });
 }
@@ -54,6 +65,7 @@ const deleteBrother = (request, response) => {
 }
 
 module.exports = {
+    setupTables,
     getBrothers,
     addBrother,
     editBrother,

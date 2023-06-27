@@ -5,19 +5,17 @@ import {IBrother} from "../../interfaces/api.interface";
 
 export default function BrotherTableComponent() {
 
-    let rows: Array<IBrother> = [];
+    let rows: Array<any> = [];
 
     useEffect(() => {
         const getBrothers = () => {
             getAllBrothers().then(response => {
-                response.map(row => {
+                response.forEach((row) => {
                     rows.push(row);
-                })
-            })
+                });
+            });
         }
-
-        getBrothers();
-        console.log('rows:' + rows);
+        getBrothers()
     }, []);
 
     return (

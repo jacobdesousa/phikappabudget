@@ -22,6 +22,8 @@ app.listen(port, () => {
     console.log(`API listening on port ${port}`);
 });
 
+db.setupTables();
+
 app.get('/brothers', db.getBrothers);
 app.post('/brothers', db.addBrother);
 app.put('/brothers/:id', db.editBrother);
