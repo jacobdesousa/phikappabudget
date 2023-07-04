@@ -1,9 +1,8 @@
-const {response} = require("express");
 const Pool = require('pg').Pool
 const pool = new Pool({
     user: 'pks',
     host: 'localhost',
-    database: 'pks',
+    database: 'api',
     password: '1895',
     port: 5432,
 });
@@ -23,7 +22,6 @@ const getBrothers = (request, response) => {
         if (error) {
             throw error;
         }
-        console.log(results.rows);
         response.status(200).json(results.rows);
     });
 }

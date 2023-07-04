@@ -31,12 +31,12 @@ export default function LandingPage() {
 
       <div className={styles.grid}>
         <Link
-            href="/dues"
+            href="/brothers"
         >
           <h2>
-            Dues <span>-&gt;</span>
+            Brothers <span>-&gt;</span>
           </h2>
-          <p>Brothers' dues information and payment history.</p>
+          <p>Brothers' information.</p>
         </Link>
       </div>
     </main>
