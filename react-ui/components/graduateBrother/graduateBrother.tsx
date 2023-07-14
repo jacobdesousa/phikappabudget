@@ -1,6 +1,5 @@
 import styles from "./graduateBrother.module.css"
 import Button from '@mui/material/Button';
-import {useEffect} from "react";
 import {editBrother} from "../../services/brotherService";
 import {IBrother} from "../../interfaces/api.interface";
 
@@ -10,11 +9,6 @@ interface Props {
 }
 
 export default function GraduateBrotherModalComponent(props: Props) {
-
-    useEffect(() => {
-        document.body.style.overflow = 'hidden';
-        return ()=> {document.body.style.overflow = 'unset'};
-    });
 
     function handleCancel() {
         props.onClose();

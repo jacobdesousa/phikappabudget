@@ -1,7 +1,7 @@
 import styles from "./addBrother.module.css"
 import Button from '@mui/material/Button';
 import {FormControl, InputLabel, MenuItem, Select, TextField} from "@mui/material";
-import {useEffect, useState} from "react";
+import {useState} from "react";
 import BrotherOptionsSchema from "../../interfaces/brotherOptions.schema";
 import {addBrother} from "../../services/brotherService";
 
@@ -16,10 +16,6 @@ export default function AddBrotherModalComponent(props: any) {
     const [office, setOffice] = useState("");
     const [status, setStatus] = useState("");
 
-    useEffect(() => {
-        document.body.style.overflow = 'hidden';
-        return ()=> {document.body.style.overflow = 'unset'};
-    });
 
     function handleCancel() {
         props.onClose();

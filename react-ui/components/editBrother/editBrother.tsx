@@ -31,8 +31,6 @@ export default function EditBrotherModalComponent(props: Props) {
         setGraduation(props.newBrother.graduation);
         setOffice(props.newBrother.office);
         setStatus(props.newBrother.status);
-        document.body.style.overflow = 'hidden';
-        return ()=> {document.body.style.overflow = 'unset'};
     }, [])
 
 
