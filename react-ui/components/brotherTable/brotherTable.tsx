@@ -24,7 +24,7 @@ export default function BrotherTableComponent(props: Props) {
         <div className={styles.wrapper}>
             {(
                 <TableContainer component={Paper} className={styles.table}>
-                    <Table sx={{ minWidth: 650 }} aria-label="Brothers' Table">
+                    <Table sx={{ minWidth: 650 }} aria-label="Brothers Table">
                         <TableHead>
                             <TableRow>
                                 <TableCell>Last Name</TableCell>
