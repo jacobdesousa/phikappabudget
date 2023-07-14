@@ -40,8 +40,10 @@
 }
 
 .grid {
-  display: grid;
-  grid-template-columns: repeat(1, minmax(100%, auto));
+  display: flex;
+  /*grid-template-columns: repeat(1, minmax(100%, auto));*/
+  flex-direction: row;
+  justify-content: space-between;
   width: var(--max-width);
   max-width: 100%;
 }

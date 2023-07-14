@@ -30,14 +30,22 @@ export default function LandingPage() {
       </div>
 
       <div className={styles.grid}>
-        <Link
-            href="/brothers"
-        >
-          <h2>
-            Brothers <span>-&gt;</span>
-          </h2>
-          <p>Brothers' information.</p>
-        </Link>
+          <Link
+              href="/brothers"
+          >
+              <h2>
+                  Brothers <span>-&gt;</span>
+              </h2>
+              <p>Brothers' information.</p>
+          </Link>
+          <Link
+              href="/dues"
+          >
+              <h2>
+                  Dues <span>-&gt;</span>
+              </h2>
+              <p>Dues payment information.</p>
+          </Link>
       </div>
     </main>
   )
