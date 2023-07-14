@@ -9,3 +9,15 @@ export interface IBrother {
     office: string;
     status: string;
 }
+
+export interface IDues {
+    id: number;
+    first_instalment_date: Date;
+    first_instalment_amount: number;
+    second_instalment_date: Date;
+    second_instalment_amount: number;
+    third_instalment_date: Date;
+    third_instalment_amount: number;
+    fourth_instalment_date: Date;
+    fourth_instalment_amount: number;
+}
