@@ -29,3 +29,5 @@ app.get('/brothers', db.getBrothers);
 app.post('/brothers', db.addBrother);
 app.put('/brothers/:id', db.editBrother);
 app.delete('/brothers/:id', db.deleteBrother);
+
+app.get('/dues', db.getDues);
