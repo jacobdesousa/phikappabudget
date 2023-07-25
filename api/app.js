@@ -31,3 +31,4 @@ app.put('/brothers/:id', db.editBrother);
 app.delete('/brothers/:id', db.deleteBrother);
 
 app.get('/dues', db.getDues);
+app.put('/dues', db.updateDues);

@@ -3,7 +3,7 @@ const Pool = require('pg').Pool
 const pool = new Pool({
     user: 'pks',
     host: 'localhost',
-    database: 'pks',
+    database: 'api',
     password: '1895',
     port: 5432,
 });
@@ -37,8 +37,6 @@ const getBrothers = (request, response) => {
 
 const addBrother = (request, response) => {
     const { last_name, first_name, email, phone, pledge_class, graduation, office, status } = request.body;
-
-    let addedBrotherId = -1;
 
     pool.query('INSERT INTO brothers (last_name, first_name, email, phone, pledge_class, graduation, office, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
         [last_name, first_name, email, phone, pledge_class, graduation, office, status], (error, brothers_results) => {
@@ -91,6 +89,19 @@ const getDues = (request, response) => {
     });
 }
 
+const updateDues = (request, response) => {
+    const id = request.body.id;
+    const { first_instalment_date, first_instalment_amount, second_instalment_date, second_instalment_amount, third_instalment_date, third_instalment_amount, fourth_instalment_date, fourth_instalment_amount } = request.body;
+
+    pool.query('UPDATE dues SET first_instalment_date = $1, first_instalment_amount = $2, second_instalment_date = $3, second_instalment_amount = $4, third_instalment_date = $5, third_instalment_amount = $6, fourth_instalment_date = $7, fourth_instalment_amount = $8 WHERE id = $9',
+        [first_instalment_date, first_instalment_amount, second_instalment_date, second_instalment_amount, third_instalment_date, third_instalment_amount, fourth_instalment_date, fourth_instalment_amount, id] ,(error, results) => {
+        if (error) {
+            throw error;
+        }
+        response.status(200).send(`Dues modified with ID: ${id}`);
+    });
+}
+
 module.exports = {
     setupTables,
     getBrothers,
@@ -98,4 +109,5 @@ module.exports = {
     editBrother,
     deleteBrother,
     getDues,
+    updateDues,
 }
