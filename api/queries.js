@@ -1,4 +1,4 @@
-const {response} = require("express");
+const {response, request} = require("express");
 const Pool = require('pg').Pool
 const pool = new Pool({
     user: 'pks',
@@ -23,6 +23,22 @@ const setupTables = () => {
                 throw error;
             }
             console.log('Dues table setup.');
+        });
+
+    pool.query('CREATE TABLE IF NOT EXISTS revenue_categories (id SERIAL PRIMARY KEY, name TEXT);',
+        (error, results) => {
+        if (error) {
+            throw error;
+        }
+        console.log('Revenue Categories table setup.');
+        });
+
+    pool.query('CREATE TABLE IF NOT EXISTS revenue (id SERIAL PRIMARY KEY, date DATE, description TEXT, category_id NUMERIC, amount NUMERIC);',
+        (error, results) => {
+            if (error) {
+                throw error;
+            }
+            console.log('Revenue table setup.');
         });
 }
 
@@ -102,6 +118,49 @@ const updateDues = (request, response) => {
     });
 }
 
+const getRevenueCategories = (request, response) => {
+    pool.query('SELECT * FROM revenue_categories',
+        (error, results) => {
+        if (error) {
+            throw error;
+        }
+        response.status(200).json(results.rows);
+    });
+}
+
+const addRevenueCategory = (request, response) => {
+    const { name } = request.body;
+
+    pool.query('INSERT INTO revenue_categories (name) VALUES ($1) RETURNING *',
+        [name], (error, revenue_category_result) => {
+            if (error) {
+                throw error;
+            }
+            response.status(201).send(`Revenue Category created with id ${revenue_category_result.rows[0].id}`);
+    });
+}
+
+const getRevenue = (request, response) => {
+    pool.query('SELECT * FROM revenue', (error, results) => {
+        if (error) {
+            throw error;
+        }
+        response.status(200).json(results.rows);
+    })
+}
+
+const addRevenue = (request, response) => {
+    const { date, description, category_id, amount } = request.body;
+
+    pool.query('INSERT INTO revenue (date, description, category_id, amount) VALUES ($1, $2, $3, $4) RETURNING *',
+        [date, description, category_id, amount], (error, results) => {
+            if (error) {
+                throw error;
+            }
+            response.status(201).send(`Revenue created with id ${results.rows[0].id}`);
+        })
+}
+
 module.exports = {
     setupTables,
     getBrothers,
@@ -110,4 +169,8 @@ module.exports = {
     deleteBrother,
     getDues,
     updateDues,
+    getRevenueCategories,
+    addRevenueCategory,
+    getRevenue,
+    addRevenue
 }

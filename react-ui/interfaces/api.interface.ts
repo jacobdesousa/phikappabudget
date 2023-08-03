@@ -21,3 +21,16 @@ export interface IDues {
     fourth_instalment_date: Date;
     fourth_instalment_amount: number;
 }
+
+export interface IRevenueCategory {
+    id?: number
+    name: string;
+}
+
+export interface IRevenue {
+    id?: number;
+    date: Date;
+    description: string;
+    category_id: number;
+    amount: number;
+}

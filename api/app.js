@@ -32,3 +32,9 @@ app.delete('/brothers/:id', db.deleteBrother);
 
 app.get('/dues', db.getDues);
 app.put('/dues', db.updateDues);
+
+app.get('/revenue/category', db.getRevenueCategories);
+app.post('/revenue/category', db.addRevenueCategory)
+
+app.get('/revenue', db.getRevenue);
+app.post('/revenue', db.addRevenue);

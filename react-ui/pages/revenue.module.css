@@ -1,0 +1,16 @@
+.main {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    min-height: 100vh;
+}
+
+.tableWrapper {
+    width: 70%;
+}
+
+.toolbar {
+    align-self: flex-end;
+    width: 30%;
+}

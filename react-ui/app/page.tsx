@@ -46,6 +46,14 @@ export default function LandingPage() {
               </h2>
               <p>Dues payment information.</p>
           </Link>
+          <Link
+              href="/revenue"
+          >
+              <h2>
+                  Revenue <span>-&gt;</span>
+              </h2>
+              <p>Track incoming chapter revenue.</p>
+          </Link>
       </div>
     </main>
   )
