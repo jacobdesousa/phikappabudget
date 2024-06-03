@@ -1,19 +1,19 @@
 .wrapper {
-    margin-top: 100px;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+  margin-top: 100px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .table {
-    width: 80%;
-    height: 50%;
+  width: 80%;
+  height: 50%;
 }
 
 .duesCell {
-    whiteSpace: "normal";
-    wordWrap: "break-word";
-    cursor: pointer;
+  whitespace: "normal";
+  wordwrap: "break-word";
+  cursor: pointer;
 }

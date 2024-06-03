@@ -1,40 +1,47 @@
 const express = require("express");
-const bodyParser = require('body-parser')
+const bodyParser = require("body-parser");
 
 const app = express();
-const db = require('./queries');
-const port = 8080;
+const db = require("./queries");
+const port = process.env.PORT || 8080;
 
 app.use(bodyParser.json());
 app.use(
-    bodyParser.urlencoded({
-        extended: true,
-    })
+  bodyParser.urlencoded({
+    extended: true,
+  }),
 );
 
-app.use(function(req, res, next) {
-    res.header("Access-Control-Allow-Origin", "http://localhost:3000"); // update to match the domain you will make the request from
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    res.header("Access-Control-Allow-Methods", "POST, PUT, GET, DELETE");
-    next();
+app.use(function (req, res, next) {
+  res.header("Access-Control-Allow-Origin", "http://localhost:3000"); // update to match the domain you will make the request from
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept",
+  );
+  res.header("Access-Control-Allow-Methods", "POST, PUT, GET, DELETE");
+  next();
 });
 
 app.listen(port, () => {
-    console.log(`API listening on port ${port}`);
+  console.log(`API listening on port ${port}`);
 });
 
 db.setupTables();
 
-app.get('/brothers', db.getBrothers);
-app.post('/brothers', db.addBrother);
-app.put('/brothers/:id', db.editBrother);
-app.delete('/brothers/:id', db.deleteBrother);
+app.get("/brothers", db.getBrothers);
+app.post("/brothers", db.addBrother);
+app.put("/brothers/:id", db.editBrother);
+app.delete("/brothers/:id", db.deleteBrother);
 
-app.get('/dues', db.getDues);
-app.put('/dues', db.updateDues);
+app.get("/dues", db.getDues);
+app.put("/dues", db.updateDues);
 
-app.get('/revenue/category', db.getRevenueCategories);
-app.post('/revenue/category', db.addRevenueCategory)
+app.get("/revenue/category", db.getRevenueCategories);
+app.post("/revenue/category", db.addRevenueCategory);
 
-app.get('/revenue', db.getRevenue);
-app.post('/revenue', db.addRevenue);
+app.get("/revenue", db.getRevenue);
+app.post("/revenue", db.addRevenue);
+
+app.get("/expenses", db.getExpenses);
+app.post("/expenses", db.addExpense);
+app.put("/expenses/disburse", db.disburseExpenses);

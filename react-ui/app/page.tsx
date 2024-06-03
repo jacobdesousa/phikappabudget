@@ -1,5 +1,5 @@
-import Image from 'next/image'
-import styles from './page.module.css'
+import Image from "next/image";
+import styles from "./page.module.css";
 import Link from "next/link";
 
 export default function LandingPage() {
@@ -7,14 +7,14 @@ export default function LandingPage() {
     <main className={styles.main}>
       <div className={styles.description}>
         <div>
-            <Image
-              src="/alphabeta.png"
-              alt="Alpha Beta Logo"
-              className={styles.abLogo}
-              width={100}
-              height={100}
-              priority
-            />
+          <Image
+            src="/alphabeta.png"
+            alt="Alpha Beta Logo"
+            className={styles.abLogo}
+            width={100}
+            height={100}
+            priority
+          />
         </div>
       </div>
 
@@ -30,31 +30,25 @@ export default function LandingPage() {
       </div>
 
       <div className={styles.grid}>
-          <Link
-              href="/brothers"
-          >
-              <h2>
-                  Brothers <span>-&gt;</span>
-              </h2>
-              <p>Brothers' information.</p>
-          </Link>
-          <Link
-              href="/dues"
-          >
-              <h2>
-                  Dues <span>-&gt;</span>
-              </h2>
-              <p>Dues payment information.</p>
-          </Link>
-          <Link
-              href="/revenue"
-          >
-              <h2>
-                  Revenue <span>-&gt;</span>
-              </h2>
-              <p>Track incoming chapter revenue.</p>
-          </Link>
+        <Link href="/brothers">
+          <h2>
+            Brothers <span>-&gt;</span>
+          </h2>
+          <p>Brothers' information.</p>
+        </Link>
+        <Link href="/dues">
+          <h2>
+            Dues <span>-&gt;</span>
+          </h2>
+          <p>Dues payment information.</p>
+        </Link>
+        <Link href="/revenue">
+          <h2>
+            Revenue <span>-&gt;</span>
+          </h2>
+          <p>Track incoming chapter revenue.</p>
+        </Link>
       </div>
     </main>
-  )
+  );
 }
