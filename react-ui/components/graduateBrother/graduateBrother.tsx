@@ -18,7 +18,7 @@ export default function GraduateBrotherModalComponent(props: Props) {
     function handleGraduate() {
         props.graduatingBrother.status = "Alumnus";
 
-        editBrother(props.graduatingBrother, props.graduatingBrother.id);
+        editBrother(props.graduatingBrother, props.graduatingBrother.id!);
         handleCancel();
     }
 
