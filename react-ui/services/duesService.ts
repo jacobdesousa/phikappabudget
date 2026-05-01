@@ -1,14 +1,9 @@
 import {IDues} from "../interfaces/api.interface";
-
-const a = require('axios');
-
-const axios = a.create({
-    baseURL: 'http://localhost:8080'
-});
+import { apiClient } from "./apiClient";
 
 export async function getDues(): Promise<Array<IDues>> {
     try {
-        const response = await axios.get('/dues');
+        const response = await apiClient.get('/dues');
         return response.data;
     } catch (error) {
         return [];
@@ -17,7 +12,7 @@ export async function getDues(): Promise<Array<IDues>> {
 
 export async function updateDues(duesRecord: IDues) {
     try {
-        const response = await axios.put('/dues', duesRecord);
+        const response = await apiClient.put('/dues', duesRecord);
         return response.status;
     } catch (error) {
         return 400;

@@ -1,40 +1,35 @@
-const express = require("express");
-const bodyParser = require('body-parser')
+const { env } = require("./src/config/env");
+const { createApp } = require("./src/app");
+const { setupTables } = require("./src/db/init");
 
-const app = express();
-const db = require('./queries');
-const port = 8080;
+async function main() {
+  // If your Postgres auth method is SCRAM (common default), a password is required.
+  // Without it, the pg driver throws a confusing SASL error ("password must be a string").
+  if (!env.pg.password) {
+    throw new Error(
+      "Missing Postgres password. Set PGPASSWORD in your environment (see api/env.example). " +
+        "If you use .pgpass instead, ensure it contains an entry for this connection."
+    );
+  }
 
-app.use(bodyParser.json());
-app.use(
-    bodyParser.urlencoded({
-        extended: true,
-    })
-);
+  await setupTables();
+  const app = createApp();
 
-app.use(function(req, res, next) {
-    res.header("Access-Control-Allow-Origin", "http://localhost:3000"); // update to match the domain you will make the request from
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    res.header("Access-Control-Allow-Methods", "POST, PUT, GET, DELETE");
-    next();
+  const server = app.listen(env.port, () => {
+    // eslint-disable-next-line no-console
+    console.log(`API listening on port ${env.port}`);
+  });
+
+  const shutdown = () => {
+    server.close(() => process.exit(0));
+  };
+
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+}
+
+main().catch((err) => {
+  // eslint-disable-next-line no-console
+  console.error("Failed to start server:", err);
+  process.exit(1);
 });
-
-app.listen(port, () => {
-    console.log(`API listening on port ${port}`);
-});
-
-db.setupTables();
-
-app.get('/brothers', db.getBrothers);
-app.post('/brothers', db.addBrother);
-app.put('/brothers/:id', db.editBrother);
-app.delete('/brothers/:id', db.deleteBrother);
-
-app.get('/dues', db.getDues);
-app.put('/dues', db.updateDues);
-
-app.get('/revenue/category', db.getRevenueCategories);
-app.post('/revenue/category', db.addRevenueCategory)
-
-app.get('/revenue', db.getRevenue);
-app.post('/revenue', db.addRevenue);

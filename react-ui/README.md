@@ -14,9 +14,15 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## API configuration
+
+The frontend reads the API base URL from `NEXT_PUBLIC_API_BASE_URL`.
+
+See `env.example` and copy it to `.env.local` (or export it in your shell) when running locally.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+This project uses a system font stack (configured in `react-ui/theme.ts`) to avoid build-time network font fetches.
 
 ## Learn More
 

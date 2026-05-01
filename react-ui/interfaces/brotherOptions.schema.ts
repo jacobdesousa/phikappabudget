@@ -20,6 +20,7 @@ export default class BrotherOptionsSchema {
 
     static statuses = [
         "Active",
+        "Pledge",
         "Alumnus",
         "Restricted",
         "Suspended",

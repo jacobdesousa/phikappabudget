@@ -8,6 +8,7 @@ interface Props {
     data: Array<IBrother>;
     setEditingBrother: any;
     setGraduatingBrother: any;
+    canWrite?: boolean;
 }
 
 export default function BrotherTableComponent(props: Props) {
@@ -52,9 +53,22 @@ export default function BrotherTableComponent(props: Props) {
                                     <TableCell align="right">{row.phone}</TableCell>
                                     <TableCell align="right">{row.pledge_class}</TableCell>
                                     <TableCell align="right">{row.graduation}</TableCell>
-                                    <TableCell align="right">{row.office}</TableCell>
+                                    <TableCell align="right">
+                                        {(row.current_offices ?? []).map((o) => o.display_name).join(", ") || (row.office ?? "—")}
+                                    </TableCell>
                                     <TableCell align="right">{row.status}</TableCell>
-                                    <TableCell align="right"><IconButton onClick={() => {setEditingBrother(row)}}><EditIcon></EditIcon></IconButton> {row.status != "Alumnus" ? <IconButton onClick={() => {graduateBrother(row)}}><SchoolIcon></SchoolIcon></IconButton> : <IconButton disabled><SchoolIcon></SchoolIcon></IconButton>}</TableCell>
+                                    <TableCell align="right">
+                                        {props.canWrite ? (
+                                          <>
+                                            <IconButton onClick={() => {setEditingBrother(row)}}><EditIcon></EditIcon></IconButton>
+                                            {row.status != "Alumnus" ? (
+                                              <IconButton onClick={() => {graduateBrother(row)}}><SchoolIcon></SchoolIcon></IconButton>
+                                            ) : (
+                                              <IconButton disabled><SchoolIcon></SchoolIcon></IconButton>
+                                            )}
+                                          </>
+                                        ) : null}
+                                    </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>

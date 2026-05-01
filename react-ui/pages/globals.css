@@ -1,0 +1,14 @@
+/* Minimal global CSS for pages-router routes.
+   Most styling is handled by MUI CssBaseline + theme. */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+

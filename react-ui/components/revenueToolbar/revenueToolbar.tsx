@@ -5,7 +5,6 @@ import {useState} from "react";
 import Button from "@mui/material/Button";
 import AddIcon from "@mui/icons-material/Add";
 import {addRevenueCategory} from "../../services/revenueCategoryService";
-import BrotherOptionsSchema from "../../interfaces/brotherOptions.schema";
 import {addRevenue} from "../../services/revenueService";
 
 interface Props {
@@ -20,7 +19,13 @@ export default function RevenueToolbarComponent(props: Props) {
     const [revenueAmount, setRevenueAmount] = useState("");
 
     function handleAddRevenue() {
-        addRevenue({date: new Date(), amount: Number(revenueAmount), category_id: props.revenueCategories.find(category => category.name == revenueCategory)?.id, description: revenueItemName})
+        const categoryIdRaw = props.revenueCategories.find(category => category.name == revenueCategory)?.id;
+        const categoryId = categoryIdRaw ? Number(categoryIdRaw) : undefined;
+        const amount = Number(revenueAmount);
+
+        if (!revenueItemName || !categoryId || Number.isNaN(amount)) return;
+
+        addRevenue({date: new Date(), amount, category_id: categoryId, description: revenueItemName});
     }
 
     function handleAddRevenueCategory() {
@@ -29,8 +34,10 @@ export default function RevenueToolbarComponent(props: Props) {
 
     return (
         <div className={styles.toolbar}>
-            <div>
-                <h3>Add Revenue</h3>
+            <div className={styles.toolbarSection}>
+                <div className={styles.toolbarText}>
+                    <h3 >Add Revenue</h3>
+                </div>
                 <TextField
                     required
                     className={styles.toolbarFields}
@@ -47,7 +54,7 @@ export default function RevenueToolbarComponent(props: Props) {
                         onChange={(event) => setRevenueCategory(event.target.value)}
                     >
                         {props.revenueCategories.map((category) => (
-                            <MenuItem value={category.name}>{category.name}</MenuItem>
+                            <MenuItem key={category.id ?? category.name} value={category.name}>{category.name}</MenuItem>
                         ))}
                     </Select>
                 </FormControl>
