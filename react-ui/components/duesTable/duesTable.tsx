@@ -66,7 +66,7 @@ export default function DuesTable(props: Props) {
 
     return (
         <div className={styles.wrapper}>
-            <TableContainer component={Paper} className={styles.table}>
+            <TableContainer component={Paper} sx={{ overflowX: "auto", width: "100%" }}>
                 <Table sx={{ minWidth: 650 }} aria-label="Dues Table">
                     <TableHead>
                         <TableRow>
