@@ -31,6 +31,8 @@ export type SessionRow = {
   user_agent?: string | null;
   ip?: string | null;
   is_current?: boolean;
+  user_id?: number | null;
+  user_email?: string | null;
 };
 
 export type SessionsResponse = {

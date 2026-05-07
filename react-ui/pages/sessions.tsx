@@ -94,9 +94,9 @@ export default function SessionsPage() {
         </Paper>
       ) : (
         <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-          <Typography variant="h6">Active sessions</Typography>
+          <Typography variant="h6">All sessions</Typography>
           <Typography variant="body2" color="text.secondary">
-            The current session is marked. Revoking it will sign you out on this device.
+            All active refresh-token sessions across all users. Current session marked.
           </Typography>
 
           <Divider sx={{ my: 2 }} />
@@ -104,6 +104,9 @@ export default function SessionsPage() {
           <Box component="table" sx={{ width: "100%", borderCollapse: "collapse" }}>
             <Box component="thead">
               <Box component="tr">
+                <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
+                  User
+                </Box>
                 <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
                   Device
                 </Box>
@@ -126,6 +129,9 @@ export default function SessionsPage() {
                 const status = s.revoked_at ? "Revoked" : s.is_current ? "Current" : "Active";
                 return (
                   <Box component="tr" key={s.id}>
+                    <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
+                      <Typography variant="body2">{s.user_email ?? `User #${s.user_id}`}</Typography>
+                    </Box>
                     <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
                       <Typography sx={{ fontWeight: 700 }}>{s.ip ?? "—"}</Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 520 }}>
