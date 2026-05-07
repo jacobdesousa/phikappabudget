@@ -263,149 +263,145 @@ export default function WorkdayDetailPage() {
             <Typography variant="h6" sx={{ mb: 1 }}>
               Attendance
             </Typography>
-            <Box component="table" sx={{ width: "100%", borderCollapse: "collapse" }}>
-              <Box component="thead">
-                <Box component="tr">
-                  <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1 }}>
-                    Brother
-                  </Box>
-                  <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, width: 120 }}>
-                    Type
-                  </Box>
-                  <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, width: 160 }}>
-                    Status
-                  </Box>
-                  <Box component="th" sx={{ textAlign: "center", borderBottom: "1px solid", borderColor: "divider", py: 1, width: 120 }}>
-                    Coveralls
-                  </Box>
-                  <Box component="th" sx={{ textAlign: "center", borderBottom: "1px solid", borderColor: "divider", py: 1, width: 120 }}>
-                    Nametag
-                  </Box>
-                  <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, width: 190 }}>
-                    Makeup completed
-                  </Box>
-                </Box>
-              </Box>
-              <Box component="tbody">
-                {draftAttendance.map((a) => {
-                  const isPledge = (a.brother_status_at_workday ?? "Active") === "Pledge";
-                  const coverallApplicable = !isPledge && (a.status === "Present" || a.status === "Late");
-                  const makeupApplicable = a.status === "Missing" || a.status === "Excused";
-                  const makeupVal = a.makeup_completed_at ? dayjs(a.makeup_completed_at).format("YYYY-MM-DD") : "";
 
-                  return (
-                    <Box component="tr" key={a.brother_id}>
-                    <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1 }}>
-                      {a.first_name || a.last_name ? `${a.first_name ?? ""} ${a.last_name ?? ""}`.trim() : `Brother #${a.brother_id}`}
-                    </Box>
-                    <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1 }}>
-                      {a.brother_status_at_workday ?? "Active"}
-                    </Box>
-                    <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1 }}>
-                      {isEditing ? (
-                        <TextField
-                          select
-                          size="small"
-                          value={a.status}
-                          onChange={(e) =>
-                            setDraftAttendance((prev) =>
-                              prev.map((x) =>
-                                x.brother_id === a.brother_id
-                                  ? {
-                                      ...x,
-                                      status: e.target.value,
-                                      // Clear fields when they become irrelevant
-                                      coveralls:
-                                        (x.brother_status_at_workday ?? "Active") !== "Pledge" &&
-                                        (e.target.value === "Present" || e.target.value === "Late")
-                                          ? x.coveralls ?? false
-                                          : null,
-                                      nametag:
-                                        (x.brother_status_at_workday ?? "Active") !== "Pledge" &&
-                                        (e.target.value === "Present" || e.target.value === "Late")
-                                          ? x.nametag ?? false
-                                          : null,
-                                      makeup_completed_at: e.target.value === "Missing" || e.target.value === "Excused" ? x.makeup_completed_at ?? null : null,
-                                    }
-                                  : x
-                              )
-                            )
-                          }
-                          sx={{ minWidth: 140 }}
-                        >
-                          {STATUS_OPTIONS.map((s) => (
-                            <MenuItem key={s} value={s}>
-                              {s}
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                      ) : (
-                        <Typography>{a.status}</Typography>
-                      )}
-                    </Box>
-                    <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, textAlign: "center" }}>
-                      {coverallApplicable ? (
-                        isEditing ? (
-                          <Checkbox
-                            checked={Boolean(a.coveralls)}
-                            onChange={(e) =>
-                              setDraftAttendance((prev) =>
-                                prev.map((x) => (x.brother_id === a.brother_id ? { ...x, coveralls: e.target.checked } : x))
-                              )
-                            }
-                          />
-                        ) : (
-                          <Typography>{a.coveralls ? "Yes" : "No"}</Typography>
-                        )
-                      ) : (
-                        "—"
-                      )}
-                    </Box>
-                    <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, textAlign: "center" }}>
-                      {coverallApplicable ? (
-                        isEditing ? (
-                          <Checkbox
-                            checked={Boolean(a.nametag)}
-                            onChange={(e) =>
-                              setDraftAttendance((prev) =>
-                                prev.map((x) => (x.brother_id === a.brother_id ? { ...x, nametag: e.target.checked } : x))
-                              )
-                            }
-                          />
-                        ) : (
-                          <Typography>{a.nametag ? "Yes" : "No"}</Typography>
-                        )
-                      ) : (
-                        "—"
-                      )}
-                    </Box>
-                    <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1 }}>
-                      {makeupApplicable ? (
-                        isEditing ? (
+            {/* Mobile card layout */}
+            <Box sx={{ display: { xs: "flex", md: "none" }, flexDirection: "column", gap: 1 }}>
+              {draftAttendance.map((a) => {
+                const isPledge = (a.brother_status_at_workday ?? "Active") === "Pledge";
+                const coverallApplicable = !isPledge && (a.status === "Present" || a.status === "Late");
+                const makeupApplicable = a.status === "Missing" || a.status === "Excused";
+                const makeupVal = a.makeup_completed_at ? dayjs(a.makeup_completed_at).format("YYYY-MM-DD") : "";
+                const name = a.first_name || a.last_name ? `${a.first_name ?? ""} ${a.last_name ?? ""}`.trim() : `Brother #${a.brother_id}`;
+                return (
+                  <Paper key={a.brother_id} variant="outlined" sx={{ p: 1.5 }}>
+                    <Stack spacing={1}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Box>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{name}</Typography>
+                          <Typography variant="caption" color="text.secondary">{a.brother_status_at_workday ?? "Active"}</Typography>
+                        </Box>
+                        {isEditing ? (
                           <TextField
-                            type="date"
+                            select
                             size="small"
-                            value={makeupVal}
+                            value={a.status}
                             onChange={(e) =>
                               setDraftAttendance((prev) =>
                                 prev.map((x) =>
-                                  x.brother_id === a.brother_id ? { ...x, makeup_completed_at: e.target.value || null } : x
+                                  x.brother_id === a.brother_id
+                                    ? {
+                                        ...x,
+                                        status: e.target.value,
+                                        coveralls: (x.brother_status_at_workday ?? "Active") !== "Pledge" && (e.target.value === "Present" || e.target.value === "Late") ? x.coveralls ?? false : null,
+                                        nametag: (x.brother_status_at_workday ?? "Active") !== "Pledge" && (e.target.value === "Present" || e.target.value === "Late") ? x.nametag ?? false : null,
+                                        makeup_completed_at: e.target.value === "Missing" || e.target.value === "Excused" ? x.makeup_completed_at ?? null : null,
+                                      }
+                                    : x
                                 )
                               )
                             }
-                            InputLabelProps={{ shrink: true }}
-                            sx={{ width: 160 }}
-                          />
+                            sx={{ minWidth: 130 }}
+                          >
+                            {STATUS_OPTIONS.map((s) => (
+                              <MenuItem key={s} value={s}>{s}</MenuItem>
+                            ))}
+                          </TextField>
                         ) : (
-                          <Typography>{makeupVal ? dayjs(makeupVal).format("MMM D, YYYY") : "—"}</Typography>
-                        )
-                      ) : (
-                        "—"
+                          <Typography variant="body2">{a.status}</Typography>
+                        )}
+                      </Stack>
+                      {coverallApplicable && (
+                        <Stack direction="row" spacing={2}>
+                          <Stack direction="row" alignItems="center" spacing={0.5}>
+                            {isEditing ? (
+                              <Checkbox size="small" checked={Boolean(a.coveralls)} onChange={(e) => setDraftAttendance((prev) => prev.map((x) => x.brother_id === a.brother_id ? { ...x, coveralls: e.target.checked } : x))} />
+                            ) : (
+                              <Typography variant="body2">{a.coveralls ? "✓" : "✗"}</Typography>
+                            )}
+                            <Typography variant="body2" color="text.secondary">Coveralls</Typography>
+                          </Stack>
+                          <Stack direction="row" alignItems="center" spacing={0.5}>
+                            {isEditing ? (
+                              <Checkbox size="small" checked={Boolean(a.nametag)} onChange={(e) => setDraftAttendance((prev) => prev.map((x) => x.brother_id === a.brother_id ? { ...x, nametag: e.target.checked } : x))} />
+                            ) : (
+                              <Typography variant="body2">{a.nametag ? "✓" : "✗"}</Typography>
+                            )}
+                            <Typography variant="body2" color="text.secondary">Nametag</Typography>
+                          </Stack>
+                        </Stack>
                       )}
-                    </Box>
+                      {makeupApplicable && (
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <Typography variant="body2" color="text.secondary">Makeup completed:</Typography>
+                          {isEditing ? (
+                            <TextField
+                              type="date"
+                              size="small"
+                              value={makeupVal}
+                              onChange={(e) => setDraftAttendance((prev) => prev.map((x) => x.brother_id === a.brother_id ? { ...x, makeup_completed_at: e.target.value || null } : x))}
+                              InputLabelProps={{ shrink: true }}
+                              sx={{ width: 160 }}
+                            />
+                          ) : (
+                            <Typography variant="body2">{makeupVal ? dayjs(makeupVal).format("MMM D, YYYY") : "—"}</Typography>
+                          )}
+                        </Stack>
+                      )}
+                    </Stack>
+                  </Paper>
+                );
+              })}
+            </Box>
+
+            {/* Desktop table layout */}
+            <Box sx={{ display: { xs: "none", md: "block" }, overflowX: "auto" }}>
+              <Box component="table" sx={{ width: "100%", borderCollapse: "collapse" }}>
+                <Box component="thead">
+                  <Box component="tr">
+                    <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1 }}>Brother</Box>
+                    <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, width: 120 }}>Type</Box>
+                    <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, width: 160 }}>Status</Box>
+                    <Box component="th" sx={{ textAlign: "center", borderBottom: "1px solid", borderColor: "divider", py: 1, width: 120 }}>Coveralls</Box>
+                    <Box component="th" sx={{ textAlign: "center", borderBottom: "1px solid", borderColor: "divider", py: 1, width: 120 }}>Nametag</Box>
+                    <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, width: 190 }}>Makeup completed</Box>
                   </Box>
-                  );
-                })}
+                </Box>
+                <Box component="tbody">
+                  {draftAttendance.map((a) => {
+                    const isPledge = (a.brother_status_at_workday ?? "Active") === "Pledge";
+                    const coverallApplicable = !isPledge && (a.status === "Present" || a.status === "Late");
+                    const makeupApplicable = a.status === "Missing" || a.status === "Excused";
+                    const makeupVal = a.makeup_completed_at ? dayjs(a.makeup_completed_at).format("YYYY-MM-DD") : "";
+                    return (
+                      <Box component="tr" key={a.brother_id}>
+                        <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1 }}>
+                          {a.first_name || a.last_name ? `${a.first_name ?? ""} ${a.last_name ?? ""}`.trim() : `Brother #${a.brother_id}`}
+                        </Box>
+                        <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1 }}>{a.brother_status_at_workday ?? "Active"}</Box>
+                        <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1 }}>
+                          {isEditing ? (
+                            <TextField
+                              select size="small" value={a.status}
+                              onChange={(e) => setDraftAttendance((prev) => prev.map((x) => x.brother_id === a.brother_id ? { ...x, status: e.target.value, coveralls: (x.brother_status_at_workday ?? "Active") !== "Pledge" && (e.target.value === "Present" || e.target.value === "Late") ? x.coveralls ?? false : null, nametag: (x.brother_status_at_workday ?? "Active") !== "Pledge" && (e.target.value === "Present" || e.target.value === "Late") ? x.nametag ?? false : null, makeup_completed_at: e.target.value === "Missing" || e.target.value === "Excused" ? x.makeup_completed_at ?? null : null } : x))}
+                              sx={{ minWidth: 140 }}
+                            >
+                              {STATUS_OPTIONS.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                            </TextField>
+                          ) : <Typography>{a.status}</Typography>}
+                        </Box>
+                        <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, textAlign: "center" }}>
+                          {coverallApplicable ? (isEditing ? <Checkbox checked={Boolean(a.coveralls)} onChange={(e) => setDraftAttendance((prev) => prev.map((x) => x.brother_id === a.brother_id ? { ...x, coveralls: e.target.checked } : x))} /> : <Typography>{a.coveralls ? "Yes" : "No"}</Typography>) : "—"}
+                        </Box>
+                        <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, textAlign: "center" }}>
+                          {coverallApplicable ? (isEditing ? <Checkbox checked={Boolean(a.nametag)} onChange={(e) => setDraftAttendance((prev) => prev.map((x) => x.brother_id === a.brother_id ? { ...x, nametag: e.target.checked } : x))} /> : <Typography>{a.nametag ? "Yes" : "No"}</Typography>) : "—"}
+                        </Box>
+                        <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1 }}>
+                          {makeupApplicable ? (isEditing ? <TextField type="date" size="small" value={makeupVal} onChange={(e) => setDraftAttendance((prev) => prev.map((x) => x.brother_id === a.brother_id ? { ...x, makeup_completed_at: e.target.value || null } : x))} InputLabelProps={{ shrink: true }} sx={{ width: 160 }} /> : <Typography>{makeupVal ? dayjs(makeupVal).format("MMM D, YYYY") : "—"}</Typography>) : "—"}
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Box>
               </Box>
             </Box>
           </Paper>
