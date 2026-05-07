@@ -1,12 +1,16 @@
 import * as React from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
-import { Alert, Box, Button, Container, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Container, IconButton, Paper, Stack, TextField, Tooltip, Typography } from "@mui/material";
 import LoginIcon from "@mui/icons-material/Login";
+import Brightness4Icon from "@mui/icons-material/Brightness4";
+import Brightness7Icon from "@mui/icons-material/Brightness7";
+import { useColorMode } from "../theme/colorMode";
 import { login } from "../services/authService";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { mode, toggle } = useColorMode();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
@@ -43,11 +47,18 @@ export default function LoginPage() {
   }
 
   return (
-    <Box sx={{ bgcolor: "#f6f7fb", minHeight: "100vh", py: { xs: 3, md: 7 } }}>
+    <Box sx={{ bgcolor: "background.default", minHeight: "100vh", py: { xs: 3, md: 7 } }}>
       <Container maxWidth="sm">
         <Stack spacing={2}>
-          <Box sx={{ display: "flex", justifyContent: "center", pt: 1 }}>
+          <Box sx={{ display: "flex", justifyContent: "center", pt: 1, position: "relative" }}>
             <Image src="/alphabeta.png" alt="Alpha Beta Logo" width={120} height={120} priority />
+            <Box sx={{ position: "absolute", right: 0, top: 0 }}>
+              <Tooltip title={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
+                <IconButton onClick={toggle} aria-label="toggle color mode">
+                  {mode === "dark" ? <Brightness7Icon /> : <Brightness4Icon />}
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Box>
 
           <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>

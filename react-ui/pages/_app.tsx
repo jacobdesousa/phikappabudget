@@ -66,14 +66,24 @@ export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const title = pageTitle(router.pathname);
 
-  // Public submission flow: light-only and no admin shell.
+  // Login and invite: support dark mode
+  if (router.pathname === "/login" || router.pathname === "/invite/[token]") {
+    const authTitle = router.pathname === "/login" ? "PKS - Login" : "PKS - Accept Invite";
+    return (
+      <ColorModeProvider>
+        <ThemedPublicPage title={authTitle}>
+          <Component {...pageProps} />
+        </ThemedPublicPage>
+      </ColorModeProvider>
+    );
+  }
+
+  // Print/submit flows: light-only and no admin shell.
   if (
     router.pathname === "/expense-submit" ||
     router.pathname === "/meetings/[id]/print" ||
     router.pathname === "/workdays/[id]/print" ||
-    router.pathname === "/chapter-bonus/print" ||
-    router.pathname === "/login" ||
-    router.pathname === "/invite/[token]"
+    router.pathname === "/chapter-bonus/print"
   ) {
     const printTitle =
       router.pathname === "/expense-submit"
@@ -82,11 +92,7 @@ export default function App({ Component, pageProps }: AppProps) {
           ? "PKS - Meeting Minutes"
           : router.pathname === "/workdays/[id]/print"
             ? "PKS - Workday"
-            : router.pathname === "/login"
-              ? "PKS - Login"
-              : router.pathname === "/invite/[token]"
-                ? "PKS - Accept Invite"
-                : "PKS - Chapter Bonus";
+            : "PKS - Chapter Bonus";
     return (
       <ThemeProvider theme={lightTheme}>
         <CssBaseline />
@@ -105,6 +111,24 @@ export default function App({ Component, pageProps }: AppProps) {
         <Component {...pageProps} />
       </InnerApp>
     </ColorModeProvider>
+  );
+}
+
+function ThemedPublicPage(props: { title: string; children: React.ReactNode }) {
+  const { mode } = useColorMode();
+  const theme = React.useMemo(() => getTheme(mode), [mode]);
+  React.useEffect(() => {
+    document.documentElement.style.colorScheme = mode;
+  }, [mode]);
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Head>
+        <title>{props.title}</title>
+        <meta name="color-scheme" content="light dark" />
+      </Head>
+      {props.children}
+    </ThemeProvider>
   );
 }
 
