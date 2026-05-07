@@ -84,6 +84,12 @@ export default function DuesPage() {
         setPaymentsByBrother(prev => ({...prev, [brotherId]: payments}));
     }
 
+    async function refreshSummary() {
+        const summaryRows = await getDuesSummary(selectedYear);
+        const activeIds = new Set(brothers.map(b => b.id));
+        setSummary(summaryRows.filter(r => activeIds.has(r.brother_id)));
+    }
+
     async function onExpandBrother(brotherId: number) {
         await refreshBrotherPayments(brotherId, false);
     }
@@ -97,8 +103,8 @@ export default function DuesPage() {
                     duesYear={selectedYear}
                     onClose={() => setAddPaymentFor(undefined)}
                     onCreated={async () => {
-                        await refreshBrotherPayments(addPaymentFor.brotherId, true);
-                        onRefreshTable();
+                        setAddPaymentFor(undefined);
+                        await Promise.all([refreshBrotherPayments(addPaymentFor.brotherId, true), refreshSummary()]);
                     }}
                 />
             )}
@@ -108,8 +114,8 @@ export default function DuesPage() {
                     payment={editingPayment.payment}
                     onClose={() => setEditingPayment(undefined)}
                     onUpdated={async () => {
-                        await refreshBrotherPayments(editingPayment.brotherId, true);
-                        onRefreshTable();
+                        setEditingPayment(undefined);
+                        await Promise.all([refreshBrotherPayments(editingPayment.brotherId, true), refreshSummary()]);
                     }}
                 />
             )}
@@ -121,8 +127,8 @@ export default function DuesPage() {
                     payment={deletingPayment.payment}
                     onClose={() => setDeletingPayment(undefined)}
                     onDeleted={async () => {
-                        await refreshBrotherPayments(deletingPayment.brotherId, true);
-                        onRefreshTable();
+                        setDeletingPayment(undefined);
+                        await Promise.all([refreshBrotherPayments(deletingPayment.brotherId, true), refreshSummary()]);
                     }}
                 />
             )}
