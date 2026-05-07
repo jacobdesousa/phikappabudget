@@ -29,6 +29,8 @@ import BuildIcon from "@mui/icons-material/Build";
 import CleaningServicesIcon from "@mui/icons-material/CleaningServices";
 import ConstructionIcon from "@mui/icons-material/Construction";
 import CelebrationIcon from "@mui/icons-material/Celebration";
+import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
+import AssignmentLateIcon from "@mui/icons-material/AssignmentLate";
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
@@ -42,6 +44,8 @@ import { useAuth } from "../../context/authContext";
 const drawerWidth = 260;
 
 const navItems = [
+  { href: "/notifications", label: "Notifications", icon: <NotificationsNoneIcon />, anyPermissions: [] },
+  { href: "/makeups", label: "Makeups", icon: <AssignmentLateIcon />, anyPermissions: [] },
   { href: "/brothers", label: "Brothers", icon: <GroupsIcon />, anyPermissions: ["brothers.read"] },
   { href: "/dues", label: "Dues", icon: <PaymentsIcon />, anyPermissions: ["dues.read"] },
   { href: "/revenue", label: "Revenue", icon: <TrendingUpIcon />, anyPermissions: ["revenue.read"] },

@@ -249,7 +249,14 @@ async function listInvites(req, res) {
         b.first_name AS brother_first_name,
         b.last_name AS brother_last_name,
         b.status AS brother_status,
-        u.email AS created_by_email
+        u.email AS created_by_email,
+        (
+          SELECT string_agg(bo.office_key, ', ' ORDER BY bo.office_key)
+          FROM brother_offices bo
+          WHERE bo.brother_id = i.brother_id
+            AND bo.start_date <= CURRENT_DATE
+            AND (bo.end_date IS NULL OR bo.end_date >= CURRENT_DATE)
+        ) AS brother_office
       FROM invite_tokens i
       LEFT JOIN brothers b ON b.id = i.brother_id
       LEFT JOIN users u ON u.id = i.created_by_user_id

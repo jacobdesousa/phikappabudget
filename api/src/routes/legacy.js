@@ -110,6 +110,7 @@ const {
   updatePartyDuty,
   deletePartyDuty,
 } = require("../controllers/shiftsController");
+const { getNotifications, getAllMakeups } = require("../controllers/notificationsController");
 const { requireAuth, requirePermission } = require("../middleware/auth");
 const { auditWrites } = require("../middleware/audit");
 const { pool } = require("../db/pool");
@@ -244,6 +245,9 @@ router.put("/shifts/:id", asyncHandler(updateShift));
 router.delete("/shifts/:id", asyncHandler(deleteShift));
 router.put("/shift-duties/:dutyId", asyncHandler(updatePartyDuty));
 router.delete("/shift-duties/:dutyId", asyncHandler(deletePartyDuty));
+
+router.get("/notifications", asyncHandler(getNotifications));
+router.get("/makeups", asyncHandler(getAllMakeups));
 
 module.exports = { legacyRouter: router };
 

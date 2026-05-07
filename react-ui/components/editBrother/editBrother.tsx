@@ -48,6 +48,8 @@ export default function EditBrotherModalComponent(props: Props) {
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
     const [pledgeClass, setPledgeClass] = useState("");
+    const [pcSeason, setPcSeason] = useState<"Fall" | "Spring">("Fall");
+    const [pcYear, setPcYear] = useState(new Date().getFullYear());
     const [graduation, setGraduation] = useState(0);
     const [status, setStatus] = useState("");
     const [submitting, setSubmitting] = useState(false);
@@ -74,6 +76,12 @@ export default function EditBrotherModalComponent(props: Props) {
         setEmail(props.newBrother.email);
         setPhone(formatNorthAmericanPhone(props.newBrother.phone));
         setPledgeClass(props.newBrother.pledge_class);
+        const parts = String(props.newBrother.pledge_class ?? "").trim().split(" ");
+        if (parts.length === 2) {
+            if (parts[0] === "Fall" || parts[0] === "Spring") setPcSeason(parts[0]);
+            const yr = parseInt(parts[1], 10);
+            if (!isNaN(yr)) setPcYear(yr);
+        }
         setGraduation(props.newBrother.graduation);
         setStatus(props.newBrother.status);
     }, [props.newBrother]);
@@ -120,7 +128,7 @@ export default function EditBrotherModalComponent(props: Props) {
             last_name: lastName,
             email,
             phone,
-            pledge_class: pledgeClass,
+            pledge_class: `${pcSeason} ${pcYear}`,
             graduation: Number(graduation),
             status,
         };
@@ -185,25 +193,12 @@ export default function EditBrotherModalComponent(props: Props) {
             case "lastName": setLastName(event.target.value); break;
             case "email": setEmail(event.target.value); setEmailError(undefined); break;
             case "phone": setPhone(formatNorthAmericanPhone(event.target.value)); break;
-            case "pledgeClass": setPledgeClass(event.target.value); break;
             case "graduation": setGraduation(event.target.value); break;
             case "status": setStatus(event.target.value); setStatusError(undefined); break;
         }
     }
 
-    function generatePledgeClassOptions(): Array<string> {
-        const date = new Date();
-        let year = date.getFullYear() - 3;
-        const classes: string[] = [];
-        for (let i = 0; i < 6; i++) {
-            classes.push("Fall " + year);
-            year += 1;
-            classes.push("Spring " + year);
-        }
-        return classes;
-    }
-
-    const activeTenures = tenures.filter((t) => !t.end_date || dayjs(t.end_date).isAfter(dayjs(), "day"));
+const activeTenures = tenures.filter((t) => !t.end_date || dayjs(t.end_date).isAfter(dayjs(), "day"));
     const pastTenures = tenures.filter((t) => !!t.end_date && !dayjs(t.end_date).isAfter(dayjs(), "day"));
 
     return (
@@ -228,15 +223,20 @@ export default function EditBrotherModalComponent(props: Props) {
                     <TextField required fullWidth label="Phone" value={phone}
                         onChange={(e) => handleFieldChange(e, "phone")} />
 
-                    <FormControl fullWidth>
-                        <InputLabel id="pledge-class-label-edit">Pledge Class</InputLabel>
-                        <Select labelId="pledge-class-label-edit" required label="Pledge Class"
-                            value={pledgeClass} onChange={(e) => handleFieldChange(e, "pledgeClass")}>
-                            {generatePledgeClassOptions().map((pc) => (
-                                <MenuItem key={pc} value={pc}>{pc}</MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
+                    <Stack direction="row" spacing={1}>
+                        <FormControl sx={{ minWidth: 120 }}>
+                            <InputLabel id="pc-season-label">Season</InputLabel>
+                            <Select labelId="pc-season-label" label="Season" value={pcSeason}
+                                onChange={(e) => setPcSeason(e.target.value as "Fall" | "Spring")}>
+                                <MenuItem value="Fall">Fall</MenuItem>
+                                <MenuItem value="Spring">Spring</MenuItem>
+                            </Select>
+                        </FormControl>
+                        <TextField label="Year" type="number" value={pcYear}
+                            onChange={(e) => setPcYear(Number(e.target.value))}
+                            inputProps={{ min: 1900, max: 2100, step: 1 }}
+                            sx={{ flex: 1 }} />
+                    </Stack>
 
                     <TextField required fullWidth label="Graduation" value={graduation}
                         onChange={(e) => handleFieldChange(e, "graduation")} />
