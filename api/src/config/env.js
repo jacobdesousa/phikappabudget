@@ -23,6 +23,7 @@ const env = {
     // the pg driver will error during SASL auth with "password must be a string".
     // We intentionally do NOT default this, so we can fail fast with a clearer message.
     password: process.env.PGPASSWORD,
+    ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : undefined,
   },
   auth: {
     jwtAccessSecret: String(process.env.JWT_ACCESS_SECRET ?? "dev-only-change-me"),

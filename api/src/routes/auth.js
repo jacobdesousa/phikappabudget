@@ -43,10 +43,10 @@ router.post("/accept-invite", asyncHandler(acceptInvite));
 // Dev-only helper (Phase 1 placeholder)
 router.post("/forgot-password", asyncHandler(devPasswordResetRequest));
 
-// Sessions (refresh token sessions)
-router.get("/sessions", requireAuth, asyncHandler(listSessions));
-router.post("/sessions/:id/revoke", requireAuth, auditWrites(), asyncHandler(revokeSession));
-router.post("/sessions/revoke-all", requireAuth, auditWrites(), asyncHandler(revokeAllSessions));
+// Sessions (refresh token sessions) — admin only
+router.get("/sessions", requireAuth, requirePermission("admin.sessions"), asyncHandler(listSessions));
+router.post("/sessions/:id/revoke", requireAuth, auditWrites(), requirePermission("admin.sessions"), asyncHandler(revokeSession));
+router.post("/sessions/revoke-all", requireAuth, auditWrites(), requirePermission("admin.sessions"), asyncHandler(revokeAllSessions));
 
 // Admin: permission overrides
 router.get("/admin/users", requireAuth, requirePermission("admin.users"), asyncHandler(listUsers));

@@ -15,13 +15,13 @@ async function listSessions(req, res) {
 
   const result = await pool.query(
     `
-      SELECT id, created_at, expires_at, revoked_at, user_agent, ip
-      FROM refresh_tokens
-      WHERE user_id = $1
-      ORDER BY created_at DESC
-      LIMIT 50
-    `,
-    [userId]
+      SELECT rt.id, rt.created_at, rt.expires_at, rt.revoked_at, rt.user_agent, rt.ip,
+             rt.user_id, u.email AS user_email
+      FROM refresh_tokens rt
+      JOIN users u ON u.id = rt.user_id
+      ORDER BY rt.created_at DESC
+      LIMIT 200
+    `
   );
 
   const sessions = (result.rows ?? []).map((s) => ({
@@ -43,10 +43,10 @@ async function revokeSession(req, res) {
     `
       UPDATE refresh_tokens
       SET revoked_at = NOW()
-      WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL
+      WHERE id = $1 AND revoked_at IS NULL
       RETURNING id
     `,
-    [id, userId]
+    [id]
   );
   if (!updated.rows?.[0]?.id) return res.status(404).json({ error: { message: "Session not found." } });
 

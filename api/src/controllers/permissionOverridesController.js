@@ -93,15 +93,18 @@ async function listUsers(req, res) {
     } else {
       roles = rolesByUserId.get(uid) ?? [];
     }
+    if (!roles.includes("member")) roles.push("member");
     roles = Array.from(new Set(roles));
     const overrides = overridesByUserId.get(uid) ?? [];
     const permissions = computePermissions({ roles, overrides });
 
+    const officeKeys = u.brother_id ? (activeOfficesByBrotherId.get(Number(u.brother_id)) ?? []) : [];
     return {
       ...u,
       roles,
       permissions,
       overrides_count: overrides.length,
+      brother_office: officeKeys.join(", ") || null,
     };
   });
 

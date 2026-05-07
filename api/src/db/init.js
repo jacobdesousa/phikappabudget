@@ -612,11 +612,32 @@ async function setupTables() {
     const { ROLE_PERMISSIONS } = require("../utils/permissions");
     const roleKeys = Object.keys(ROLE_PERMISSIONS ?? {}).map((k) => String(k).toLowerCase());
 
-    const seedKeys = Array.from(new Set([...roleKeys, "alumni"]));
+    // Canonical chapter offices (always seeded regardless of role definitions)
+    const DEFAULT_OFFICES = [
+      ["alpha",   "Alpha"],
+      ["beta",    "Beta"],
+      ["pi",      "Pi"],
+      ["sigma",   "Sigma"],
+      ["tau",     "Tau"],
+      ["iota",    "Iota"],
+      ["psi",     "Psi"],
+      ["theta",   "Theta"],
+      ["chi",     "Chi"],
+      ["gamma",   "Gamma"],
+      ["upsilon", "Upsilon"],
+      ["omega",   "Omega"],
+      ["zeta",    "Zeta"],
+      ["rho",     "Rho"],
+      ["phi",     "Phi"],
+      ["omicron", "Omicron"],
+    ];
+    const defaultOfficeKeys = DEFAULT_OFFICES.map(([k]) => k);
+    const seedKeys = Array.from(new Set([...roleKeys, ...defaultOfficeKeys, "alumni"]));
+    const seedDisplayMap = new Map([...DEFAULT_OFFICES]);
     for (const k of seedKeys) {
       const existsRes = await pool.query(`SELECT 1 FROM offices WHERE office_key = $1 LIMIT 1`, [k]);
       if (existsRes.rows?.[0]) continue;
-      const display = k.charAt(0).toUpperCase() + k.slice(1);
+      const display = seedDisplayMap.get(k) ?? (k.charAt(0).toUpperCase() + k.slice(1));
       await pool.query(`INSERT INTO offices (office_key, display_name) VALUES ($1, $2)`, [k, display]);
     }
 
@@ -939,10 +960,10 @@ async function setupTables() {
       );
       const userId = res.rows?.[0]?.id;
       if (userId) {
-        await pool.query(`INSERT INTO user_roles (user_id, role_key) VALUES ($1, 'tau');`, [userId]);
+        await pool.query(`INSERT INTO user_roles (user_id, role_key) VALUES ($1, 'admin');`, [userId]);
       }
       // eslint-disable-next-line no-console
-      console.log(`[bootstrap] Created initial admin user: ${email} (role: tau)`);
+      console.log(`[bootstrap] Created initial admin user: ${email} (role: admin)`);
     }
   }
 }

@@ -78,6 +78,8 @@ async function loadAuthContext(req) {
     const rolesRes = await pool.query(`SELECT role_key FROM user_roles WHERE user_id = $1`, [userId]);
     roles = rolesRes.rows.map((r) => r.role_key);
   }
+  // Every authenticated user gets read-only baseline
+  if (!roles.includes("member")) roles.push("member");
   const overridesRes = await pool.query(`SELECT permission_key, effect FROM user_permission_overrides WHERE user_id = $1`, [userId]);
   const overrides = overridesRes.rows ?? [];
 

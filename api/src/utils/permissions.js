@@ -1,4 +1,34 @@
 const ROLE_PERMISSIONS = {
+  // Platform admin: all permissions, not tied to any office
+  admin: [
+    "admin.sessions",
+    "admin.users",
+    "brothers.read",
+    "brothers.write",
+    "dues.read",
+    "dues.write",
+    "dues.config",
+    "revenue.read",
+    "revenue.write",
+    "revenue.config",
+    "expenses.read",
+    "expenses.write",
+    "expenses.review",
+    "expenses.disburse",
+    "meetings.read",
+    "meetings.write",
+    "chapterBonus.read",
+    "chapterBonus.write",
+    "chapterBonus.config",
+    "workdays.read",
+    "workdays.write",
+    "shifts.setup.read",
+    "shifts.setup.write",
+    "shifts.cleanup.read",
+    "shifts.cleanup.write",
+    "shifts.party.read",
+    "shifts.party.write",
+  ],
   // Treasurer / finance chair: full access
   tau: [
     "admin.users",
@@ -55,6 +85,19 @@ const ROLE_PERMISSIONS = {
   theta: ["shifts.party.read", "shifts.party.write"],
   // Alumni: view-only baseline (can be overridden per user)
   alumni: ["brothers.read", "meetings.read", "workdays.read", "chapterBonus.read"],
+  // Member: default read-only granted to every authenticated user
+  member: [
+    "brothers.read",
+    "dues.read",
+    "revenue.read",
+    "expenses.read",
+    "meetings.read",
+    "workdays.read",
+    "chapterBonus.read",
+    "shifts.setup.read",
+    "shifts.cleanup.read",
+    "shifts.party.read",
+  ],
 };
 
 function normalizeRoleKey(value) {

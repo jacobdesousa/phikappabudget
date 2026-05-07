@@ -119,6 +119,8 @@ const router = express.Router();
 // Public submission endpoint (multipart/form-data with `receipt`)
 router.post("/expenses/submit", uploadReceipt.single("receipt"), asyncHandler(submitExpense));
 
+router.get("/health", (req, res) => res.json({ ok: true }));
+
 // Everything else requires auth
 router.use(requireAuth);
 router.use(auditWrites());
