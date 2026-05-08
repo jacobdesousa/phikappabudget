@@ -1,7 +1,7 @@
 const { pool } = require("../db/pool");
-const { loadAuthContext } = require("../middleware/auth");
 
 async function getNotifications(req, res) {
+  const { loadAuthContext } = require("../middleware/auth");
   const ctx = await loadAuthContext(req);
   if (!ctx) return res.status(401).json({ error: { message: "Unauthorized" } });
 
@@ -34,6 +34,7 @@ async function getNotifications(req, res) {
 }
 
 async function getAllMakeups(req, res) {
+  const { loadAuthContext } = require("../middleware/auth");
   const ctx = await loadAuthContext(req);
   if (!ctx) return res.status(401).json({ error: { message: "Unauthorized" } });
 
