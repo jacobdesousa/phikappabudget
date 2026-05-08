@@ -6,6 +6,10 @@ import {
   Box,
   Button,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   IconButton,
   MenuItem,
@@ -97,8 +101,9 @@ type ExtraAttendanceRow = {
 
 export default function MeetingMinutesEditor() {
   const router = useRouter();
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const canWrite = can("meetings.write");
+  const senderName = [user?.brother_first_name, user?.brother_last_name].filter(Boolean).join(" ") || user?.email || "";
   const id = Number(router.query.id);
 
   const [loading, setLoading] = React.useState(true);
@@ -108,6 +113,8 @@ export default function MeetingMinutesEditor() {
   const [autosaveReady, setAutosaveReady] = React.useState(false);
   const [exporting, setExporting] = React.useState(false);
   const [emailing, setEmailing] = React.useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = React.useState(false);
+  const [customMessage, setCustomMessage] = React.useState("");
   const [isEditing, setIsEditing] = React.useState(false);
 
   const [meeting, setMeeting] = React.useState<IMeetingMinutes | null>(null);
@@ -258,29 +265,30 @@ export default function MeetingMinutesEditor() {
     if (!meeting) return;
     setExporting(true);
     try {
-      // Use the browser’s native “Print → Save as PDF” for perfect page sizing.
-      window.open(`/meetings/${meeting.id}/print?autoprint=1`, “_blank”, “noopener,noreferrer”);
+      // Use the browser's native "Print → Save as PDF" for perfect page sizing.
+      window.open(`/meetings/${meeting.id}/print?autoprint=1`, "_blank", "noopener,noreferrer");
     } finally {
-      // We can’t know when the print dialog completes; just reset quickly.
+      // We can't know when the print dialog completes; just reset quickly.
       setTimeout(() => setExporting(false), 300);
     }
   }, [meeting]);
 
   const sendMinutes = React.useCallback(async () => {
     if (!meeting) return;
-    if (!confirm("Send meeting minutes to all active brothers by email?")) return;
     setEmailing(true);
+    setEmailDialogOpen(false);
     try {
-      const result = await emailMeetingMinutes(meeting.id);
+      const result = await emailMeetingMinutes(meeting.id, { custom_message: customMessage, sender_name: senderName });
       if (result.ok) {
         setSuccess(`Minutes sent to ${result.sent_to} brother${result.sent_to === 1 ? "" : "s"}.`);
+        setCustomMessage("");
       } else {
         setError(result.error);
       }
     } finally {
       setEmailing(false);
     }
-  }, [meeting]);
+  }, [meeting, customMessage, senderName]);
 
   React.useEffect(() => {
     if (!router.isReady) return;
@@ -473,7 +481,7 @@ export default function MeetingMinutesEditor() {
               {exporting ? "Exporting…" : "Export PDF"}
             </Button>
             {canWrite && (
-              <Button variant="outlined" startIcon={<EmailOutlinedIcon />} disabled={emailing || isEditing} onClick={sendMinutes}>
+              <Button variant="outlined" startIcon={<EmailOutlinedIcon />} disabled={emailing || isEditing} onClick={() => setEmailDialogOpen(true)}>
                 {emailing ? "Sending…" : "Email Minutes"}
               </Button>
             )}
@@ -567,7 +575,7 @@ export default function MeetingMinutesEditor() {
             <Box>
               <Typography variant="h6">Attendance</Typography>
               <Typography variant="body2" color="text.secondary">
-                {isEditing ? "Active brothers only. Mark each brother’s attendance status for this meeting." : "Attendance for this meeting."}
+                {isEditing ? "Active brothers only. Mark each brother's attendance status for this meeting." : "Attendance for this meeting."}
               </Typography>
             </Box>
           </Stack>
@@ -853,7 +861,7 @@ export default function MeetingMinutesEditor() {
           <Typography variant="h6">Officer reports</Typography>
           {isEditing ? (
             <Typography variant="body2" color="text.secondary">
-              Add notes for each officer’s report during the meeting.
+              Add notes for each officer&apos;s report during the meeting.
             </Typography>
           ) : null}
 
@@ -1021,6 +1029,35 @@ export default function MeetingMinutesEditor() {
           onClose={() => setCreateVoteOpen(false)}
         />
       ) : null}
+
+      <Dialog open={emailDialogOpen} onClose={() => setEmailDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Email Meeting Minutes</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Minutes will be sent as a PDF attachment to all active brothers. Add an optional message below.
+          </Typography>
+          <TextField
+            label="Message (optional)"
+            multiline
+            minRows={4}
+            fullWidth
+            value={customMessage}
+            onChange={(e) => setCustomMessage(e.target.value)}
+            placeholder="e.g. Brothers — hope everyone had a great meeting tonight..."
+          />
+          {senderName && (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+              Signed as: {senderName}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" startIcon={<EmailOutlinedIcon />} onClick={sendMinutes}>
+            Send to All Active Brothers
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }

@@ -5,6 +5,9 @@ export type AuthUser = {
   email: string;
   roles?: string[];
   permissions?: string[];
+  brother_id?: number | null;
+  brother_first_name?: string | null;
+  brother_last_name?: string | null;
 };
 
 export type InviteListItem = {

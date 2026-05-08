@@ -84,11 +84,7 @@ export function AppShell(props: { title: string; children: React.ReactNode }) {
 
   const drawer = (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <Toolbar sx={{ px: 2 }}>
-        <Typography variant="h6" sx={{ fontWeight: 800 }}>
-          Phi Kappa Budget
-        </Typography>
-      </Toolbar>
+      <Toolbar sx={{ px: 2 }} />
       <Divider />
       <List sx={{ px: 1 }}>
         {navItems.filter((i) => canAny(i.anyPermissions)).map((item) => {
@@ -179,6 +175,9 @@ export function AppShell(props: { title: string; children: React.ReactNode }) {
               priority
             />
           </Box>
+          <Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
+            {props.title}
+          </Typography>
           <Box sx={{ flex: 1 }} />
           <Tooltip title={notifCount > 0 ? `${notifCount} upcoming shift${notifCount === 1 ? "" : "s"}` : "Notifications"}>
             <IconButton

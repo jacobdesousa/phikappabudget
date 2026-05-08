@@ -11,38 +11,79 @@ function getSesClient() {
           accessKeyId: process.env.AWS_ACCESS_KEY_ID,
           secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
         }
-      : undefined, // falls back to IAM role on EC2/EB
+      : undefined,
   });
   return _sesClient;
 }
 
+function buildFrom() {
+  return `${env.mail.fromName} <${env.mail.from}>`;
+}
+
 /**
- * @param {{ to: string|string[], subject: string, html: string, text?: string }} opts
+ * @param {{ to: string|string[], subject: string, html: string, text?: string, attachments?: Array<{filename: string, content: Buffer, contentType: string}> }} opts
  */
-async function sendMail({ to, subject, html, text }) {
+async function sendMail({ to, subject, html, text, attachments = [] }) {
   const toList = Array.isArray(to) ? to : [to];
 
   if (env.mail.provider !== "ses") {
     console.log(`[dev-mail] To: ${toList.join(", ")}`);
     console.log(`[dev-mail] Subject: ${subject}`);
-    console.log(`[dev-mail] Body: ${text ?? html}`);
+    console.log(`[dev-mail] Attachments: ${attachments.map((a) => a.filename).join(", ") || "none"}`);
+    console.log(`[dev-mail] Body: ${text ?? "(html only)"}`);
     return;
   }
 
-  const { SendEmailCommand } = require("@aws-sdk/client-ses");
+  const { SendRawEmailCommand } = require("@aws-sdk/client-ses");
   const client = getSesClient();
 
+  const boundary = `----=_PKS_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const altBoundary = `${boundary}_alt`;
+
+  const lines = [
+    `From: ${buildFrom()}`,
+    `To: ${toList.join(", ")}`,
+    `Subject: ${subject}`,
+    `MIME-Version: 1.0`,
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    ``,
+    `--${boundary}`,
+    `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
+    ``,
+    `--${altBoundary}`,
+    `Content-Type: text/plain; charset=UTF-8`,
+    `Content-Transfer-Encoding: quoted-printable`,
+    ``,
+    text ?? "",
+    ``,
+    `--${altBoundary}`,
+    `Content-Type: text/html; charset=UTF-8`,
+    `Content-Transfer-Encoding: quoted-printable`,
+    ``,
+    html,
+    ``,
+    `--${altBoundary}--`,
+  ];
+
+  for (const att of attachments) {
+    lines.push(
+      ``,
+      `--${boundary}`,
+      `Content-Type: ${att.contentType}; name="${att.filename}"`,
+      `Content-Transfer-Encoding: base64`,
+      `Content-Disposition: attachment; filename="${att.filename}"`,
+      ``,
+      att.content.toString("base64").match(/.{1,76}/g).join("\r\n"),
+    );
+  }
+
+  lines.push(``, `--${boundary}--`);
+
+  const rawMessage = lines.join("\r\n");
+
   await client.send(
-    new SendEmailCommand({
-      Source: `${env.mail.fromName} <${env.mail.from}>`,
-      Destination: { ToAddresses: toList },
-      Message: {
-        Subject: { Data: subject, Charset: "UTF-8" },
-        Body: {
-          Html: { Data: html, Charset: "UTF-8" },
-          ...(text ? { Text: { Data: text, Charset: "UTF-8" } } : {}),
-        },
-      },
+    new SendRawEmailCommand({
+      RawMessage: { Data: Buffer.from(rawMessage) },
     })
   );
 }

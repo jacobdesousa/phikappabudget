@@ -3,6 +3,7 @@ const { idParamSchema } = require("../validation/common");
 const { meetingUpsertSchema } = require("../validation/meetings");
 const { schoolYearStartForDate } = require("../utils/schoolYear");
 const { sendMail } = require("../utils/mailer");
+const { generateMeetingPdf } = require("../utils/pdfGenerator");
 
 async function listMeetings(req, res) {
   const { rows } = await pool.query(
@@ -250,18 +251,19 @@ async function deleteMeeting(req, res) {
 
 async function emailMeetingMinutes(req, res) {
   const { id } = idParamSchema.parse(req.params);
+  const customMessage = String(req.body?.custom_message ?? "").trim();
+  const senderName = String(req.body?.sender_name ?? "").trim();
 
-  const minutesRes = await pool.query(
-    `SELECT id, meeting_date, title, communications, old_business, new_business, betterment FROM meeting_minutes WHERE id = $1`,
-    [id]
-  );
-  const meeting = minutesRes.rows[0];
-  if (!meeting) return res.status(404).json({ error: { message: "Meeting not found" } });
-
-  const notesRes = await pool.query(
-    `SELECT officer_key, notes FROM meeting_officer_notes WHERE meeting_id = $1 ORDER BY officer_key ASC`,
-    [id]
-  );
+  // Generate PDF (also fetches meeting data)
+  let pdfBuffer, meetingData;
+  try {
+    const result = await generateMeetingPdf(id);
+    pdfBuffer = result.pdf;
+    meetingData = result.data;
+  } catch (e) {
+    if (e.message === "Meeting not found") return res.status(404).json({ error: { message: "Meeting not found" } });
+    throw e;
+  }
 
   const brothersRes = await pool.query(
     `SELECT email FROM brothers WHERE status IN ('Active') AND email IS NOT NULL AND email <> ''`
@@ -271,27 +273,26 @@ async function emailMeetingMinutes(req, res) {
     return res.status(400).json({ error: { message: "No active brothers with email addresses found." } });
   }
 
+  const { meeting } = meetingData;
   const dateStr = new Date(meeting.meeting_date).toLocaleDateString("en-US", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
-  const title = meeting.title ?? `Meeting — ${dateStr}`;
+  const title = meeting.title?.trim() || `Meeting — ${dateStr}`;
+  const filename = `minutes-${String(meeting.meeting_date).slice(0, 10)}.pdf`;
 
-  function section(heading, body) {
-    if (!body?.trim()) return "";
-    return `<h3 style="margin:20px 0 6px;font-size:15px;color:#1a1a2e">${heading}</h3>
-<div style="font-size:14px;color:#333;white-space:pre-wrap">${body.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`;
-  }
+  const customMessageHtml = customMessage
+    ? `<div style="margin:0 0 24px;padding:16px;border-left:3px solid #1a1a2e;background:#f8f8f8;font-size:14px;color:#222;white-space:pre-wrap">${customMessage.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`
+    : "";
 
-  const officerNotesHtml = notesRes.rows
-    .filter((n) => n.notes?.trim())
-    .map((n) => section(n.officer_key.charAt(0).toUpperCase() + n.officer_key.slice(1) + " Report", n.notes))
-    .join("");
+  const signatureHtml = senderName
+    ? `<p style="margin:24px 0 0;font-size:13px;color:#555">${senderName.replace(/</g, "&lt;").replace(/>/g, "&gt;")}<br><span style="color:#888">Phi Kappa Sigma &mdash; Alpha Beta</span></p>`
+    : "";
 
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="font-family:sans-serif;background:#f4f4f5;margin:0;padding:32px 0">
-  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+<body style="font-family:sans-serif;margin:0;padding:32px 16px">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;border-radius:8px;overflow:hidden;border:1px solid #e0e0e0">
     <tr><td style="background:#1a1a2e;padding:20px 32px">
       <table cellpadding="0" cellspacing="0"><tr>
         <td style="padding-right:12px;vertical-align:middle">
@@ -299,37 +300,37 @@ async function emailMeetingMinutes(req, res) {
         </td>
         <td style="vertical-align:middle">
           <div style="color:#fff;font-size:17px;font-weight:700;letter-spacing:.3px">Phi Kappa Sigma</div>
-          <div style="color:#aaa;font-size:12px;margin-top:1px">Alpha Beta Chapter &mdash; Meeting Minutes</div>
+          <div style="color:#aaa;font-size:12px;margin-top:1px">Alpha Beta Chapter</div>
         </td>
       </tr></table>
     </td></tr>
     <tr><td style="padding:32px">
-      <h2 style="margin:0 0 4px;font-size:18px;color:#111">${title}</h2>
-      <p style="margin:0 0 24px;font-size:13px;color:#888">${dateStr}</p>
-      ${section("Communications", meeting.communications)}
-      ${section("Old Business", meeting.old_business)}
-      ${section("New Business", meeting.new_business)}
-      ${section("Betterment", meeting.betterment)}
-      ${officerNotesHtml}
+      <h2 style="margin:0 0 4px;font-size:18px;color:#111">${title.replace(/</g, "&lt;")}</h2>
+      <p style="margin:0 0 20px;font-size:13px;color:#888">${dateStr}</p>
+      ${customMessageHtml}
+      <p style="margin:0;font-size:14px;color:#333">Please find the meeting minutes attached as a PDF.</p>
+      ${signatureHtml}
     </td></tr>
   </table>
 </body>
 </html>`;
 
   const text = [
-    title,
-    dateStr,
-    meeting.communications ? `\nCommunications:\n${meeting.communications}` : "",
-    meeting.old_business ? `\nOld Business:\n${meeting.old_business}` : "",
-    meeting.new_business ? `\nNew Business:\n${meeting.new_business}` : "",
-    meeting.betterment ? `\nBetterment:\n${meeting.betterment}` : "",
-    ...notesRes.rows.filter((n) => n.notes?.trim()).map((n) => `\n${n.officer_key}:\n${n.notes}`),
+    title, dateStr, "",
+    customMessage ? `${customMessage}\n` : "",
+    "Please find the meeting minutes attached as a PDF.",
+    senderName ? `\n${senderName}\nPhi Kappa Sigma — Alpha Beta` : "",
   ].join("\n");
 
-  // Send individually to avoid exposing all recipients to each other
   await Promise.all(
     recipients.map((to) =>
-      sendMail({ to, subject: `Meeting Minutes — ${dateStr}`, html, text })
+      sendMail({
+        to,
+        subject: `Meeting Minutes — ${dateStr}`,
+        html,
+        text,
+        attachments: [{ filename, content: Buffer.from(pdfBuffer), contentType: "application/pdf" }],
+      })
     )
   );
 

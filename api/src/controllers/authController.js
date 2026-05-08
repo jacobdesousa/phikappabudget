@@ -43,8 +43,8 @@ function inviteEmailHtml(inviteUrl) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="font-family:sans-serif;background:#f4f4f5;margin:0;padding:32px 0">
-  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+<body style="font-family:sans-serif;margin:0;padding:32px 16px">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;border-radius:8px;overflow:hidden;border:1px solid #e0e0e0">
     ${emailHeader()}
     <tr><td style="padding:32px">
       <p style="margin:0 0 16px;font-size:16px;color:#111">You have been invited to join the chapter member portal.</p>
@@ -135,7 +135,13 @@ async function logout(req, res) {
 async function me(req, res) {
   const ctx = await loadAuthContext(req);
   if (!ctx) return res.status(401).json({ error: { message: "Unauthorized" } });
-  return res.status(200).json({ id: ctx.id, email: ctx.email, roles: ctx.roles, permissions: ctx.permissions });
+  let brother_first_name = null, brother_last_name = null;
+  if (ctx.brother_id) {
+    const bRes = await pool.query(`SELECT first_name, last_name FROM brothers WHERE id = $1`, [ctx.brother_id]);
+    brother_first_name = bRes.rows[0]?.first_name ?? null;
+    brother_last_name = bRes.rows[0]?.last_name ?? null;
+  }
+  return res.status(200).json({ id: ctx.id, email: ctx.email, roles: ctx.roles, permissions: ctx.permissions, brother_id: ctx.brother_id, brother_first_name, brother_last_name });
 }
 
 async function inviteUser(req, res) {
