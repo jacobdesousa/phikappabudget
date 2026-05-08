@@ -68,9 +68,19 @@ export async function deleteMeeting(id: number): Promise<{ ok: true } | { ok: fa
   }
 }
 
+export async function downloadMeetingPdf(id: number): Promise<void> {
+  const res = await apiClient.get(`/meetings/${id}/pdf`, { responseType: "blob" });
+  const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `minutes-${id}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export async function emailMeetingMinutes(
   id: number,
-  payload?: { custom_message?: string; sender_name?: string }
+  payload?: { custom_message?: string; sender_name?: string; sender_office?: string }
 ): Promise<{ ok: true; sent_to: number } | { ok: false; status: number; error: string }> {
   try {
     const res = await apiClient.post(`/meetings/${id}/email-minutes`, payload ?? {});

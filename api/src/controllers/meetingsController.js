@@ -4,6 +4,7 @@ const { meetingUpsertSchema } = require("../validation/meetings");
 const { schoolYearStartForDate } = require("../utils/schoolYear");
 const { sendMail } = require("../utils/mailer");
 const { generateMeetingPdf } = require("../utils/pdfGenerator");
+const { logoDataUrl } = require("../assets/logoBase64");
 
 async function listMeetings(req, res) {
   const { rows } = await pool.query(
@@ -253,6 +254,7 @@ async function emailMeetingMinutes(req, res) {
   const { id } = idParamSchema.parse(req.params);
   const customMessage = String(req.body?.custom_message ?? "").trim();
   const senderName = String(req.body?.sender_name ?? "").trim();
+  const senderOffice = String(req.body?.sender_office ?? "").trim();
 
   // Generate PDF (also fetches meeting data)
   let pdfBuffer, meetingData;
@@ -280,12 +282,15 @@ async function emailMeetingMinutes(req, res) {
   const title = meeting.title?.trim() || `Meeting — ${dateStr}`;
   const filename = `minutes-${String(meeting.meeting_date).slice(0, 10)}.pdf`;
 
+  function esc(s) { return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
   const customMessageHtml = customMessage
-    ? `<div style="margin:0 0 24px;padding:16px;border-left:3px solid #1a1a2e;background:#f8f8f8;font-size:14px;color:#222;white-space:pre-wrap">${customMessage.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`
+    ? `<div style="margin:0 0 24px;padding:16px;border-left:3px solid #1a1a2e;font-size:14px;color:#222;white-space:pre-wrap">${esc(customMessage)}</div>`
     : "";
 
-  const signatureHtml = senderName
-    ? `<p style="margin:24px 0 0;font-size:13px;color:#555">${senderName.replace(/</g, "&lt;").replace(/>/g, "&gt;")}<br><span style="color:#888">Phi Kappa Sigma &mdash; Alpha Beta</span></p>`
+  const sigLine = [senderName, senderOffice].filter(Boolean).join(", ");
+  const signatureHtml = sigLine
+    ? `<p style="margin:24px 0 0;font-size:13px;color:#555">${esc(sigLine)}<br><span style="color:#888">Phi Kappa Sigma — Alpha Beta</span></p>`
     : "";
 
   const html = `<!DOCTYPE html>
@@ -296,7 +301,7 @@ async function emailMeetingMinutes(req, res) {
     <tr><td style="background:#1a1a2e;padding:20px 32px">
       <table cellpadding="0" cellspacing="0"><tr>
         <td style="padding-right:12px;vertical-align:middle">
-          <img src="https://uoftskulls.ca/alphabeta.png" alt="Alpha Beta" width="36" height="36" style="display:block">
+          <img src="${logoDataUrl}" alt="Alpha Beta" width="36" height="36" style="display:block">
         </td>
         <td style="vertical-align:middle">
           <div style="color:#fff;font-size:17px;font-weight:700;letter-spacing:.3px">Phi Kappa Sigma</div>
@@ -305,7 +310,7 @@ async function emailMeetingMinutes(req, res) {
       </tr></table>
     </td></tr>
     <tr><td style="padding:32px">
-      <h2 style="margin:0 0 4px;font-size:18px;color:#111">${title.replace(/</g, "&lt;")}</h2>
+      <h2 style="margin:0 0 4px;font-size:18px;color:#111">${esc(title)}</h2>
       <p style="margin:0 0 20px;font-size:13px;color:#888">${dateStr}</p>
       ${customMessageHtml}
       <p style="margin:0;font-size:14px;color:#333">Please find the meeting minutes attached as a PDF.</p>
@@ -322,7 +327,7 @@ async function emailMeetingMinutes(req, res) {
     senderName ? `\n${senderName}\nPhi Kappa Sigma — Alpha Beta` : "",
   ].join("\n");
 
-  await Promise.all(
+  const results = await Promise.allSettled(
     recipients.map((to) =>
       sendMail({
         to,
@@ -334,9 +339,24 @@ async function emailMeetingMinutes(req, res) {
     )
   );
 
-  return res.status(200).json({ ok: true, sent_to: recipients.length });
+  const sent = results.filter((r) => r.status === "fulfilled").length;
+  const failed = results.filter((r) => r.status === "rejected").length;
+
+  return res.status(200).json({ ok: true, sent_to: sent, failed });
 }
 
-module.exports = { listMeetings, getMeeting, createMeeting, updateMeeting, deleteMeeting, emailMeetingMinutes };
+async function downloadMeetingPdf(req, res) {
+  const { id } = idParamSchema.parse(req.params);
+  const { pdf, data } = await generateMeetingPdf(id);
+  const filename = `minutes-${String(data.meeting.meeting_date).slice(0, 10)}.pdf`;
+  res.set({
+    "Content-Type": "application/pdf",
+    "Content-Disposition": `attachment; filename="${filename}"`,
+    "Content-Length": pdf.length,
+  });
+  return res.send(Buffer.from(pdf));
+}
+
+module.exports = { listMeetings, getMeeting, createMeeting, updateMeeting, deleteMeeting, emailMeetingMinutes, downloadMeetingPdf };
 
 

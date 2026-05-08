@@ -1,4 +1,5 @@
 const { pool } = require("../db/pool");
+const { logoDataUrl } = require("../assets/logoBase64");
 
 async function fetchMeetingForPdf(meetingId) {
   const [meetingRes, attendanceRes, notesRes, votesRes] = await Promise.all([
@@ -24,8 +25,8 @@ async function fetchMeetingForPdf(meetingId) {
       [meetingId]
     ),
     pool.query(
-      `SELECT v.id, v.question, v.is_anonymous, v.closed_at
-       FROM votes v WHERE v.meeting_id = $1 AND v.results_visible = true ORDER BY v.id`,
+      `SELECT v.id, v.question, v.is_anonymous, v.closed_at, v.results_visible
+       FROM meeting_votes v WHERE v.meeting_id = $1 AND v.results_visible = true ORDER BY v.id`,
       [meetingId]
     ),
   ]);
@@ -37,16 +38,18 @@ async function fetchMeetingForPdf(meetingId) {
     votesRes.rows.map(async (v) => {
       const [optRes, voterRes] = await Promise.all([
         pool.query(
-          `SELECT o.id, o.option_text, COUNT(r.id)::int AS count
-           FROM vote_options o LEFT JOIN vote_responses r ON r.option_id = o.id
+          `SELECT o.id, o.option_text, COUNT(s.id)::int AS count
+           FROM meeting_vote_options o
+           LEFT JOIN meeting_vote_response_selections s ON s.option_id = o.id
            WHERE o.vote_id = $1 GROUP BY o.id ORDER BY o.display_order, o.id`,
           [v.id]
         ),
         v.is_anonymous
-          ? { rows: [] }
+          ? Promise.resolve({ rows: [] })
           : pool.query(
-              `SELECT r.option_id, b.first_name, b.last_name
-               FROM vote_responses r
+              `SELECT s.option_id, b.first_name, b.last_name
+               FROM meeting_vote_response_selections s
+               JOIN meeting_vote_responses r ON r.id = s.response_id
                JOIN users u ON u.id = r.user_id
                LEFT JOIN brothers b ON b.id = u.brother_id
                WHERE r.vote_id = $1`,
@@ -57,7 +60,6 @@ async function fetchMeetingForPdf(meetingId) {
     })
   );
 
-  // name lookup for motion brothers
   const brotherIds = [
     meeting.motion_accept_moved_by_brother_id,
     meeting.motion_accept_seconded_by_brother_id,
@@ -74,17 +76,11 @@ async function fetchMeetingForPdf(meetingId) {
     for (const b of bRes.rows) nameMap.set(b.id, `${b.first_name ?? ""} ${b.last_name ?? ""}`.trim());
   }
 
-  return {
-    meeting,
-    attendance: attendanceRes.rows,
-    officer_notes: notesRes.rows,
-    votes: voteDetails,
-    nameMap,
-  };
+  return { meeting, attendance: attendanceRes.rows, officer_notes: notesRes.rows, votes: voteDetails, nameMap };
 }
 
 function esc(str) {
-  return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function formatTime(hhmm) {
@@ -109,12 +105,13 @@ function buildPdfHtml(data) {
   });
 
   const name = (id) => (id ? nameMap.get(id) ?? "________" : "________");
+  const body = (text) => esc(text?.trim() || "—"); // em dash fallback
 
   const attendanceHtml = attendance.map((r) => {
     const memberName = r.brother_id
       ? `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim()
-      : esc(r.member_name ?? "");
-    let detail = "&mdash;";
+      : r.member_name ?? "";
+    let detail = "—";
     if (r.status === "Late" && r.late_arrival_time) detail = `Arrived ${formatTime(r.late_arrival_time)}`;
     else if (r.status === "Excused" && r.excused_reason) detail = esc(r.excused_reason);
     return `<tr><td>${esc(memberName)}</td><td>${esc(r.status)}</td><td>${detail}</td></tr>`;
@@ -129,12 +126,12 @@ function buildPdfHtml(data) {
   const votesHtml = votes.length === 0 ? "" : `
     <div class="section-title">Votes</div>
     ${votes.map((v) => {
-      const totalVotes = new Set(v.voters.map((r) => r.option_id)).size || v.options.reduce((s, o) => s + o.count, 0);
+      const totalVotes = v.options.reduce((s, o) => s + o.count, 0);
       const optRows = v.options.map((opt) => {
         const voterNames = v.is_anonymous ? "" : v.voters
           .filter((r) => r.option_id === opt.id)
           .map((r) => `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim())
-          .join(", ") || "&mdash;";
+          .join(", ") || "—";
         return `<tr>
           <td>${esc(opt.option_text)}</td>
           <td style="text-align:right">${opt.count}</td>
@@ -143,7 +140,7 @@ function buildPdfHtml(data) {
       }).join("");
       return `
         <div style="margin-top:12px">
-          <div style="font-weight:700;font-size:13px">${esc(v.question)}${v.is_anonymous ? " (Secret vote)" : ""} &middot; ${totalVotes} response${totalVotes === 1 ? "" : "s"}</div>
+          <div style="font-weight:700;font-size:13px">${esc(v.question)}${v.is_anonymous ? " (Secret vote)" : ""} · ${totalVotes} response${totalVotes === 1 ? "" : "s"}</div>
           <table class="data-table" style="margin-top:6px">
             <thead><tr>
               <th>Option</th><th style="text-align:right">Votes</th>
@@ -178,10 +175,10 @@ function buildPdfHtml(data) {
 </head>
 <body>
   <div class="header">
-    <img src="https://uoftskulls.ca/alphabeta.png" alt="Alpha Beta">
+    <img src="${logoDataUrl}" alt="Alpha Beta">
     <div>
-      <h1>Phi Kappa Sigma &mdash; Alpha Beta</h1>
-      <div class="sub">${esc(meeting.title?.trim() || "Chapter Meeting Minutes")} &bull; ${esc(dateStr)}</div>
+      <h1>Phi Kappa Sigma — Alpha Beta</h1>
+      <div class="sub">${esc(meeting.title?.trim() || "Chapter Meeting Minutes")} • ${esc(dateStr)}</div>
     </div>
   </div>
 
@@ -192,24 +189,24 @@ function buildPdfHtml(data) {
   </table>
 
   <div class="section-title">Opening</div>
-  <div class="motion">Motion to accept previous week&rsquo;s minutes by <b>${esc(name(meeting.motion_accept_moved_by_brother_id))}</b>, seconded by <b>${esc(name(meeting.motion_accept_seconded_by_brother_id))}</b>.</div>
+  <div class="motion">Motion to accept previous week’s minutes by <b>${esc(name(meeting.motion_accept_moved_by_brother_id))}</b>, seconded by <b>${esc(name(meeting.motion_accept_seconded_by_brother_id))}</b>.</div>
 
   <div class="section-title">Communications / Committees</div>
-  <div class="pre">${esc(meeting.communications?.trim() || "&mdash;")}</div>
+  <div class="pre">${body(meeting.communications)}</div>
 
   ${officer_notes.length > 0 ? `<div class="section-title">Officer Reports</div>${officerHtml}` : ""}
 
   <div class="section-title">Old Business</div>
-  <div class="pre">${esc(meeting.old_business?.trim() || "&mdash;")}</div>
+  <div class="pre">${body(meeting.old_business)}</div>
 
   <div class="section-title">New Business</div>
-  <div class="pre">${esc(meeting.new_business?.trim() || "&mdash;")}</div>
+  <div class="pre">${body(meeting.new_business)}</div>
 
   ${votesHtml}
 
   <div class="section-title">Closing</div>
   <div style="font-weight:800;font-size:13px;margin:6px 0 2px">Betterment</div>
-  <div class="pre">${esc(meeting.betterment?.trim() || "&mdash;")}</div>
+  <div class="pre">${body(meeting.betterment)}</div>
   <div class="motion" style="margin-top:8px">Motion to end meeting by <b>${esc(name(meeting.motion_end_moved_by_brother_id))}</b>, seconded by <b>${esc(name(meeting.motion_end_seconded_by_brother_id))}</b>.</div>
 </body>
 </html>`;
@@ -224,12 +221,16 @@ async function generateMeetingPdf(meetingId) {
 
   const browser = await puppeteer.launch({
     headless: "new",
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
   });
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
-    const pdf = await page.pdf({ format: "A4", printBackground: true, margin: { top: "14mm", bottom: "14mm", left: "14mm", right: "14mm" } });
+    await page.setContent(html, { waitUntil: "load" });
+    const pdf = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: { top: "14mm", bottom: "14mm", left: "14mm", right: "14mm" },
+    });
     return { pdf, data };
   } finally {
     await browser.close();

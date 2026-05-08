@@ -14,6 +14,7 @@ const {
 } = require("../middleware/auth");
 const { auditAuthEvent, auditAdminEvent } = require("../utils/auditEvents");
 const { sendMail } = require("../utils/mailer");
+const { logoDataUrl } = require("../assets/logoBase64");
 
 function normalizeEmail(email) {
   return String(email ?? "").trim().toLowerCase();
@@ -25,15 +26,15 @@ function devLog(label, value) {
   console.log(`[dev-mail] ${label}: ${value}`);
 }
 
-function emailHeader() {
+function emailHeader(subtitle) {
   return `<tr><td style="background:#1a1a2e;padding:20px 32px">
     <table cellpadding="0" cellspacing="0"><tr>
       <td style="padding-right:12px;vertical-align:middle">
-        <img src="https://uoftskulls.ca/alphabeta.png" alt="Alpha Beta" width="36" height="36" style="display:block">
+        <img src="${logoDataUrl}" alt="Alpha Beta" width="36" height="36" style="display:block">
       </td>
       <td style="vertical-align:middle">
         <div style="color:#fff;font-size:17px;font-weight:700;letter-spacing:.3px">Phi Kappa Sigma</div>
-        <div style="color:#aaa;font-size:12px;margin-top:1px">Alpha Beta Chapter</div>
+        <div style="color:#aaa;font-size:12px;margin-top:1px">${subtitle ?? "Alpha Beta Chapter"}</div>
       </td>
     </tr></table>
   </td></tr>`;

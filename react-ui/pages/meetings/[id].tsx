@@ -26,7 +26,7 @@ import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
 import type { IBrother, IMeetingMinutes, IVote } from "../../interfaces/api.interface";
 import { FormattedTextField } from "../../components/minutes/FormattedTextField";
 import { getAllBrothers } from "../../services/brotherService";
-import { getMeeting, updateMeeting, emailMeetingMinutes } from "../../services/meetingsService";
+import { getMeeting, updateMeeting, emailMeetingMinutes, downloadMeetingPdf } from "../../services/meetingsService";
 import { listVotesForMeeting } from "../../services/votesService";
 import { schoolYearLabel, schoolYearStartForDate } from "../../utils/schoolYear";
 import { parseMinutesText } from "../../utils/minutesText";
@@ -104,6 +104,13 @@ export default function MeetingMinutesEditor() {
   const { can, user } = useAuth();
   const canWrite = can("meetings.write");
   const senderName = [user?.brother_first_name, user?.brother_last_name].filter(Boolean).join(" ") || user?.email || "";
+  const senderOffice = React.useMemo(() => {
+    const officeRoles = (user?.roles ?? []).filter((r) =>
+      !["member", "admin", "alumni", "tau", "alpha"].includes(r)
+    );
+    if (officeRoles.length === 0) return "";
+    return officeRoles[0].charAt(0).toUpperCase() + officeRoles[0].slice(1);
+  }, [user?.roles]);
   const id = Number(router.query.id);
 
   const [loading, setLoading] = React.useState(true);
@@ -265,11 +272,11 @@ export default function MeetingMinutesEditor() {
     if (!meeting) return;
     setExporting(true);
     try {
-      // Use the browser's native "Print → Save as PDF" for perfect page sizing.
-      window.open(`/meetings/${meeting.id}/print?autoprint=1`, "_blank", "noopener,noreferrer");
+      await downloadMeetingPdf(meeting.id);
+    } catch {
+      setError("Failed to generate PDF.");
     } finally {
-      // We can't know when the print dialog completes; just reset quickly.
-      setTimeout(() => setExporting(false), 300);
+      setExporting(false);
     }
   }, [meeting]);
 
@@ -278,7 +285,7 @@ export default function MeetingMinutesEditor() {
     setEmailing(true);
     setEmailDialogOpen(false);
     try {
-      const result = await emailMeetingMinutes(meeting.id, { custom_message: customMessage, sender_name: senderName });
+      const result = await emailMeetingMinutes(meeting.id, { custom_message: customMessage, sender_name: senderName, sender_office: senderOffice });
       if (result.ok) {
         setSuccess(`Minutes sent to ${result.sent_to} brother${result.sent_to === 1 ? "" : "s"}.`);
         setCustomMessage("");
@@ -288,7 +295,7 @@ export default function MeetingMinutesEditor() {
     } finally {
       setEmailing(false);
     }
-  }, [meeting, customMessage, senderName]);
+  }, [meeting, customMessage, senderName, senderOffice]);
 
   React.useEffect(() => {
     if (!router.isReady) return;
@@ -1045,9 +1052,9 @@ export default function MeetingMinutesEditor() {
             onChange={(e) => setCustomMessage(e.target.value)}
             placeholder="e.g. Brothers — hope everyone had a great meeting tonight..."
           />
-          {senderName && (
+          {(senderName || senderOffice) && (
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
-              Signed as: {senderName}
+              Signed as: {[senderName, senderOffice].filter(Boolean).join(", ")}
             </Typography>
           )}
         </DialogContent>
