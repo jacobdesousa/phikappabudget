@@ -6,6 +6,16 @@ const { sendMail } = require("../utils/mailer");
 const { generateMeetingPdf } = require("../utils/pdfGenerator");
 const { logoDataUrl } = require("../assets/logoBase64");
 
+function buildPdfFilename(meeting) {
+  const dateStr = new Date(meeting.meeting_date).toLocaleDateString("en-US", {
+    year: "numeric", month: "short", day: "numeric",
+  }).replace(/,/g, "").replace(/\s+/g, "-");
+  const slug = meeting.title?.trim()
+    ? "-" + meeting.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40)
+    : "";
+  return `minutes-${dateStr}${slug}.pdf`;
+}
+
 async function listMeetings(req, res) {
   const { rows } = await pool.query(
     "SELECT id, meeting_date, title, school_year, created_at, updated_at FROM meeting_minutes ORDER BY meeting_date DESC, id DESC"
@@ -280,7 +290,7 @@ async function emailMeetingMinutes(req, res) {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
   const title = meeting.title?.trim() || `Meeting — ${dateStr}`;
-  const filename = `minutes-${String(meeting.meeting_date).slice(0, 10)}.pdf`;
+  const filename = buildPdfFilename(meeting);
 
   function esc(s) { return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
@@ -348,7 +358,7 @@ async function emailMeetingMinutes(req, res) {
 async function downloadMeetingPdf(req, res) {
   const { id } = idParamSchema.parse(req.params);
   const { pdf, data } = await generateMeetingPdf(id);
-  const filename = `minutes-${String(data.meeting.meeting_date).slice(0, 10)}.pdf`;
+  const filename = buildPdfFilename(data.meeting);
   res.set({
     "Content-Type": "application/pdf",
     "Content-Disposition": `attachment; filename="${filename}"`,

@@ -26,7 +26,7 @@ async function fetchMeetingForPdf(meetingId) {
     ),
     pool.query(
       `SELECT v.id, v.question, v.is_anonymous, v.closed_at, v.results_visible
-       FROM meeting_votes v WHERE v.meeting_id = $1 AND v.results_visible = true ORDER BY v.id`,
+       FROM meeting_votes v WHERE v.meeting_id = $1 ORDER BY v.id`,
       [meetingId]
     ),
   ]);

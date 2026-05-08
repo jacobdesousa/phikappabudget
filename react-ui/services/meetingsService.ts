@@ -70,10 +70,13 @@ export async function deleteMeeting(id: number): Promise<{ ok: true } | { ok: fa
 
 export async function downloadMeetingPdf(id: number): Promise<void> {
   const res = await apiClient.get(`/meetings/${id}/pdf`, { responseType: "blob" });
+  const disposition: string = res.headers["content-disposition"] ?? "";
+  const match = disposition.match(/filename="([^"]+)"/);
+  const filename = match ? match[1] : `minutes-${id}.pdf`;
   const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
   const a = document.createElement("a");
   a.href = url;
-  a.download = `minutes-${id}.pdf`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
