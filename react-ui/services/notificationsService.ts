@@ -1,11 +1,5 @@
 import { apiClient } from "./apiClient";
 
-export interface UpcomingWorkday {
-  id: number;
-  workday_date: string;
-  title?: string | null;
-}
-
 export interface UpcomingShift {
   id: number;
   shift_type: "setup" | "cleanup" | "party";
@@ -13,33 +7,8 @@ export interface UpcomingShift {
   title?: string | null;
 }
 
-export interface UpcomingMeeting {
-  id: number;
-  meeting_date: string;
-  title?: string | null;
-}
-
-export interface WorkdayMakeup {
-  id: number;
-  workday_date: string;
-  title?: string | null;
-  status: string;
-}
-
-export interface ShiftMakeup {
-  id: number;
-  event_date: string;
-  shift_type: "setup" | "cleanup" | "party";
-  title?: string | null;
-  status: string;
-}
-
 export interface INotifications {
-  upcoming_workdays: UpcomingWorkday[];
   upcoming_shifts: UpcomingShift[];
-  upcoming_meetings: UpcomingMeeting[];
-  workday_makeups: WorkdayMakeup[];
-  shift_makeups: ShiftMakeup[];
 }
 
 export async function getNotifications(): Promise<INotifications> {

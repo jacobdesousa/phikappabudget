@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/router";
 import {
   AppBar,
+  Badge,
   Box,
   CssBaseline,
   Divider,
@@ -29,8 +30,8 @@ import BuildIcon from "@mui/icons-material/Build";
 import CleaningServicesIcon from "@mui/icons-material/CleaningServices";
 import ConstructionIcon from "@mui/icons-material/Construction";
 import CelebrationIcon from "@mui/icons-material/Celebration";
-import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import AssignmentLateIcon from "@mui/icons-material/AssignmentLate";
+import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
@@ -40,12 +41,11 @@ import { useTheme } from "@mui/material/styles";
 import { useColorMode } from "../../theme/colorMode";
 import { logout } from "../../services/authService";
 import { useAuth } from "../../context/authContext";
+import { getNotifications } from "../../services/notificationsService";
 
 const drawerWidth = 260;
 
 const navItems = [
-  { href: "/notifications", label: "Notifications", icon: <NotificationsNoneIcon />, anyPermissions: [] },
-  { href: "/makeups", label: "Makeups", icon: <AssignmentLateIcon />, anyPermissions: [] },
   { href: "/brothers", label: "Brothers", icon: <GroupsIcon />, anyPermissions: ["brothers.read"] },
   { href: "/dues", label: "Dues", icon: <PaymentsIcon />, anyPermissions: ["dues.read"] },
   { href: "/revenue", label: "Revenue", icon: <TrendingUpIcon />, anyPermissions: ["revenue.read"] },
@@ -56,6 +56,7 @@ const navItems = [
   { href: "/shifts/setup", label: "Setup Shifts", icon: <ConstructionIcon />, anyPermissions: ["shifts.setup.read"] },
   { href: "/shifts/cleanup", label: "Cleanup Shifts", icon: <CleaningServicesIcon />, anyPermissions: ["shifts.cleanup.read"] },
   { href: "/shifts/party", label: "Party Shifts", icon: <CelebrationIcon />, anyPermissions: ["shifts.party.read"] },
+  { href: "/makeups", label: "Makeups", icon: <AssignmentLateIcon />, anyPermissions: [] },
   { href: "/sessions", label: "Sessions", icon: <SecurityOutlinedIcon />, anyPermissions: [] },
   {
     href: "/config",
@@ -68,9 +69,16 @@ const navItems = [
 export function AppShell(props: { title: string; children: React.ReactNode }) {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [notifCount, setNotifCount] = React.useState(0);
   const theme = useTheme();
   const { mode, toggle } = useColorMode();
   const { canAny } = useAuth();
+
+  React.useEffect(() => {
+    getNotifications()
+      .then((d) => setNotifCount(d.upcoming_shifts?.length ?? 0))
+      .catch(() => {});
+  }, []);
 
   const handleDrawerToggle = () => setMobileOpen((p) => !p);
 
@@ -171,8 +179,19 @@ export function AppShell(props: { title: string; children: React.ReactNode }) {
               priority
             />
           </Box>
-          <Typography variant="h6">{props.title}</Typography>
           <Box sx={{ flex: 1 }} />
+          <Tooltip title={notifCount > 0 ? `${notifCount} upcoming shift${notifCount === 1 ? "" : "s"}` : "Notifications"}>
+            <IconButton
+              color="inherit"
+              aria-label="notifications"
+              component={Link as any}
+              href="/notifications"
+            >
+              <Badge badgeContent={notifCount} color="error" max={99}>
+                <NotificationsNoneIcon />
+              </Badge>
+            </IconButton>
+          </Tooltip>
           <Tooltip title={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
             <IconButton color="inherit" onClick={toggle} aria-label="toggle color mode">
               {mode === "dark" ? <Brightness7Icon /> : <Brightness4Icon />}
@@ -236,5 +255,3 @@ export function AppShell(props: { title: string; children: React.ReactNode }) {
     </Box>
   );
 }
-
-

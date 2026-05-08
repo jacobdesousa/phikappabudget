@@ -7,61 +7,30 @@ async function getNotifications(req, res) {
 
   const brotherId = ctx.brother_id ?? null;
 
-  const [workdaysRes, shiftsRes, meetingsRes] = await Promise.all([
-    pool.query(
-      `SELECT id, workday_date, title FROM workdays
-       WHERE workday_date >= CURRENT_DATE AND workday_date <= CURRENT_DATE + INTERVAL '60 days'
-       ORDER BY workday_date LIMIT 15`
-    ),
-    pool.query(
-      `SELECT id, shift_type, event_date, title FROM shift_events
-       WHERE event_date >= CURRENT_DATE AND event_date <= CURRENT_DATE + INTERVAL '60 days'
-       ORDER BY event_date LIMIT 30`
-    ),
-    pool.query(
-      `SELECT id, meeting_date, title FROM meeting_minutes
-       WHERE meeting_date >= CURRENT_DATE AND meeting_date <= CURRENT_DATE + INTERVAL '60 days'
-       ORDER BY meeting_date LIMIT 10`
-    ),
-  ]);
-
-  let workday_makeups = [];
-  let shift_makeups = [];
-
+  let upcoming_shifts = [];
   if (brotherId) {
-    const [wm, sm] = await Promise.all([
-      pool.query(
-        `SELECT w.id, w.workday_date, w.title, wa.status
-         FROM workday_attendance wa
-         JOIN workdays w ON w.id = wa.workday_id
-         WHERE wa.brother_id = $1
-           AND wa.status IN ('Missing', 'Absent')
-           AND wa.makeup_completed_at IS NULL
-         ORDER BY w.workday_date DESC LIMIT 20`,
-        [brotherId]
-      ),
-      pool.query(
-        `SELECT se.id, se.event_date, se.shift_type, se.title, sa.status
-         FROM shift_assignments sa
-         JOIN shift_events se ON se.id = sa.shift_event_id
-         WHERE sa.brother_id = $1
-           AND sa.status = 'absent'
-           AND sa.makeup_completed_at IS NULL
-         ORDER BY se.event_date DESC LIMIT 20`,
-        [brotherId]
-      ),
-    ]);
-    workday_makeups = wm.rows;
-    shift_makeups = sm.rows;
+    const shiftsRes = await pool.query(
+      `SELECT DISTINCT se.id, se.shift_type, se.event_date, se.title
+       FROM shift_events se
+       WHERE se.event_date >= CURRENT_DATE
+         AND se.event_date <= CURRENT_DATE + INTERVAL '60 days'
+         AND (
+           EXISTS (
+             SELECT 1 FROM shift_assignments sa
+             WHERE sa.shift_event_id = se.id AND sa.brother_id = $1
+           )
+           OR EXISTS (
+             SELECT 1 FROM shift_party_slots sps
+             WHERE sps.shift_event_id = se.id AND sps.brother_id = $1
+           )
+         )
+       ORDER BY se.event_date LIMIT 30`,
+      [brotherId]
+    );
+    upcoming_shifts = shiftsRes.rows;
   }
 
-  return res.json({
-    upcoming_workdays: workdaysRes.rows,
-    upcoming_shifts: shiftsRes.rows,
-    upcoming_meetings: meetingsRes.rows,
-    workday_makeups,
-    shift_makeups,
-  });
+  return res.json({ upcoming_shifts });
 }
 
 async function getAllMakeups(req, res) {
