@@ -18,10 +18,11 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
+import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
 import type { IBrother, IMeetingMinutes, IVote } from "../../interfaces/api.interface";
 import { FormattedTextField } from "../../components/minutes/FormattedTextField";
 import { getAllBrothers } from "../../services/brotherService";
-import { getMeeting, updateMeeting } from "../../services/meetingsService";
+import { getMeeting, updateMeeting, emailMeetingMinutes } from "../../services/meetingsService";
 import { listVotesForMeeting } from "../../services/votesService";
 import { schoolYearLabel, schoolYearStartForDate } from "../../utils/schoolYear";
 import { parseMinutesText } from "../../utils/minutesText";
@@ -106,6 +107,7 @@ export default function MeetingMinutesEditor() {
   const [success, setSuccess] = React.useState<string | null>(null);
   const [autosaveReady, setAutosaveReady] = React.useState(false);
   const [exporting, setExporting] = React.useState(false);
+  const [emailing, setEmailing] = React.useState(false);
   const [isEditing, setIsEditing] = React.useState(false);
 
   const [meeting, setMeeting] = React.useState<IMeetingMinutes | null>(null);
@@ -257,10 +259,26 @@ export default function MeetingMinutesEditor() {
     setExporting(true);
     try {
       // Use the browser’s native “Print → Save as PDF” for perfect page sizing.
-      window.open(`/meetings/${meeting.id}/print?autoprint=1`, "_blank", "noopener,noreferrer");
+      window.open(`/meetings/${meeting.id}/print?autoprint=1`, “_blank”, “noopener,noreferrer”);
     } finally {
-      // We can't know when the print dialog completes; just reset quickly.
+      // We can’t know when the print dialog completes; just reset quickly.
       setTimeout(() => setExporting(false), 300);
+    }
+  }, [meeting]);
+
+  const sendMinutes = React.useCallback(async () => {
+    if (!meeting) return;
+    if (!confirm("Send meeting minutes to all active brothers by email?")) return;
+    setEmailing(true);
+    try {
+      const result = await emailMeetingMinutes(meeting.id);
+      if (result.ok) {
+        setSuccess(`Minutes sent to ${result.sent_to} brother${result.sent_to === 1 ? "" : "s"}.`);
+      } else {
+        setError(result.error);
+      }
+    } finally {
+      setEmailing(false);
     }
   }, [meeting]);
 
@@ -454,6 +472,11 @@ export default function MeetingMinutesEditor() {
             <Button variant="outlined" startIcon={<PictureAsPdfOutlinedIcon />} disabled={exporting} onClick={exportPdf}>
               {exporting ? "Exporting…" : "Export PDF"}
             </Button>
+            {canWrite && (
+              <Button variant="outlined" startIcon={<EmailOutlinedIcon />} disabled={emailing || isEditing} onClick={sendMinutes}>
+                {emailing ? "Sending…" : "Email Minutes"}
+              </Button>
+            )}
             {!isEditing ? (
               canWrite ? (
                 <Button

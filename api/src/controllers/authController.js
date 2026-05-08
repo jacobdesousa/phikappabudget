@@ -13,6 +13,7 @@ const {
   loadAuthContext,
 } = require("../middleware/auth");
 const { auditAuthEvent, auditAdminEvent } = require("../utils/auditEvents");
+const { sendMail } = require("../utils/mailer");
 
 function normalizeEmail(email) {
   return String(email ?? "").trim().toLowerCase();
@@ -22,6 +23,38 @@ function devLog(label, value) {
   if (env.nodeEnv === "production") return;
   // eslint-disable-next-line no-console
   console.log(`[dev-mail] ${label}: ${value}`);
+}
+
+function emailHeader() {
+  return `<tr><td style="background:#1a1a2e;padding:20px 32px">
+    <table cellpadding="0" cellspacing="0"><tr>
+      <td style="padding-right:12px;vertical-align:middle">
+        <img src="https://uoftskulls.ca/alphabeta.png" alt="Alpha Beta" width="36" height="36" style="display:block">
+      </td>
+      <td style="vertical-align:middle">
+        <div style="color:#fff;font-size:17px;font-weight:700;letter-spacing:.3px">Phi Kappa Sigma</div>
+        <div style="color:#aaa;font-size:12px;margin-top:1px">Alpha Beta Chapter</div>
+      </td>
+    </tr></table>
+  </td></tr>`;
+}
+
+function inviteEmailHtml(inviteUrl) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:sans-serif;background:#f4f4f5;margin:0;padding:32px 0">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+    ${emailHeader()}
+    <tr><td style="padding:32px">
+      <p style="margin:0 0 16px;font-size:16px;color:#111">You have been invited to join the chapter member portal.</p>
+      <p style="margin:0 0 24px;font-size:14px;color:#555">Click the button below to set up your account. This link expires in 7 days.</p>
+      <a href="${inviteUrl}" style="display:inline-block;background:#1a1a2e;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:15px;font-weight:600">Accept Invite</a>
+      <p style="margin:24px 0 0;font-size:12px;color:#888">Or copy this link: ${inviteUrl}</p>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 }
 
 async function login(req, res) {
@@ -142,7 +175,13 @@ async function inviteUser(req, res) {
     details: { email },
   });
 
-  // In dev mode, return the URL to make setup easy.
+  await sendMail({
+    to: email,
+    subject: "You're invited to Phi Kappa Budget",
+    html: inviteEmailHtml(inviteUrl),
+    text: `You've been invited to join Phi Kappa Budget. Accept your invite here: ${inviteUrl}\n\nThis link expires in 7 days.`,
+  });
+
   const payload = { ok: true };
   if (env.mail.provider === "dev" && env.nodeEnv !== "production") payload.invite_url = inviteUrl;
 
@@ -304,6 +343,16 @@ async function reissueInvite(req, res) {
   const inviteUrl = `${env.appBaseUrl.replace(/\/$/, "")}/invite/${rawToken}`;
   devLog("INVITE_REISSUE_LINK", inviteUrl);
   await auditAdminEvent(req, res, { action: "admin.invite.reissue", target_type: "invite", target_id: String(id), details: { email: inv.email } });
+
+  const recipientEmail = normalizeEmail(inv.email);
+  if (recipientEmail) {
+    await sendMail({
+      to: recipientEmail,
+      subject: "Your Phi Kappa Budget invite has been reissued",
+      html: inviteEmailHtml(inviteUrl),
+      text: `Your invite link has been reissued. Accept here: ${inviteUrl}\n\nThis link expires in 7 days.`,
+    });
+  }
 
   const payload = { ok: true };
   if (env.mail.provider === "dev" && env.nodeEnv !== "production") payload.invite_url = inviteUrl;

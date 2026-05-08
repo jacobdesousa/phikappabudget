@@ -68,4 +68,15 @@ export async function deleteMeeting(id: number): Promise<{ ok: true } | { ok: fa
   }
 }
 
+export async function emailMeetingMinutes(id: number): Promise<{ ok: true; sent_to: number } | { ok: false; status: number; error: string }> {
+  try {
+    const res = await apiClient.post(`/meetings/${id}/email-minutes`);
+    return { ok: true, sent_to: res.data.sent_to };
+  } catch (e) {
+    const err = parseApiError(e);
+    return { ok: false, status: err.status, error: err.message };
+  }
+}
+
+
 

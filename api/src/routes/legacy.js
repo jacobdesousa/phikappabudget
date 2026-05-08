@@ -63,6 +63,7 @@ const {
   createMeeting,
   updateMeeting,
   deleteMeeting,
+  emailMeetingMinutes,
 } = require("../controllers/meetingsController");
 const {
   createVote,
@@ -204,6 +205,7 @@ router.post("/meetings/:id/votes", requirePermission("meetings.write"), asyncHan
 router.get("/meetings/:id", requirePermission("meetings.read"), asyncHandler(getMeeting));
 router.put("/meetings/:id", requirePermission("meetings.write"), asyncHandler(updateMeeting));
 router.delete("/meetings/:id", requirePermission("meetings.write"), asyncHandler(deleteMeeting));
+router.post("/meetings/:id/email-minutes", requirePermission("meetings.write"), asyncHandler(emailMeetingMinutes));
 
 // Standalone vote routes (used by voting page)
 router.get("/votes/:voteId", asyncHandler(getVote));

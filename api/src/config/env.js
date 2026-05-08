@@ -32,8 +32,12 @@ const env = {
     cookieName: String(process.env.REFRESH_COOKIE_NAME ?? "pks_refresh"),
   },
   mail: {
-    provider: String(process.env.MAIL_PROVIDER ?? "dev"), // dev | ses (future)
+    provider: String(process.env.MAIL_PROVIDER ?? "dev"), // dev | ses
     from: String(process.env.MAIL_FROM ?? "noreply@example.com"),
+    fromName: String(process.env.MAIL_FROM_NAME ?? "Phi Kappa Sigma - Alpha Beta"),
+  },
+  aws: {
+    region: String(process.env.AWS_REGION ?? "us-west-2"),
   },
   bootstrap: {
     adminEmail: process.env.BOOTSTRAP_ADMIN_EMAIL ? String(process.env.BOOTSTRAP_ADMIN_EMAIL) : null,

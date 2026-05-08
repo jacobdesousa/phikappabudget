@@ -70,6 +70,7 @@ export default function UsersPage() {
   const [submitting, setSubmitting] = React.useState(false);
 
   const [inviteUrl, setInviteUrl] = React.useState<string | null>(null);
+  const [inviteSent, setInviteSent] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
 
   const refreshInvites = React.useCallback(async () => {
@@ -377,6 +378,7 @@ export default function UsersPage() {
                   return;
                 }
                 setInviteUrl(res.invite_url ?? null);
+                setInviteSent(true);
                 void refreshInvites();
               }}
             >
@@ -384,7 +386,10 @@ export default function UsersPage() {
             </Button>
           </Box>
 
-          {inviteUrl ? (
+          {inviteSent && !inviteUrl && (
+            <Alert severity="success">Invite email sent successfully.</Alert>
+          )}
+          {inviteUrl && (
             <>
               <Alert severity="success">Invite created. Copy the link and send it to the user.</Alert>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }}>
@@ -406,10 +411,6 @@ export default function UsersPage() {
                 </Button>
               </Stack>
             </>
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              Note: In production, the invite email would be delivered automatically (SES later). In dev mode you’ll see the link here and in API logs.
-            </Typography>
           )}
         </Stack>
       </Paper>
