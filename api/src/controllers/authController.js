@@ -177,9 +177,9 @@ async function inviteUser(req, res) {
 
   await sendMail({
     to: email,
-    subject: "You're invited to Phi Kappa Budget",
+    subject: "You're invited to join Phi Kappa Sigma - Alpha Beta",
     html: inviteEmailHtml(inviteUrl),
-    text: `You've been invited to join Phi Kappa Budget. Accept your invite here: ${inviteUrl}\n\nThis link expires in 7 days.`,
+    text: `You've been invited to join Phi Kappa Sigma - Alpha Beta. Accept your invite here: ${inviteUrl}\n\nThis link expires in 7 days.`,
   });
 
   const payload = { ok: true };
@@ -348,7 +348,7 @@ async function reissueInvite(req, res) {
   if (recipientEmail) {
     await sendMail({
       to: recipientEmail,
-      subject: "Your Phi Kappa Budget invite has been reissued",
+      subject: "Your Phi Kappa Sigma - Alpha Beta invite has been reissued",
       html: inviteEmailHtml(inviteUrl),
       text: `Your invite link has been reissued. Accept here: ${inviteUrl}\n\nThis link expires in 7 days.`,
     });
