@@ -209,12 +209,24 @@ async function submitResponse(req, res) {
   if (!userId) return res.status(401).json({ error: { message: "Unauthorized" } });
 
   const voteRes = await pool.query(
-    `SELECT id, status, allow_multiple FROM meeting_votes WHERE id = $1`,
+    `SELECT id, meeting_id, status, allow_multiple FROM meeting_votes WHERE id = $1`,
     [voteId]
   );
   const vote = voteRes.rows?.[0];
   if (!vote) return res.status(404).json({ error: { message: "Vote not found" } });
   if (vote.status === "closed") return res.status(409).json({ error: { message: "This vote is closed" } });
+
+  // Must be marked Present or Late in the meeting
+  const attendanceCheck = await pool.query(
+    `SELECT 1 FROM meeting_attendance a
+     JOIN users u ON u.brother_id = a.brother_id
+     WHERE a.meeting_id = $1 AND u.id = $2 AND a.status IN ('Present', 'Late')
+     LIMIT 1`,
+    [vote.meeting_id, userId]
+  );
+  if (!attendanceCheck.rows?.[0]) {
+    return res.status(403).json({ error: { message: "You are not marked as present in this meeting and cannot vote." } });
+  }
 
   if (!vote.allow_multiple && option_ids.length > 1) {
     return res.status(400).json({ error: { message: "Only one selection is allowed for this vote" } });

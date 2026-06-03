@@ -67,3 +67,24 @@ export async function deleteBrotherOffice(tenureId: number): Promise<{ ok: true 
         return { ok: false, error: parseApiError(e).message };
     }
 }
+
+export type ImportBrotherRow = {
+    first_name: string;
+    last_name: string;
+    email?: string;
+    phone?: string;
+    pledge_class?: string;
+    graduation?: string | number;
+    status?: string;
+};
+
+export async function importBrothers(
+    rows: ImportBrotherRow[]
+): Promise<{ ok: true; inserted: number; errors: { row: number; message: string }[] } | { ok: false; error: string }> {
+    try {
+        const res = await apiClient.post("/brothers/import", { rows });
+        return { ok: true, inserted: res.data.inserted, errors: res.data.errors ?? [] };
+    } catch (e) {
+        return { ok: false, error: parseApiError(e).message };
+    }
+}

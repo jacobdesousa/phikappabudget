@@ -6,6 +6,7 @@ const {
   updateBrother,
   deleteBrother,
   brotherStatement,
+  importBrothers,
 } = require("../controllers/brothersController");
 const {
   listDues,
@@ -140,6 +141,7 @@ router.get(
 
 // Brothers
 router.get("/brothers", requirePermission("brothers.read"), asyncHandler(listBrothers));
+router.post("/brothers/import", requirePermission("admin.users"), asyncHandler(importBrothers));
 router.post("/brothers", requirePermission("brothers.write"), asyncHandler(createBrother));
 router.put("/brothers/:id", requirePermission("brothers.write"), asyncHandler(updateBrother));
 router.delete("/brothers/:id", requirePermission("brothers.write"), asyncHandler(deleteBrother));

@@ -173,12 +173,46 @@ async function brotherStatement(req, res) {
   });
 }
 
+async function importBrothers(req, res) {
+  const rows = req.body?.rows;
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return res.status(400).json({ error: { message: "rows array required" } });
+  }
+  if (rows.length > 500) {
+    return res.status(400).json({ error: { message: "Max 500 rows per import" } });
+  }
+
+  const inserted = [];
+  const errors = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const parse = brotherSchema.safeParse(rows[i]);
+    if (!parse.success) {
+      errors.push({ row: i + 1, message: parse.error.issues.map((e) => e.message).join("; ") });
+      continue;
+    }
+    const p = parse.data;
+    try {
+      const r = await pool.query(
+        "INSERT INTO brothers (last_name, first_name, email, phone, pledge_class, graduation, status) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id",
+        [p.last_name, p.first_name, p.email ?? null, p.phone ?? null, p.pledge_class ?? null, p.graduation ?? null, p.status ?? null]
+      );
+      inserted.push(r.rows[0].id);
+    } catch (e) {
+      errors.push({ row: i + 1, message: e.message });
+    }
+  }
+
+  return res.status(200).json({ inserted: inserted.length, errors });
+}
+
 module.exports = {
   listBrothers,
   createBrother,
   updateBrother,
   deleteBrother,
   brotherStatement,
+  importBrothers,
 };
 
 
