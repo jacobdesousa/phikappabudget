@@ -11,7 +11,7 @@ const brotherSchema = z.object({
   first_name: z.string().min(1),
   email: z.preprocess(emptyToUndefined, z.string().email()).optional().nullable(),
   phone: z.preprocess(emptyToUndefined, z.string()).optional().nullable(),
-  pledge_class: z.preprocess(emptyToUndefined, z.string()).optional().nullable(),
+  pledge_class: z.preprocess(emptyToUndefined, z.string().regex(/^(Fall|Spring) \d{4}$/, 'pledge_class must be "Fall YYYY" or "Spring YYYY"')).optional().nullable(),
   graduation: z
     .preprocess(emptyToUndefined, z.coerce.number())
     .optional()

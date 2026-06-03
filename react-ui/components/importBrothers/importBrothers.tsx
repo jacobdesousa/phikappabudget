@@ -17,38 +17,46 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { importBrothers, ImportBrotherRow } from "../../services/brotherService";
+import { formatNorthAmericanPhone } from "../../utils/phone";
 
 const EXPECTED_HEADERS = ["first_name", "last_name", "email", "phone", "pledge_class", "graduation", "status"] as const;
 
-function parseCsv(text: string): { rows: ImportBrotherRow[]; error: string | null } {
+const PLEDGE_CLASS_RE = /^(Fall|Spring) \d{4}$/;
+
+function parseCsv(text: string): { rows: ImportBrotherRow[]; error: string | null; warnings: string[] } {
     const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim().split("\n");
-    if (lines.length < 2) return { rows: [], error: "CSV must have a header row and at least one data row." };
+    if (lines.length < 2) return { rows: [], error: "CSV must have a header row and at least one data row.", warnings: [] };
 
     const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/^"|"$/g, ""));
     if (!headers.includes("first_name") || !headers.includes("last_name")) {
-        return { rows: [], error: 'CSV must include "first_name" and "last_name" columns.' };
+        return { rows: [], error: 'CSV must include "first_name" and "last_name" columns.', warnings: [] };
     }
 
     const rows: ImportBrotherRow[] = [];
+    const warnings: string[] = [];
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
         const cells = line.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
         const obj: Record<string, string> = {};
         headers.forEach((h, idx) => { obj[h] = cells[idx] ?? ""; });
+        const pledgeClass = obj.pledge_class || undefined;
+        if (pledgeClass && !PLEDGE_CLASS_RE.test(pledgeClass)) {
+            warnings.push(`Row ${i}: pledge_class "${pledgeClass}" must be "Fall YYYY" or "Spring YYYY" — will fail import.`);
+        }
         rows.push({
             first_name: obj.first_name ?? "",
             last_name: obj.last_name ?? "",
             email: obj.email || undefined,
-            phone: obj.phone || undefined,
-            pledge_class: obj.pledge_class || undefined,
+            phone: obj.phone ? formatNorthAmericanPhone(obj.phone) || undefined : undefined,
+            pledge_class: pledgeClass,
             graduation: obj.graduation || undefined,
             status: obj.status || undefined,
         });
     }
 
-    if (rows.length === 0) return { rows: [], error: "No data rows found." };
-    return { rows, error: null };
+    if (rows.length === 0) return { rows: [], error: "No data rows found.", warnings: [] };
+    return { rows, error: null, warnings };
 }
 
 interface Props {
@@ -58,6 +66,7 @@ interface Props {
 export default function ImportBrothersDialog({ onClose }: Props) {
     const fileRef = useRef<HTMLInputElement>(null);
     const [parseError, setParseError] = useState<string | null>(null);
+    const [parseWarnings, setParseWarnings] = useState<string[]>([]);
     const [rows, setRows] = useState<ImportBrotherRow[] | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [result, setResult] = useState<{ inserted: number; errors: { row: number; message: string }[] } | null>(null);
@@ -68,8 +77,9 @@ export default function ImportBrothersDialog({ onClose }: Props) {
         const reader = new FileReader();
         reader.onload = (ev) => {
             const text = ev.target?.result as string;
-            const { rows: parsed, error } = parseCsv(text);
+            const { rows: parsed, error, warnings } = parseCsv(text);
             setParseError(error);
+            setParseWarnings(warnings);
             setRows(error ? null : parsed);
             setResult(null);
         };
@@ -114,6 +124,13 @@ export default function ImportBrothersDialog({ onClose }: Props) {
                 )}
 
                 {parseError && <Alert severity="error" sx={{ mb: 2 }}>{parseError}</Alert>}
+                {parseWarnings.length > 0 && !done && (
+                    <Alert severity="warning" sx={{ mb: 2 }}>
+                        <Typography variant="body2" fontWeight={700} sx={{ mb: 0.5 }}>pledge_class format issues — these rows will fail:</Typography>
+                        {parseWarnings.map((w, i) => <Typography key={i} variant="body2">{w}</Typography>)}
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>Expected format: <b>Fall 2023</b> or <b>Spring 2024</b></Typography>
+                    </Alert>
+                )}
 
                 {rows && !done && (
                     <>
