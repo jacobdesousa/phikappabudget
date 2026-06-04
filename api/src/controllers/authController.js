@@ -14,7 +14,7 @@ const {
 } = require("../middleware/auth");
 const { auditAuthEvent, auditAdminEvent } = require("../utils/auditEvents");
 const { sendMail } = require("../utils/mailer");
-const { logoDataUrl } = require("../assets/logoBase64");
+const LOGO_URL = "https://uoftskulls.ca/alphabeta.png";
 
 function normalizeEmail(email) {
   return String(email ?? "").trim().toLowerCase();
@@ -30,7 +30,7 @@ function emailHeader(subtitle) {
   return `<tr><td style="background:#1a1a2e;padding:20px 32px">
     <table cellpadding="0" cellspacing="0"><tr>
       <td style="padding-right:12px;vertical-align:middle">
-        <img src="${logoDataUrl}" alt="Alpha Beta" width="36" height="36" style="display:block">
+        <img src="${LOGO_URL}" alt="Alpha Beta" width="36" height="36" style="display:block">
       </td>
       <td style="vertical-align:middle">
         <div style="color:#fff;font-size:17px;font-weight:700;letter-spacing:.3px">Phi Kappa Sigma</div>
@@ -40,7 +40,8 @@ function emailHeader(subtitle) {
   </td></tr>`;
 }
 
-function inviteEmailHtml(inviteUrl) {
+function inviteEmailHtml(inviteUrl, firstName) {
+  const greeting = firstName ? `Dear ${firstName},` : null;
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -48,10 +49,17 @@ function inviteEmailHtml(inviteUrl) {
   <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;border-radius:8px;overflow:hidden;border:1px solid #e0e0e0">
     ${emailHeader()}
     <tr><td style="padding:32px">
+      ${greeting ? `<p style="margin:0 0 12px;font-size:16px;color:#111;font-weight:600">${greeting}</p>` : ""}
       <p style="margin:0 0 16px;font-size:16px;color:#111">You have been invited to join the chapter member portal.</p>
       <p style="margin:0 0 24px;font-size:14px;color:#555">Click the button below to set up your account. This link expires in 7 days.</p>
-      <a href="${inviteUrl}" style="display:inline-block;background:#1a1a2e;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:15px;font-weight:600">Accept Invite</a>
-      <p style="margin:24px 0 0;font-size:12px;color:#888">Or copy this link: ${inviteUrl}</p>
+      <table cellspacing="0" cellpadding="0" border="0" style="margin-bottom:24px">
+        <tr>
+          <td bgcolor="#1a1a2e" style="border-radius:6px;padding:12px 24px">
+            <a href="${inviteUrl}" target="_blank" style="color:#fff;text-decoration:none;font-size:15px;font-weight:600;font-family:sans-serif">Accept Invite</a>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:0;font-size:12px;color:#888">Or copy this link: ${inviteUrl}</p>
     </td></tr>
   </table>
 </body>
@@ -151,7 +159,7 @@ async function inviteUser(req, res) {
     return res.status(400).json({ error: { message: "brother_id is required." } });
   }
 
-  const broRes = await pool.query(`SELECT id, email FROM brothers WHERE id = $1`, [brother_id]);
+  const broRes = await pool.query(`SELECT id, first_name, last_name, email FROM brothers WHERE id = $1`, [brother_id]);
   const b = broRes.rows?.[0];
   if (!b) return res.status(404).json({ error: { message: "Brother not found." } });
 
@@ -185,8 +193,8 @@ async function inviteUser(req, res) {
   await sendMail({
     to: email,
     subject: "You're invited to join Phi Kappa Sigma - Alpha Beta",
-    html: inviteEmailHtml(inviteUrl),
-    text: `You've been invited to join Phi Kappa Sigma - Alpha Beta. Accept your invite here: ${inviteUrl}\n\nThis link expires in 7 days.`,
+    html: inviteEmailHtml(inviteUrl, b.first_name),
+    text: `${b.first_name ? `Dear ${b.first_name},\n\n` : ""}You've been invited to join Phi Kappa Sigma - Alpha Beta. Accept your invite here: ${inviteUrl}\n\nThis link expires in 7 days.`,
   });
 
   const payload = { ok: true };
@@ -358,12 +366,32 @@ async function reissueInvite(req, res) {
       subject: "Your Phi Kappa Sigma - Alpha Beta invite has been reissued",
       html: inviteEmailHtml(inviteUrl),
       text: `Your invite link has been reissued. Accept here: ${inviteUrl}\n\nThis link expires in 7 days.`,
-    });
+      });
   }
 
   const payload = { ok: true };
   if (env.mail.provider === "dev" && env.nodeEnv !== "production") payload.invite_url = inviteUrl;
   return res.status(200).json(payload);
+}
+
+async function getInviteInfo(req, res) {
+  const token = String(req.params.token ?? "").trim();
+  if (!token) return res.status(400).json({ error: { message: "Token required" } });
+
+  const token_hash = hashToken(token);
+  const invRes = await pool.query(
+    `SELECT i.email, i.expires_at, i.used_at, i.revoked_at, b.first_name, b.last_name
+     FROM invite_tokens i LEFT JOIN brothers b ON b.id = i.brother_id
+     WHERE i.token_hash = $1`,
+    [token_hash]
+  );
+  const inv = invRes.rows?.[0];
+  if (!inv) return res.status(404).json({ error: { message: "Invite not found." } });
+  if (inv.used_at) return res.status(410).json({ error: { message: "This invite has already been used." } });
+  if (inv.revoked_at) return res.status(410).json({ error: { message: "This invite has been revoked." } });
+  if (new Date(inv.expires_at) < new Date()) return res.status(410).json({ error: { message: "This invite has expired." } });
+
+  return res.status(200).json({ email: inv.email, first_name: inv.first_name, last_name: inv.last_name });
 }
 
 module.exports = {
@@ -373,6 +401,7 @@ module.exports = {
   me,
   inviteUser,
   acceptInvite,
+  getInviteInfo,
   devPasswordResetRequest,
   listInvites,
   revokeInvite,

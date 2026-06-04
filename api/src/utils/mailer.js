@@ -21,9 +21,13 @@ function buildFrom() {
 }
 
 /**
- * @param {{ to: string|string[], subject: string, html: string, text?: string, attachments?: Array<{filename: string, content: Buffer, contentType: string}> }} opts
+ * @param {{
+ *   to: string|string[], subject: string, html: string, text?: string,
+ *   attachments?: Array<{filename: string, content: Buffer, contentType: string}>,
+ *   inlineImages?: Array<{cid: string, content: Buffer, contentType: string}>
+ * }} opts
  */
-async function sendMail({ to, subject, html, text, attachments = [] }) {
+async function sendMail({ to, subject, html, text, attachments = [], inlineImages = [] }) {
   const toList = Array.isArray(to) ? to : [to];
 
   if (env.mail.provider !== "ses") {
@@ -40,6 +44,8 @@ async function sendMail({ to, subject, html, text, attachments = [] }) {
   const boundary = `----=_PKS_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   const altBoundary = `${boundary}_alt`;
 
+  const b64 = (str) => Buffer.from(str).toString("base64").match(/.{1,76}/g).join("\r\n");
+
   const lines = [
     `From: ${buildFrom()}`,
     `To: ${toList.join(", ")}`,
@@ -52,15 +58,15 @@ async function sendMail({ to, subject, html, text, attachments = [] }) {
     ``,
     `--${altBoundary}`,
     `Content-Type: text/plain; charset=UTF-8`,
-    `Content-Transfer-Encoding: quoted-printable`,
+    `Content-Transfer-Encoding: base64`,
     ``,
-    text ?? "",
+    b64(text ?? ""),
     ``,
     `--${altBoundary}`,
     `Content-Type: text/html; charset=UTF-8`,
-    `Content-Transfer-Encoding: quoted-printable`,
+    `Content-Transfer-Encoding: base64`,
     ``,
-    html,
+    b64(html),
     ``,
     `--${altBoundary}--`,
   ];

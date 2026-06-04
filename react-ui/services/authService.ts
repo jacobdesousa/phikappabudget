@@ -110,6 +110,15 @@ export async function acceptInvite(token: string, password: string): Promise<{ o
   }
 }
 
+export async function getInviteInfo(token: string): Promise<{ ok: true; email: string; first_name: string | null; last_name: string | null } | { ok: false; error: string }> {
+  try {
+    const res = await apiClient.get(`/auth/invite-info/${token}`);
+    return { ok: true, ...res.data };
+  } catch (e) {
+    return { ok: false, error: parseApiError(e).message };
+  }
+}
+
 export async function inviteUser(payload: { brother_id: number }): Promise<{ ok: true; invite_url?: string } | { ok: false; status: number; error: string }> {
   try {
     const res = await apiClient.post("/auth/invite", payload);

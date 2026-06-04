@@ -4,7 +4,7 @@ const { meetingUpsertSchema } = require("../validation/meetings");
 const { schoolYearStartForDate } = require("../utils/schoolYear");
 const { sendMail } = require("../utils/mailer");
 const { generateMeetingPdf } = require("../utils/pdfGenerator");
-const { logoDataUrl } = require("../assets/logoBase64");
+const LOGO_URL = "https://uoftskulls.ca/alphabeta.png";
 
 function buildPdfFilename(meeting) {
   const dateStr = new Date(meeting.meeting_date).toLocaleDateString("en-US", {
@@ -311,7 +311,7 @@ async function emailMeetingMinutes(req, res) {
     <tr><td style="background:#1a1a2e;padding:20px 32px">
       <table cellpadding="0" cellspacing="0"><tr>
         <td style="padding-right:12px;vertical-align:middle">
-          <img src="${logoDataUrl}" alt="Alpha Beta" width="36" height="36" style="display:block">
+          <img src="${LOGO_URL}" alt="Alpha Beta" width="36" height="36" style="display:block">
         </td>
         <td style="vertical-align:middle">
           <div style="color:#fff;font-size:17px;font-weight:700;letter-spacing:.3px">Phi Kappa Sigma</div>

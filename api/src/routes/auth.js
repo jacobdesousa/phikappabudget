@@ -9,6 +9,7 @@ const {
   me,
   inviteUser,
   acceptInvite,
+  getInviteInfo,
   devPasswordResetRequest,
   listInvites,
   revokeInvite,
@@ -39,6 +40,7 @@ router.get("/invites", requireAuth, requirePermission("admin.users"), asyncHandl
 router.post("/invites/:id/revoke", requireAuth, auditWrites(), requirePermission("admin.users"), asyncHandler(revokeInvite));
 router.post("/invites/:id/reissue", requireAuth, auditWrites(), requirePermission("admin.users"), asyncHandler(reissueInvite));
 router.post("/accept-invite", asyncHandler(acceptInvite));
+router.get("/invite-info/:token", asyncHandler(getInviteInfo));
 
 // Dev-only helper (Phase 1 placeholder)
 router.post("/forgot-password", asyncHandler(devPasswordResetRequest));
