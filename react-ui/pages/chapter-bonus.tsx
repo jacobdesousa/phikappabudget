@@ -48,6 +48,7 @@ function currentMonth(): string {
 export default function ChapterBonusPage() {
   const { can } = useAuth();
   const canWrite = can("chapterBonus.write");
+  const canConfig = can("chapterBonus.config");
   const resolveApiUrl = React.useCallback((pathOrUrl: string) => {
     if (!pathOrUrl) return pathOrUrl;
     if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) return pathOrUrl;
@@ -103,7 +104,7 @@ export default function ChapterBonusPage() {
     setLoading(true);
     setError(null);
     try {
-      const [rows, summary, rulesRes] = await Promise.all([getBonusDeductions(month), getBonusSummary(month), getBonusRules()]);
+      const [rows, summary, rulesRes] = await Promise.all([getBonusDeductions(month), getBonusSummary(month), canConfig ? getBonusRules() : Promise.resolve([])]);
       setItems(rows);
       setTotal(Number(summary.total ?? 0));
       setRules((rulesRes ?? []).map((r) => ({ violation_type: r.violation_type })));

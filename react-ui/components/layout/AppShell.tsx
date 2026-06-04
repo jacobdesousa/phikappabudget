@@ -57,7 +57,7 @@ const navItems = [
   { href: "/shifts/cleanup", label: "Cleanup Shifts", icon: <CleaningServicesIcon />, anyPermissions: ["shifts.cleanup.read"] },
   { href: "/shifts/party", label: "Party Shifts", icon: <CelebrationIcon />, anyPermissions: ["shifts.party.read"] },
   { href: "/makeups", label: "Makeups", icon: <AssignmentLateIcon />, anyPermissions: [] },
-  { href: "/sessions", label: "Sessions", icon: <SecurityOutlinedIcon />, anyPermissions: [] },
+  { href: "/sessions", label: "Sessions", icon: <SecurityOutlinedIcon />, anyPermissions: ["admin.sessions"] },
   {
     href: "/config",
     label: "Config",
