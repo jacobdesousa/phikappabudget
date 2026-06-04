@@ -39,6 +39,7 @@ import {
 } from "../services/chapterBonusService";
 import { API_BASE_URL } from "../services/apiClient";
 import { formatMoney, normalizeMoneyInput } from "../utils/money";
+import { openAuthenticatedFile } from "../utils/openFile";
 import { useAuth } from "../context/authContext";
 
 function currentMonth(): string {
@@ -633,7 +634,7 @@ export default function ChapterBonusPage() {
                     </Box>
                     <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, pl: 3 }}>
                       {d.photo_url ? (
-                        <MuiLink href={resolveApiUrl(d.photo_url)} target="_blank" rel="noreferrer">
+                        <MuiLink component="button" onClick={() => openAuthenticatedFile(resolveApiUrl(d.photo_url!))} sx={{ cursor: "pointer" }}>
                           View photo
                         </MuiLink>
                       ) : (
@@ -741,6 +742,13 @@ export default function ChapterBonusPage() {
             onClick={async () => {
               setSubmitting(true);
               setError(null);
+
+              const parsedAmount = parseFloat(normalizeMoneyInput(amount));
+              if (!parsedAmount || parsedAmount <= 0) {
+                setSubmitting(false);
+                setError("Amount must be greater than $0.00.");
+                return;
+              }
 
               if (violationType === "Other" && !comments.trim()) {
                 setSubmitting(false);

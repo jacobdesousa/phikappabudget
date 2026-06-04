@@ -38,6 +38,7 @@ const env = {
   },
   aws: {
     region: String(process.env.AWS_REGION ?? "us-west-2"),
+    s3Bucket: process.env.S3_BUCKET ?? null,
   },
   bootstrap: {
     adminEmail: process.env.BOOTSTRAP_ADMIN_EMAIL ? String(process.env.BOOTSTRAP_ADMIN_EMAIL) : null,

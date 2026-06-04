@@ -9,6 +9,8 @@ const {
 } = require("../validation/expenses");
 const { currentSchoolYearStart, schoolYearStartForDate } = require("../utils/schoolYear");
 const { roundMoney } = require("../utils/money");
+const { uploadToS3, streamFromS3 } = require("../utils/s3");
+const { useS3, makeFilename } = require("../middleware/upload");
 
 async function listExpenseCategories(req, res) {
   const { rows } = await pool.query("SELECT * FROM expense_categories ORDER BY name ASC");
@@ -118,6 +120,14 @@ async function createExpense(req, res) {
   return res.status(201).json(joined.rows[0]);
 }
 
+async function resolveReceiptUrl(file) {
+  if (useS3) {
+    const filename = makeFilename(file);
+    return uploadToS3({ key: `receipts/${filename}`, buffer: file.buffer, contentType: file.mimetype });
+  }
+  return `/uploads/receipts/${file.filename}`;
+}
+
 async function createExpenseWithReceipt(req, res) {
   // Treasurer/manual entry with receipt attached (multipart/form-data with `receipt`).
   if (!req.file) {
@@ -126,7 +136,7 @@ async function createExpenseWithReceipt(req, res) {
   const payload = expenseCreateSchema.parse(req.body);
   const schoolYear = schoolYearStartForDate(payload.date);
   const amount = roundMoney(payload.amount);
-  const receiptUrl = `/uploads/receipts/${req.file.filename}`;
+  const receiptUrl = await resolveReceiptUrl(req.file);
 
   const result = await pool.query(
     `
@@ -292,8 +302,7 @@ async function submitExpense(req, res) {
   const description =
     payload.description?.trim() || `Submitted expense (${submitterName})`;
 
-  // multer stores in /uploads/receipts; exposed via /uploads/receipts/<filename>
-  const receiptUrl = `/uploads/receipts/${req.file.filename}`;
+  const receiptUrl = await resolveReceiptUrl(req.file);
 
   const result = await pool.query(
     `
@@ -472,7 +481,7 @@ async function attachExpenseReceipt(req, res) {
   if (!req.file) {
     return res.status(400).json({ error: { message: "Receipt file is required." } });
   }
-  const receiptUrl = `/uploads/receipts/${req.file.filename}`;
+  const receiptUrl = await resolveReceiptUrl(req.file);
 
   const existingRes = await pool.query("SELECT * FROM expenses WHERE id = $1", [id]);
   const existing = existingRes.rows[0];

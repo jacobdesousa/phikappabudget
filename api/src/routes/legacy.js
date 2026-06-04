@@ -117,6 +117,8 @@ const { getNotifications, getAllMakeups } = require("../controllers/notification
 const { requireAuth, requirePermission } = require("../middleware/auth");
 const { auditWrites } = require("../middleware/audit");
 const { pool } = require("../db/pool");
+const { streamFromS3 } = require("../utils/s3");
+const { env } = require("../config/env");
 
 const router = express.Router();
 
@@ -128,6 +130,21 @@ router.get("/health", (req, res) => res.json({ ok: true }));
 // Everything else requires auth
 router.use(requireAuth);
 router.use(auditWrites());
+
+// Authenticated S3 file proxy (production only; dev uses express.static in app.js)
+if (env.aws.s3Bucket) {
+  router.get("/uploads/*", asyncHandler(async (req, res) => {
+    const key = req.params[0]; // everything after /uploads/
+    try {
+      await streamFromS3(key, res);
+    } catch (e) {
+      if (e?.name === "NoSuchKey" || e?.$metadata?.httpStatusCode === 404) {
+        return res.status(404).json({ error: { message: "File not found." } });
+      }
+      throw e;
+    }
+  }));
+}
 
 // Offices (read-only for UI dropdowns)
 router.get(

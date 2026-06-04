@@ -2,6 +2,11 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const multer = require("multer");
+const { env } = require("../config/env");
+
+// S3 mode: use memory storage, controllers upload buffer to S3.
+// Local mode (dev / no S3_BUCKET): write to disk as before.
+const useS3 = Boolean(env.aws.s3Bucket);
 
 const uploadsRoot = path.join(process.cwd(), "uploads");
 const receiptsDir = path.join(uploadsRoot, "receipts");
@@ -12,60 +17,46 @@ function ensureDirs() {
   fs.mkdirSync(bonusDir, { recursive: true });
 }
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    ensureDirs();
-    cb(null, receiptsDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname || "");
-    const id = crypto.randomBytes(8).toString("hex");
-    cb(null, `${Date.now()}-${id}${ext}`);
-  },
+function makeFilename(file) {
+  const ext = path.extname(file.originalname || "");
+  const id = crypto.randomBytes(8).toString("hex");
+  return `${Date.now()}-${id}${ext}`;
+}
+
+const memStorage = multer.memoryStorage();
+
+const diskReceiptStorage = multer.diskStorage({
+  destination: (req, file, cb) => { ensureDirs(); cb(null, receiptsDir); },
+  filename: (req, file, cb) => cb(null, makeFilename(file)),
 });
 
-function fileFilter(req, file, cb) {
-  // Accept common receipt formats (images + pdf).
-  const allowed = new Set([
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-    "application/pdf",
-  ]);
+const diskBonusStorage = multer.diskStorage({
+  destination: (req, file, cb) => { ensureDirs(); cb(null, bonusDir); },
+  filename: (req, file, cb) => cb(null, makeFilename(file)),
+});
+
+function receiptFilter(req, file, cb) {
+  const allowed = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
   if (allowed.has(file.mimetype)) return cb(null, true);
-  return cb(new Error("Unsupported file type. Upload a JPG, PNG, WEBP, or PDF receipt."));
+  cb(new Error("Unsupported file type. Upload a JPG, PNG, WEBP, or PDF receipt."));
+}
+
+function bonusFilter(req, file, cb) {
+  const allowed = new Set(["image/jpeg", "image/png", "image/webp"]);
+  if (allowed.has(file.mimetype)) return cb(null, true);
+  cb(new Error("Unsupported file type. Upload a JPG, PNG, or WEBP image."));
 }
 
 const uploadReceipt = multer({
-  storage,
-  fileFilter,
-  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB
-});
-
-function bonusFileFilter(req, file, cb) {
-  const allowed = new Set(["image/jpeg", "image/png", "image/webp"]);
-  if (allowed.has(file.mimetype)) return cb(null, true);
-  return cb(new Error("Unsupported file type. Upload a JPG, PNG, or WEBP image."));
-}
-
-const bonusStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    ensureDirs();
-    cb(null, bonusDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname || "");
-    const id = crypto.randomBytes(8).toString("hex");
-    cb(null, `${Date.now()}-${id}${ext}`);
-  },
+  storage: useS3 ? memStorage : diskReceiptStorage,
+  fileFilter: receiptFilter,
+  limits: { fileSize: 25 * 1024 * 1024 },
 });
 
 const uploadBonusPhoto = multer({
-  storage: bonusStorage,
-  fileFilter: bonusFileFilter,
-  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB
+  storage: useS3 ? memStorage : diskBonusStorage,
+  fileFilter: bonusFilter,
+  limits: { fileSize: 25 * 1024 * 1024 },
 });
 
-module.exports = { uploadReceipt, uploadBonusPhoto };
-
-
+module.exports = { uploadReceipt, uploadBonusPhoto, useS3, makeFilename };

@@ -2,6 +2,8 @@ const { pool } = require("../db/pool");
 const { idParamSchema } = require("../validation/common");
 const { bonusDeductionCreateSchema, monthSchema } = require("../validation/chapterBonus");
 const { roundMoney } = require("../utils/money");
+const { uploadToS3 } = require("../utils/s3");
+const { useS3, makeFilename } = require("../middleware/upload");
 
 async function computePenaltyAmount(month, violationType) {
   // Count existing deductions of this type in the month, then select tier.
@@ -67,7 +69,15 @@ async function bonusMonthSummary(req, res) {
 async function createBonusDeduction(req, res) {
   const payload = bonusDeductionCreateSchema.parse(req.body);
 
-  const photoUrl = req.file ? `/uploads/chapter-bonus/${req.file.filename}` : null;
+  let photoUrl = null;
+  if (req.file) {
+    if (useS3) {
+      const filename = makeFilename(req.file);
+      photoUrl = await uploadToS3({ key: `chapter-bonus/${filename}`, buffer: req.file.buffer, contentType: req.file.mimetype });
+    } else {
+      photoUrl = `/uploads/chapter-bonus/${req.file.filename}`;
+    }
+  }
   const computed = payload.amount ? roundMoney(payload.amount) : await computePenaltyAmount(payload.month, payload.violation_type);
   if (!computed) {
     return res.status(400).json({

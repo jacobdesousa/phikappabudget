@@ -38,6 +38,7 @@ import { getAllBrothers } from "../services/brotherService";
 import { schoolYearLabel, schoolYearStartForDate } from "../utils/schoolYear";
 import ConfirmDeleteExpenseDialog from "../components/confirmDeleteExpense/confirmDeleteExpense";
 import { formatMoney, normalizeMoneyInput, roundMoney } from "../utils/money";
+import { openAuthenticatedFile } from "../utils/openFile";
 import { approveExpense, disburseExpenses, rejectExpense } from "../services/expenseWorkflowService";
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
@@ -463,11 +464,7 @@ export default function ExpensesPage() {
                           {e.receipt_url && (
                             <Typography variant="body2" color="text.secondary">
                               Receipt:{" "}
-                              <a
-                                href={`${process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080"}${e.receipt_url}`}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
+                              <a style={{ cursor: "pointer" }} onClick={() => openAuthenticatedFile(`${apiBase}${e.receipt_url}`)}>
                                 open
                               </a>
                             </Typography>
@@ -549,7 +546,7 @@ export default function ExpensesPage() {
                               {e.receipt_url && (
                                 <Typography variant="body2" color="text.secondary">
                                   Receipt:{" "}
-                                  <a href={`${apiBase}${e.receipt_url}`} target="_blank" rel="noreferrer">
+                                  <a style={{ cursor: "pointer" }} onClick={() => openAuthenticatedFile(`${apiBase}${e.receipt_url}`)}>
                                     open
                                   </a>
                                 </Typography>
@@ -707,7 +704,7 @@ export default function ExpensesPage() {
                         {e.receipt_url && (
                           <Typography variant="body2" color="text.secondary">
                             Receipt:{" "}
-                            <a href={`${apiBase}${e.receipt_url}`} target="_blank" rel="noreferrer">
+                            <a style={{ cursor: "pointer" }} onClick={() => openAuthenticatedFile(`${apiBase}${e.receipt_url}`)}>
                               open
                             </a>
                           </Typography>
@@ -975,8 +972,7 @@ export default function ExpensesPage() {
               {reviewing.receipt_url && (
                 <Button
                   variant="outlined"
-                  href={`${process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080"}${reviewing.receipt_url}`}
-                  target="_blank"
+                  onClick={() => openAuthenticatedFile(`${apiBase}${reviewing.receipt_url}`)}
                 >
                   Open receipt
                 </Button>
