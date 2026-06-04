@@ -5,6 +5,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -577,215 +578,143 @@ export default function MeetingMinutesEditor() {
       </Paper>
 
       <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-        <Stack spacing={2}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between">
-            <Box>
-              <Typography variant="h6">Attendance</Typography>
-              <Typography variant="body2" color="text.secondary">
-                {isEditing ? "Active brothers only. Mark each brother's attendance status for this meeting." : "Attendance for this meeting."}
-              </Typography>
-            </Box>
-          </Stack>
+        <Stack spacing={1.5}>
+          <Typography variant="h6">Attendance</Typography>
 
           {!isEditing ? (
-            <Box component="table" sx={{ width: "100%", borderCollapse: "collapse" }}>
-              <Box component="thead">
-                <Box component="tr">
-                  <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1 }}>
-                    Member
-                  </Box>
-                  <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, width: 180 }}>
-                    Status
-                  </Box>
-                  <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1 }}>
-                    Details
-                  </Box>
-                </Box>
-              </Box>
-              <Box component="tbody">
-                {(meeting.attendance ?? []).map((r) => (
-                  <Box component="tr" key={r.id ?? `${r.brother_id ?? "x"}-${r.member_name ?? "y"}-${r.status}`}>
-                    <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1 }}>
-                      {r.brother_id ? `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() : r.member_name}
-                    </Box>
-                    <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1 }}>
-                      {r.status}
-                    </Box>
-                    <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1 }}>
-                      {r.status === "Late" && r.late_arrival_time ? `Arrived ${formatArrivalTime(r.late_arrival_time)}` : null}
-                      {r.status === "Excused" && r.excused_reason ? r.excused_reason : null}
-                      {r.status !== "Late" && r.status !== "Excused" ? "—" : null}
-                      {(r.status === "Late" && !r.late_arrival_time) || (r.status === "Excused" && !r.excused_reason) ? "—" : null}
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            </Box>
-          ) : (
-            <Stack spacing={1}>
-              {sortedActiveBrothers.map((b) => {
-                if (!b.id) return null;
-                const details = attendanceByBrotherId[b.id] ?? { status: "Missing", late_arrival_time: "", excused_reason: "" };
-                return (
-                  <Stack
-                    key={b.id}
-                    direction={{ xs: "column", sm: "row" }}
-                    spacing={1}
-                    alignItems={{ sm: "center" }}
-                    sx={{ py: 0.5 }}
-                  >
-                    <Typography sx={{ minWidth: 240, fontWeight: 600 }}>
-                      {b.first_name} {b.last_name}
-                    </Typography>
-                    <TextField
-                      select
-                      size="small"
-                      label="Status"
-                      value={details.status ?? "Missing"}
-                      onChange={(e) =>
-                        setAttendanceByBrotherId((prev) => {
-                          const nextStatus = e.target.value;
-                          const next = { ...(prev[b.id!] ?? { status: "Missing", late_arrival_time: "", excused_reason: "" }) };
-                          next.status = nextStatus;
-                          if (nextStatus === "Late" && !next.late_arrival_time) next.late_arrival_time = dayjs().format("HH:mm");
-                          if (nextStatus !== "Late") next.late_arrival_time = "";
-                          if (nextStatus !== "Excused") next.excused_reason = "";
-                          return { ...prev, [b.id!]: next };
-                        })
-                      }
-                      sx={{ minWidth: 200 }}
-                    >
-                      {ATTENDANCE_STATUSES.map((s) => (
-                        <MenuItem key={s} value={s}>
-                          {s}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                    {details.status === "Late" ? (
-                      <TextField
-                        label="Arrival"
-                        type="time"
-                        size="small"
-                        value={details.late_arrival_time ?? ""}
-                        onChange={(e) =>
-                          setAttendanceByBrotherId((prev) => ({
-                            ...prev,
-                            [b.id!]: { ...(prev[b.id!] ?? { status: "Late" }), late_arrival_time: e.target.value },
-                          }))
-                        }
-                        InputLabelProps={{ shrink: true }}
-                        sx={{ width: 150 }}
-                      />
-                    ) : null}
-                    {details.status === "Excused" ? (
-                      <TextField
-                        label="Reason (optional)"
-                        size="small"
-                        value={details.excused_reason ?? ""}
-                        onChange={(e) =>
-                          setAttendanceByBrotherId((prev) => ({
-                            ...prev,
-                            [b.id!]: { ...(prev[b.id!] ?? { status: "Excused" }), excused_reason: e.target.value },
-                          }))
-                        }
-                        sx={{ minWidth: 240, flex: 1 }}
-                      />
-                    ) : null}
-                  </Stack>
-                );
-              })}
-            </Stack>
-          )}
-
-          {isEditing ? (
             <>
-              <Divider />
-              <Stack direction="row" alignItems="center" justifyContent="space-between">
-                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                  Additional attendees (optional)
-                </Typography>
-                <Button
-                  variant="outlined"
-                  startIcon={<AddIcon />}
-                  onClick={() => setExtraAttendance((p) => [...p, { member_name: "", status: "Present", late_arrival_time: "", excused_reason: "" }])}
-                >
-                  Add
-                </Button>
-              </Stack>
-
-              <Stack spacing={1}>
-                {extraAttendance.map((row, idx) => (
-                  <Stack key={idx} direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }}>
-                    <TextField
-                      label="Name"
-                      value={row.member_name}
-                      onChange={(e) =>
-                        setExtraAttendance((prev) => prev.map((r, i) => (i === idx ? { ...r, member_name: e.target.value } : r)))
-                      }
-                      fullWidth
-                    />
-                    <TextField
-                      select
-                      size="small"
-                      label="Status"
-                      value={row.status}
-                      onChange={(e) =>
-                        setExtraAttendance((prev) =>
-                          prev.map((r, i) => {
-                            if (i !== idx) return r;
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: "2px 16px" }}>
+                {sortedActiveBrothers.map((b) => {
+                  if (!b.id) return null;
+                  const details = attendanceByBrotherId[b.id] ?? { status: "Missing" };
+                  const status = details.status ?? "Missing";
+                  const chipColor =
+                    status === "Present" ? "success" :
+                    status === "Late" ? "warning" :
+                    status === "Excused" ? "info" : "default";
+                  const detail =
+                    status === "Late" && details.late_arrival_time ? ` · ${formatArrivalTime(details.late_arrival_time)}` :
+                    status === "Excused" && details.excused_reason ? ` · ${details.excused_reason}` : "";
+                  return (
+                    <Box key={b.id} sx={{ display: "flex", alignItems: "center", gap: 1, py: 0.4, borderBottom: "1px solid", borderColor: "divider" }}>
+                      <Typography variant="body2" sx={{ flex: 1, fontSize: "0.82rem" }}>{b.first_name} {b.last_name}</Typography>
+                      <Chip label={status + detail} size="small" color={chipColor as any} variant={status === "Missing" ? "outlined" : "filled"} sx={{ fontSize: "0.72rem", height: 20 }} />
+                    </Box>
+                  );
+                })}
+                {extraAttendance.map((row, idx) => {
+                  const status = row.status ?? "Present";
+                  const chipColor = status === "Present" ? "success" : status === "Late" ? "warning" : status === "Excused" ? "info" : "default";
+                  const detail = status === "Late" && row.late_arrival_time ? ` · ${formatArrivalTime(row.late_arrival_time)}` : status === "Excused" && row.excused_reason ? ` · ${row.excused_reason}` : "";
+                  return (
+                    <Box key={`extra-${idx}`} sx={{ display: "flex", alignItems: "center", gap: 1, py: 0.4, borderBottom: "1px solid", borderColor: "divider" }}>
+                      <Typography variant="body2" sx={{ flex: 1, fontSize: "0.82rem" }}>{row.member_name}</Typography>
+                      <Chip label={status + detail} size="small" color={chipColor as any} variant="filled" sx={{ fontSize: "0.72rem", height: 20 }} />
+                    </Box>
+                  );
+                })}
+              </Box>
+            </>
+          ) : (
+            <>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: "4px 16px" }}>
+                {sortedActiveBrothers.map((b) => {
+                  if (!b.id) return null;
+                  const details = attendanceByBrotherId[b.id] ?? { status: "Missing", late_arrival_time: "", excused_reason: "" };
+                  return (
+                    <Box key={b.id} sx={{ display: "flex", alignItems: "center", gap: 1, py: 0.25 }}>
+                      <Typography variant="body2" sx={{ minWidth: 130, flex: 1, fontSize: "0.82rem", fontWeight: 500 }}>
+                        {b.first_name} {b.last_name}
+                      </Typography>
+                      <TextField
+                        select size="small"
+                        value={details.status ?? "Missing"}
+                        onChange={(e) =>
+                          setAttendanceByBrotherId((prev) => {
                             const nextStatus = e.target.value;
-                            const next: ExtraAttendanceRow = { ...r, status: nextStatus };
+                            const next = { ...(prev[b.id!] ?? { status: "Missing", late_arrival_time: "", excused_reason: "" }) };
+                            next.status = nextStatus;
                             if (nextStatus === "Late" && !next.late_arrival_time) next.late_arrival_time = dayjs().format("HH:mm");
                             if (nextStatus !== "Late") next.late_arrival_time = "";
                             if (nextStatus !== "Excused") next.excused_reason = "";
-                            return next;
+                            return { ...prev, [b.id!]: next };
                           })
-                        )
-                      }
-                      sx={{ minWidth: 200 }}
+                        }
+                        sx={{ width: 110, "& .MuiSelect-select": { py: "4px", fontSize: "0.8rem" } }}
+                      >
+                        {ATTENDANCE_STATUSES.map((s) => <MenuItem key={s} value={s} sx={{ fontSize: "0.8rem" }}>{s}</MenuItem>)}
+                      </TextField>
+                      {details.status === "Late" && (
+                        <TextField
+                          type="time" size="small"
+                          value={details.late_arrival_time ?? ""}
+                          onChange={(e) => setAttendanceByBrotherId((prev) => ({ ...prev, [b.id!]: { ...(prev[b.id!] ?? { status: "Late" }), late_arrival_time: e.target.value } }))}
+                          InputLabelProps={{ shrink: true }}
+                          sx={{ width: 110, "& .MuiInputBase-input": { py: "4px", fontSize: "0.8rem" } }}
+                        />
+                      )}
+                      {details.status === "Excused" && (
+                        <TextField
+                          placeholder="Reason" size="small"
+                          value={details.excused_reason ?? ""}
+                          onChange={(e) => setAttendanceByBrotherId((prev) => ({ ...prev, [b.id!]: { ...(prev[b.id!] ?? { status: "Excused" }), excused_reason: e.target.value } }))}
+                          sx={{ flex: 1, "& .MuiInputBase-input": { py: "4px", fontSize: "0.8rem" } }}
+                        />
+                      )}
+                    </Box>
+                  );
+                })}
+              </Box>
+
+              <Divider />
+              <Stack direction="row" alignItems="center" justifyContent="space-between">
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>Additional attendees</Typography>
+                <Button size="small" startIcon={<AddIcon />} onClick={() => setExtraAttendance((p) => [...p, { member_name: "", status: "Present", late_arrival_time: "", excused_reason: "" }])}>
+                  Add
+                </Button>
+              </Stack>
+              <Stack spacing={0.5}>
+                {extraAttendance.map((row, idx) => (
+                  <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <TextField
+                      placeholder="Name" size="small" value={row.member_name}
+                      onChange={(e) => setExtraAttendance((prev) => prev.map((r, i) => (i === idx ? { ...r, member_name: e.target.value } : r)))}
+                      sx={{ flex: 1, "& .MuiInputBase-input": { py: "4px", fontSize: "0.8rem" } }}
+                    />
+                    <TextField
+                      select size="small" value={row.status}
+                      onChange={(e) => setExtraAttendance((prev) => prev.map((r, i) => {
+                        if (i !== idx) return r;
+                        const nextStatus = e.target.value;
+                        const next: ExtraAttendanceRow = { ...r, status: nextStatus };
+                        if (nextStatus === "Late" && !next.late_arrival_time) next.late_arrival_time = dayjs().format("HH:mm");
+                        if (nextStatus !== "Late") next.late_arrival_time = "";
+                        if (nextStatus !== "Excused") next.excused_reason = "";
+                        return next;
+                      }))}
+                      sx={{ width: 110, "& .MuiSelect-select": { py: "4px", fontSize: "0.8rem" } }}
                     >
-                      {ATTENDANCE_STATUSES.map((s) => (
-                        <MenuItem key={s} value={s}>
-                          {s}
-                        </MenuItem>
-                      ))}
+                      {ATTENDANCE_STATUSES.map((s) => <MenuItem key={s} value={s} sx={{ fontSize: "0.8rem" }}>{s}</MenuItem>)}
                     </TextField>
-                    {row.status === "Late" ? (
-                      <TextField
-                        label="Arrival"
-                        type="time"
-                        size="small"
-                        value={row.late_arrival_time ?? ""}
-                        onChange={(e) =>
-                          setExtraAttendance((prev) =>
-                            prev.map((r, i) => (i === idx ? { ...r, late_arrival_time: e.target.value } : r))
-                          )
-                        }
+                    {row.status === "Late" && (
+                      <TextField type="time" size="small" value={row.late_arrival_time ?? ""}
+                        onChange={(e) => setExtraAttendance((prev) => prev.map((r, i) => (i === idx ? { ...r, late_arrival_time: e.target.value } : r)))}
                         InputLabelProps={{ shrink: true }}
-                        sx={{ width: 150 }}
+                        sx={{ width: 110, "& .MuiInputBase-input": { py: "4px", fontSize: "0.8rem" } }}
                       />
-                    ) : null}
-                    {row.status === "Excused" ? (
-                      <TextField
-                        label="Reason (optional)"
-                        size="small"
-                        value={row.excused_reason ?? ""}
-                        onChange={(e) =>
-                          setExtraAttendance((prev) =>
-                            prev.map((r, i) => (i === idx ? { ...r, excused_reason: e.target.value } : r))
-                          )
-                        }
-                        sx={{ minWidth: 240, flex: 1 }}
+                    )}
+                    {row.status === "Excused" && (
+                      <TextField placeholder="Reason" size="small" value={row.excused_reason ?? ""}
+                        onChange={(e) => setExtraAttendance((prev) => prev.map((r, i) => (i === idx ? { ...r, excused_reason: e.target.value } : r)))}
+                        sx={{ flex: 1, "& .MuiInputBase-input": { py: "4px", fontSize: "0.8rem" } }}
                       />
-                    ) : null}
-                    <IconButton aria-label="remove attendee" onClick={() => setExtraAttendance((prev) => prev.filter((_, i) => i !== idx))}>
-                      <DeleteIcon />
-                    </IconButton>
-                  </Stack>
+                    )}
+                    <IconButton size="small" onClick={() => setExtraAttendance((prev) => prev.filter((_, i) => i !== idx))}><DeleteIcon fontSize="small" /></IconButton>
+                  </Box>
                 ))}
               </Stack>
             </>
-          ) : null}
+          )}
         </Stack>
       </Paper>
 
