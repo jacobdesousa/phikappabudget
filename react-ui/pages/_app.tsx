@@ -66,33 +66,35 @@ export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const title = pageTitle(router.pathname);
 
-  // Login and invite: support dark mode
-  if (router.pathname === "/login" || router.pathname === "/invite/[token]") {
-    const authTitle = router.pathname === "/login" ? "PKS - Login" : "PKS - Accept Invite";
+  // Login: supports dark mode
+  if (router.pathname === "/login") {
     return (
       <ColorModeProvider>
-        <ThemedPublicPage title={authTitle}>
+        <ThemedPublicPage title="PKS - Login">
           <Component {...pageProps} />
         </ThemedPublicPage>
       </ColorModeProvider>
     );
   }
 
-  // Print/submit flows: light-only and no admin shell.
+  // Print/submit/invite flows: light-only and no admin shell.
   if (
+    router.pathname === "/invite/[token]" ||
     router.pathname === "/expense-submit" ||
     router.pathname === "/meetings/[id]/print" ||
     router.pathname === "/workdays/[id]/print" ||
     router.pathname === "/chapter-bonus/print"
   ) {
     const printTitle =
-      router.pathname === "/expense-submit"
-        ? "PKS - Expense Submit"
-        : router.pathname === "/meetings/[id]/print"
-          ? "PKS - Meeting Minutes"
-          : router.pathname === "/workdays/[id]/print"
-            ? "PKS - Workday"
-            : "PKS - Chapter Bonus";
+      router.pathname === "/invite/[token]"
+        ? "PKS - Accept Invite"
+        : router.pathname === "/expense-submit"
+          ? "PKS - Expense Submit"
+          : router.pathname === "/meetings/[id]/print"
+            ? "PKS - Meeting Minutes"
+            : router.pathname === "/workdays/[id]/print"
+              ? "PKS - Workday"
+              : "PKS - Chapter Bonus";
     return (
       <ThemeProvider theme={lightTheme}>
         <CssBaseline />
