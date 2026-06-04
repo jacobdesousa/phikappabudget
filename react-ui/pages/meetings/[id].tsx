@@ -149,7 +149,7 @@ export default function MeetingMinutesEditor() {
     return activeBrothers
       .slice()
       .filter((b) => Boolean(b.id))
-      .sort((a, b) => (a.last_name ?? "").localeCompare(b.last_name ?? "") || (a.first_name ?? "").localeCompare(b.first_name ?? ""));
+      .sort((a, b) => (a.first_name ?? "").localeCompare(b.first_name ?? "") || (a.last_name ?? "").localeCompare(b.last_name ?? ""));
   }, [activeBrothers]);
 
   const brotherLabelById = React.useMemo(() => {

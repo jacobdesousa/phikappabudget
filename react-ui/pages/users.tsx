@@ -335,7 +335,7 @@ export default function UsersPage() {
             >
               {brothers
                 .slice()
-                .sort((a, b) => String(a.last_name ?? "").localeCompare(String(b.last_name ?? "")))
+                .sort((a, b) => String(a.first_name ?? "").localeCompare(String(b.first_name ?? "")))
                 .map((b) => (
                   <MenuItem key={b.id ?? `${b.first_name}-${b.last_name}`} value={b.id ?? ""}>
                     {b.first_name} {b.last_name}

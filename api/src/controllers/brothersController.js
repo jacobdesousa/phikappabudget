@@ -24,7 +24,7 @@ async function listBrothers(req, res) {
         '[]'::json
       ) AS current_offices
     FROM brothers b
-    ORDER BY b.last_name ASC
+    ORDER BY b.first_name ASC
   `);
   res.status(200).json(rows);
 }

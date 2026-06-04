@@ -53,7 +53,7 @@ async function getWorkdayPayload(db, workdayId) {
       FROM workday_attendance a
       LEFT JOIN brothers b ON b.id = a.brother_id
       WHERE a.workday_id = $1
-      ORDER BY COALESCE(a.member_last_name, b.last_name) ASC NULLS LAST,
+      ORDER BY COALESCE(a.member_first_name, b.first_name) ASC NULLS LAST,
                COALESCE(a.member_first_name, b.first_name) ASC NULLS LAST,
                a.id ASC
     `,

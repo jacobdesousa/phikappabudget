@@ -173,8 +173,8 @@ export default function DuesTable(props: Props) {
                 <Table sx={{ minWidth: 650 }} aria-label="Dues Table">
                     <TableHead>
                         <TableRow>
-                            <TableCell>Last Name</TableCell>
-                            <TableCell align="right">First Name</TableCell>
+                            <TableCell>First Name</TableCell>
+                            <TableCell align="right">Last Name</TableCell>
                             <TableCell align="right">Owed (Year)</TableCell>
                             <TableCell align="right">Due To Date</TableCell>
                             <TableCell align="right">Total Paid</TableCell>
@@ -199,8 +199,8 @@ export default function DuesTable(props: Props) {
                                                 : undefined
                                     }}
                                 >
-                                    <TableCell component="th" scope="row">{brother.last_name}</TableCell>
-                                    <TableCell align="right">{brother.first_name}</TableCell>
+                                    <TableCell component="th" scope="row">{brother.first_name}</TableCell>
+                                    <TableCell align="right">{brother.last_name}</TableCell>
                                     <TableCell align="right">${formatMoney(getSummaryForBrother(brother.id)?.total_owed ?? 0)}</TableCell>
                                     <TableCell align="right">${formatMoney(getSummaryForBrother(brother.id)?.due_to_date ?? 0)}</TableCell>
                                     <TableCell align="right">${formatMoney(getSummaryForBrother(brother.id)?.total_paid ?? 0)}</TableCell>

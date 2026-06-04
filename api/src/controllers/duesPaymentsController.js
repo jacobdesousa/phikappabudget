@@ -62,7 +62,7 @@ async function duesPaymentsSummary(req, res) {
   }, {});
 
   const brothersRes = await pool.query(
-    "SELECT id, first_name, last_name, pledge_class FROM brothers ORDER BY last_name ASC, first_name ASC"
+    "SELECT id, first_name, last_name, pledge_class FROM brothers ORDER BY first_name ASC, last_name ASC"
   );
 
   const paymentsAggRes = await pool.query(

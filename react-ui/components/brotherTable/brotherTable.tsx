@@ -60,8 +60,8 @@ export default function BrotherTableComponent(props: Props) {
                 <Table sx={{ minWidth: 650 }} aria-label="Brothers Table">
                     <TableHead>
                         <TableRow>
-                            <TableCell>Last Name</TableCell>
-                            <TableCell align="right">First Name</TableCell>
+                            <TableCell>First Name</TableCell>
+                            <TableCell align="right">Last Name</TableCell>
                             <TableCell align="right">Email</TableCell>
                             <TableCell align="right">Phone</TableCell>
                             <TableCell align="right">Pledge Class</TableCell>
@@ -74,8 +74,8 @@ export default function BrotherTableComponent(props: Props) {
                     <TableBody>
                         {props.data.map((row: IBrother) => (
                             <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                <TableCell component="th" scope="row">{row.last_name}</TableCell>
-                                <TableCell align="right">{row.first_name}</TableCell>
+                                <TableCell component="th" scope="row">{row.first_name}</TableCell>
+                                <TableCell align="right">{row.last_name}</TableCell>
                                 <TableCell align="right">{row.email}</TableCell>
                                 <TableCell align="right">{row.phone ? formatNorthAmericanPhone(row.phone) : ""}</TableCell>
                                 <TableCell align="right">{row.pledge_class}</TableCell>

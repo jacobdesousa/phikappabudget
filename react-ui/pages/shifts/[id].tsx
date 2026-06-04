@@ -318,7 +318,7 @@ export default function ShiftDetailPage() {
           const delta = (draftCountMap.get(c.brother_id) ?? 0) - (savedCountMap.get(c.brother_id) ?? 0);
           return { ...c, count: Math.max(0, c.count + delta) };
         })
-        .sort((a, b) => a.count - b.count || a.last_name.localeCompare(b.last_name));
+        .sort((a, b) => a.count - b.count || a.first_name.localeCompare(b.first_name));
     } else {
       // setup/cleanup: count assignments in draft vs saved
       const draftIds = new Set(draftAssignments.map((a) => a.brother_id));
@@ -330,7 +330,7 @@ export default function ShiftDetailPage() {
           const delta = (inDraft && !inSaved ? 1 : 0) - (!inDraft && inSaved ? 1 : 0);
           return { ...c, count: Math.max(0, c.count + delta) };
         })
-        .sort((a, b) => a.count - b.count || a.last_name.localeCompare(b.last_name));
+        .sort((a, b) => a.count - b.count || a.first_name.localeCompare(b.first_name));
     }
   }, [counts, shift, draftAssignments, draftSlots]);
 
