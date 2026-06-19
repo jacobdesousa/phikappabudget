@@ -940,6 +940,18 @@ async function setupTables() {
     // ignore if offices table not ready
   }
 
+  // Room draw legacy point adjustments.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS room_draw_legacy_points (
+      id                SERIAL PRIMARY KEY,
+      brother_id        INTEGER NOT NULL REFERENCES brothers(id) ON DELETE CASCADE,
+      points            NUMERIC NOT NULL,
+      reason            TEXT NOT NULL,
+      added_by_user_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at        TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+
   // Optional bootstrap admin for first-time setup (creates user if none exist).
   if (env.bootstrap?.adminEmail && env.bootstrap?.adminPassword) {
     const existing = await pool.query(`SELECT COUNT(*)::int AS c FROM users;`);

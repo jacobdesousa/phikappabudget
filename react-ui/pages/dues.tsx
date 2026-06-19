@@ -1,12 +1,13 @@
 import {useEffect, useState} from "react";
 import {getAllBrothers} from "../services/brotherService";
-import {CircularProgress, Paper, Stack, Typography} from "@mui/material";
+import {Box, CircularProgress, Paper, Stack, Typography} from "@mui/material";
 import {IBrother, IDuesConfig, IDuesPayment, IDuesSummaryRow} from "../interfaces/api.interface";
 import {getDuesSummary, getPaymentsForBrother} from "../services/duesPaymentsService";
 import AddPaymentModal from "../components/addPayment/addPayment";
 import DuesTable from "../components/duesTable/duesTable";
 import {getDuesConfig} from "../services/duesConfigService";
-import {schoolYearStartForDate} from "../utils/schoolYear";
+import {schoolYearLabel, schoolYearStartForDate} from "../utils/schoolYear";
+import SchoolYearSelector from "../components/SchoolYearSelector";
 import EditPaymentDialog from "../components/editPayment/editPayment";
 import ConfirmDeletePaymentDialog from "../components/confirmDeletePayment/confirmDeletePayment";
 import { useAuth } from "../context/authContext";
@@ -135,10 +136,15 @@ export default function DuesPage() {
 
             <Stack spacing={2}>
                 <Paper elevation={0} sx={{p: 2, border: "1px solid", borderColor: "divider"}}>
-                    <Typography variant="h5">Dues</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        Track payments, balances, and who is behind for the current school year.
-                    </Typography>
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} justifyContent="space-between">
+                        <Box>
+                            <Typography variant="h5">Dues</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Track payments, balances, and who is behind for {schoolYearLabel(selectedYear)}.
+                            </Typography>
+                        </Box>
+                        <SchoolYearSelector value={selectedYear} onChange={setSelectedYear} />
+                    </Stack>
                 </Paper>
 
                 {brothersLoading || summaryLoading || configLoading ? (

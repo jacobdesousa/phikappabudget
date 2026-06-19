@@ -35,7 +35,8 @@ import { IExpense, IExpenseCategory, IBrother } from "../interfaces/api.interfac
 import { getExpenseCategories } from "../services/expenseCategoryService";
 import { addExpense, addExpenseWithReceipt, getExpenses, updateExpense, uploadExpenseReceipt } from "../services/expensesService";
 import { getAllBrothers } from "../services/brotherService";
-import { schoolYearLabel, schoolYearStartForDate } from "../utils/schoolYear";
+import { schoolYearStartForDate } from "../utils/schoolYear";
+import SchoolYearSelector from "../components/SchoolYearSelector";
 import ConfirmDeleteExpenseDialog from "../components/confirmDeleteExpense/confirmDeleteExpense";
 import { formatMoney, normalizeMoneyInput, roundMoney } from "../utils/money";
 import { openAuthenticatedFile } from "../utils/openFile";
@@ -49,7 +50,7 @@ export default function ExpensesPage() {
   const canReview = can("expenses.review");
   const canDisburse = can("expenses.disburse");
   const [refresh, setRefresh] = useState(false);
-  const currentYear = useMemo(() => schoolYearStartForDate(new Date()), []);
+  const [selectedYear, setSelectedYear] = useState(schoolYearStartForDate(new Date()));
   const [copiedSubmitLink, setCopiedSubmitLink] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const submitLink = useMemo(() => {
@@ -181,7 +182,7 @@ export default function ExpensesPage() {
   useEffect(() => {
     setLoading(true);
     setError(undefined);
-    Promise.all([getExpenseCategories(), getAllBrothers(), getExpenses()])
+    Promise.all([getExpenseCategories(), getAllBrothers(), getExpenses(selectedYear)])
       .then(([cats, bros, rows]) => {
         setCategories(cats);
         setBrothers(bros);
@@ -193,7 +194,7 @@ export default function ExpensesPage() {
         setExpenses([]);
       })
       .finally(() => setLoading(false));
-  }, [refresh]);
+  }, [refresh, selectedYear]);
 
   async function handleCreate() {
     setError(undefined);
@@ -358,9 +359,7 @@ export default function ExpensesPage() {
             </Typography>
           </Box>
           <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
-              School year: <b>{schoolYearLabel(currentYear)}</b>
-            </Typography>
+            <SchoolYearSelector value={selectedYear} onChange={setSelectedYear} />
             {canReview ? (
               <Button variant="outlined" onClick={() => setShareOpen(true)}>
                 Share submit link

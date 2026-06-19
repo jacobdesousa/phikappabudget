@@ -114,6 +114,7 @@ const {
   deletePartyDuty,
 } = require("../controllers/shiftsController");
 const { getNotifications, getAllMakeups } = require("../controllers/notificationsController");
+const { getStandings, getLegacyAdjustments, addLegacyAdjustment, deleteLegacyAdjustment } = require("../controllers/roomDrawController");
 const { requireAuth, requirePermission } = require("../middleware/auth");
 const { auditWrites } = require("../middleware/audit");
 const { pool } = require("../db/pool");
@@ -271,6 +272,11 @@ router.delete("/shift-duties/:dutyId", asyncHandler(deletePartyDuty));
 
 router.get("/notifications", asyncHandler(getNotifications));
 router.get("/makeups", asyncHandler(getAllMakeups));
+
+router.get("/room-draw/standings",     requirePermission("roomDraw.read"),  asyncHandler(getStandings));
+router.get("/room-draw/legacy",        requirePermission("roomDraw.read"),  asyncHandler(getLegacyAdjustments));
+router.post("/room-draw/legacy",       requirePermission("roomDraw.write"), asyncHandler(addLegacyAdjustment));
+router.delete("/room-draw/legacy/:id", requirePermission("roomDraw.write"), asyncHandler(deleteLegacyAdjustment));
 
 module.exports = { legacyRouter: router };
 

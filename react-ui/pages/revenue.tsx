@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import SchoolYearSelector from "../components/SchoolYearSelector";
 import { getRevenueCategories } from "../services/revenueCategoryService";
 import { IRevenue, IRevenueCategory, IRevenueSummary } from "../interfaces/api.interface";
 import {
@@ -62,7 +63,7 @@ export default function RevenuePage() {
 
     const [error, setError] = useState<string | undefined>(undefined);
 
-    const currentYear = useMemo(() => schoolYearStartForDate(new Date()), []);
+    const [selectedYear, setSelectedYear] = useState(schoolYearStartForDate(new Date()));
     const newTotal = useMemo(() => {
         const c = Number(newCash || 0);
         const s = Number(newSquare || 0);
@@ -85,7 +86,7 @@ export default function RevenuePage() {
         setSummaryLoading(true);
         setError(undefined);
 
-        Promise.all([getRevenue(), getRevenueSummary()])
+        Promise.all([getRevenue(selectedYear), getRevenueSummary(selectedYear)])
             .then(([rev, sum]) => {
                 setRevenue(rev);
                 setSummary(sum);
@@ -98,7 +99,7 @@ export default function RevenuePage() {
                 setRevenueLoading(false);
                 setSummaryLoading(false);
             });
-    }, [refresh]);
+    }, [refresh, selectedYear]);
 
     async function handleCreateRevenue() {
         setError(undefined);
@@ -147,9 +148,7 @@ export default function RevenuePage() {
                     </Box>
 
                     <Stack direction="row" spacing={1} alignItems="center">
-                        <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
-                            School year: <b>{schoolYearLabel(currentYear)}</b>
-                        </Typography>
+                        <SchoolYearSelector value={selectedYear} onChange={setSelectedYear} />
                         {canWrite ? (
                           <Button variant="contained" startIcon={<AddOutlinedIcon />} onClick={() => setAddDialogOpen(true)}>
                               Add revenue

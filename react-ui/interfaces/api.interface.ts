@@ -323,3 +323,34 @@ export interface IShiftBrotherCount {
     last_name: string;
     count: number;
 }
+
+export interface IRoomDrawBreakdown {
+    past_brother: number;
+    past_office: number;
+    incoming: number;
+    meeting_deductions: number;
+    workday_deductions: number;
+    legacy: number;
+}
+
+export interface IRoomDrawStanding {
+    brother_id: number;
+    first_name: string;
+    last_name: string;
+    total: number;
+    breakdown: IRoomDrawBreakdown;
+    over_graduation: boolean;
+    bypasses_ranking: boolean;
+    accumulation_end: string | null;
+    points_stripped: boolean;
+}
+
+export interface IRoomDrawLegacyAdjustment {
+    id?: number;
+    brother_id: number;
+    first_name?: string;
+    last_name?: string;
+    points: number;
+    reason: string;
+    created_at?: string;
+}

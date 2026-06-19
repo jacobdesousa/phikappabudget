@@ -31,6 +31,7 @@ import CleaningServicesIcon from "@mui/icons-material/CleaningServices";
 import ConstructionIcon from "@mui/icons-material/Construction";
 import CelebrationIcon from "@mui/icons-material/Celebration";
 import AssignmentLateIcon from "@mui/icons-material/AssignmentLate";
+import MeetingRoomOutlinedIcon from "@mui/icons-material/MeetingRoomOutlined";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
@@ -56,6 +57,7 @@ const navItems = [
   { href: "/shifts/setup", label: "Setup Shifts", icon: <ConstructionIcon />, anyPermissions: ["shifts.setup.read"] },
   { href: "/shifts/cleanup", label: "Cleanup Shifts", icon: <CleaningServicesIcon />, anyPermissions: ["shifts.cleanup.read"] },
   { href: "/shifts/party", label: "Party Shifts", icon: <CelebrationIcon />, anyPermissions: ["shifts.party.read"] },
+  { href: "/room-draw", label: "Room Draw", icon: <MeetingRoomOutlinedIcon />, anyPermissions: ["roomDraw.read"] },
   { href: "/makeups", label: "Makeups", icon: <AssignmentLateIcon />, anyPermissions: [] },
   { href: "/sessions", label: "Sessions", icon: <SecurityOutlinedIcon />, anyPermissions: ["admin.sessions"] },
   {
