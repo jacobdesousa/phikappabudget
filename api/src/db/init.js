@@ -947,10 +947,12 @@ async function setupTables() {
       brother_id        INTEGER NOT NULL REFERENCES brothers(id) ON DELETE CASCADE,
       points            NUMERIC NOT NULL,
       reason            TEXT NOT NULL,
+      category          TEXT NOT NULL DEFAULT 'legacy',
       added_by_user_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_at        TIMESTAMPTZ DEFAULT NOW()
     );
   `);
+  await pool.query(`ALTER TABLE room_draw_legacy_points ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'legacy';`);
 
   // Optional bootstrap admin for first-time setup (creates user if none exist).
   if (env.bootstrap?.adminEmail && env.bootstrap?.adminPassword) {

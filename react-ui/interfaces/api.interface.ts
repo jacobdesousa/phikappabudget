@@ -330,6 +330,7 @@ export interface IRoomDrawBreakdown {
     incoming: number;
     meeting_deductions: number;
     workday_deductions: number;
+    committee: number;
     legacy: number;
 }
 
@@ -352,5 +353,6 @@ export interface IRoomDrawLegacyAdjustment {
     last_name?: string;
     points: number;
     reason: string;
+    category: "committee" | "legacy";
     created_at?: string;
 }

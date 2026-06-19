@@ -126,10 +126,11 @@ function StandingRow({
                             <BreakdownRow label="Incoming election points" value={`+${breakdown.incoming}`} />
                             <BreakdownRow label="Missed meetings" value={breakdown.meeting_deductions.toFixed(2)} color={breakdown.meeting_deductions < 0 ? "error.main" : undefined} />
                             <BreakdownRow label="Missed workdays" value={breakdown.workday_deductions.toFixed(2)} color={breakdown.workday_deductions < 0 ? "error.main" : undefined} />
+                            <BreakdownRow label="Committee participation" value={breakdown.committee > 0 ? `+${breakdown.committee}` : breakdown.committee.toFixed(2)} color={breakdown.committee > 0 ? "success.main" : undefined} />
                             <BreakdownRow label="Legacy adjustments" value={breakdown.legacy > 0 ? `+${breakdown.legacy}` : breakdown.legacy.toFixed(2)} color={breakdown.legacy < 0 ? "error.main" : breakdown.legacy > 0 ? "success.main" : undefined} />
                             {canWrite && (
                                 <Button size="small" variant="text" sx={{ mt: 1, px: 0 }} onClick={onManageLegacy}>
-                                    Manage legacy adjustments
+                                    Manage adjustments
                                 </Button>
                             )}
                         </Box>
@@ -193,7 +194,7 @@ export default function RoomDrawPage() {
                     </Box>
                     {canWrite && (
                         <Button variant="outlined" startIcon={<AddOutlinedIcon />} onClick={openLegacyGeneral}>
-                            Legacy adjustments
+                            Committee &amp; legacy adjustments
                         </Button>
                     )}
                 </Stack>
@@ -272,6 +273,7 @@ function LegacyDialog({
     const [newBrotherId, setNewBrotherId] = useState<number | "">(focusBrotherId ?? "");
     const [newPoints, setNewPoints] = useState<string>("");
     const [newReason, setNewReason] = useState("");
+    const [newCategory, setNewCategory] = useState<"committee" | "legacy">("legacy");
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
@@ -279,7 +281,7 @@ function LegacyDialog({
         Promise.all([getLegacyAdjustments(), getAllBrothers()])
             .then(([adjs, bros]) => {
                 setAdjustments(adjs);
-                setBrothers(bros.filter((b) => b.status === "Active" || b.status === "Alumnus").sort((a, b) => a.first_name.localeCompare(b.first_name)));
+                setBrothers(bros.filter((b) => b.status === "Active").sort((a, b) => a.first_name.localeCompare(b.first_name)));
             })
             .finally(() => setLoading(false));
     }, []);
@@ -295,6 +297,7 @@ function LegacyDialog({
             brother_id: Number(newBrotherId),
             points: Number(newPoints),
             reason: newReason.trim(),
+            category: newCategory,
         });
         setSubmitting(false);
         if (!res.ok) {
@@ -317,7 +320,7 @@ function LegacyDialog({
 
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
-            <DialogTitle>Legacy Point Adjustments</DialogTitle>
+            <DialogTitle>Committee &amp; Legacy Point Adjustments</DialogTitle>
             <DialogContent dividers>
                 {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
                 {loading ? (
@@ -325,7 +328,10 @@ function LegacyDialog({
                 ) : (
                     <Stack spacing={3}>
                         <Box>
-                            <Typography variant="subtitle2" sx={{ mb: 1 }}>Add adjustment</Typography>
+                            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Add adjustment</Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                                Committee: Recruitment/Social committee participation, +0.5 per semester served. Legacy: pre-system history or corrections (missed meetings/workdays, etc).
+                            </Typography>
                             <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="flex-start">
                                 <FormControl size="small" sx={{ minWidth: 200 }} required>
                                     <InputLabel>Brother</InputLabel>
@@ -339,6 +345,17 @@ function LegacyDialog({
                                                 {b.first_name} {b.last_name}
                                             </MenuItem>
                                         ))}
+                                    </Select>
+                                </FormControl>
+                                <FormControl size="small" sx={{ minWidth: 150 }} required>
+                                    <InputLabel>Category</InputLabel>
+                                    <Select
+                                        label="Category"
+                                        value={newCategory}
+                                        onChange={(e) => setNewCategory(e.target.value as "committee" | "legacy")}
+                                    >
+                                        <MenuItem value="committee">Committee</MenuItem>
+                                        <MenuItem value="legacy">Legacy</MenuItem>
                                     </Select>
                                 </FormControl>
                                 <TextField
@@ -358,7 +375,7 @@ function LegacyDialog({
                                     value={newReason}
                                     onChange={(e) => setNewReason(e.target.value)}
                                     sx={{ flex: 1, minWidth: 200 }}
-                                    placeholder="e.g. 2 missed meetings from Fall 2021"
+                                    placeholder={newCategory === "committee" ? "e.g. Recruitment committee, Fall 2024" : "e.g. 2 missed meetings from Fall 2021"}
                                     required
                                 />
                                 <Button
@@ -374,12 +391,13 @@ function LegacyDialog({
                         </Box>
 
                         {adjustments.length === 0 ? (
-                            <Typography variant="body2" color="text.secondary">No legacy adjustments yet.</Typography>
+                            <Typography variant="body2" color="text.secondary">No adjustments yet.</Typography>
                         ) : (
                             <Table size="small">
                                 <TableHead>
                                     <TableRow>
                                         <TableCell sx={{ fontWeight: 700 }}>Brother</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Category</TableCell>
                                         <TableCell sx={{ fontWeight: 700 }}>Points</TableCell>
                                         <TableCell sx={{ fontWeight: 700 }}>Reason</TableCell>
                                         <TableCell sx={{ fontWeight: 700 }}>Added</TableCell>
@@ -390,6 +408,14 @@ function LegacyDialog({
                                     {adjustments.map((a) => (
                                         <TableRow key={a.id}>
                                             <TableCell>{a.first_name} {a.last_name}</TableCell>
+                                            <TableCell>
+                                                <Chip
+                                                    size="small"
+                                                    label={a.category === "committee" ? "Committee" : "Legacy"}
+                                                    color={a.category === "committee" ? "primary" : "default"}
+                                                    variant="outlined"
+                                                />
+                                            </TableCell>
                                             <TableCell sx={{ fontWeight: 600, color: a.points < 0 ? "error.main" : "success.main" }}>
                                                 {a.points > 0 ? `+${a.points}` : a.points}
                                             </TableCell>

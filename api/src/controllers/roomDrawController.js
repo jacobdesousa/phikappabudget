@@ -54,7 +54,7 @@ async function getStandings(req, res) {
 
   const { rows: brothers } = await pool.query(
     `SELECT id, first_name, last_name, pledge_class, graduation, status
-     FROM brothers WHERE status IN ('Active', 'Alumnus')
+     FROM brothers WHERE status = 'Active'
      ORDER BY first_name, last_name`
   );
 
@@ -83,9 +83,9 @@ async function getStandings(req, res) {
       [brotherIds]
     ),
     pool.query(
-      `SELECT brother_id, SUM(points)::float AS total_points
+      `SELECT brother_id, category, SUM(points)::float AS total_points
        FROM room_draw_legacy_points WHERE brother_id = ANY($1)
-       GROUP BY brother_id`,
+       GROUP BY brother_id, category`,
       [brotherIds]
     ),
   ]);
@@ -106,9 +106,11 @@ async function getStandings(req, res) {
     (missingWorkdaysByBrother[r.brother_id] ??= []).push(new Date(r.event_date));
   }
 
+  const committeeByBrother = {};
   const legacyByBrother = {};
   for (const r of legacyRes.rows) {
-    legacyByBrother[r.brother_id] = r.total_points ?? 0;
+    if (r.category === "committee") committeeByBrother[r.brother_id] = r.total_points ?? 0;
+    else legacyByBrother[r.brother_id] = r.total_points ?? 0;
   }
 
   const standings = brothers.map((b) => {
@@ -184,14 +186,15 @@ async function getStandings(req, res) {
 
     const meetingDeductions = round2(-0.15 * missedMeetings);
     const workdayDeductions = round2(-0.15 * missedWorkdays);
+    const committeePts = committeeByBrother[b.id] ?? 0;
     const legacyPts = legacyByBrother[b.id] ?? 0;
 
-    const total = round2(pastBrother + pastOffice + incoming + meetingDeductions + workdayDeductions + legacyPts);
+    const total = round2(pastBrother + pastOffice + incoming + meetingDeductions + workdayDeductions + committeePts + legacyPts);
 
     return {
       ...base,
       total,
-      breakdown: { past_brother: pastBrother, past_office: pastOffice, incoming, meeting_deductions: meetingDeductions, workday_deductions: workdayDeductions, legacy: legacyPts },
+      breakdown: { past_brother: pastBrother, past_office: pastOffice, incoming, meeting_deductions: meetingDeductions, workday_deductions: workdayDeductions, committee: committeePts, legacy: legacyPts },
       bypasses_ranking: bypassesRanking,
       accumulation_end: accEndStr,
     };
@@ -207,13 +210,13 @@ async function getStandings(req, res) {
 }
 
 function emptyBreakdown() {
-  return { past_brother: 0, past_office: 0, incoming: 0, meeting_deductions: 0, workday_deductions: 0, legacy: 0 };
+  return { past_brother: 0, past_office: 0, incoming: 0, meeting_deductions: 0, workday_deductions: 0, committee: 0, legacy: 0 };
 }
 
 async function getLegacyAdjustments(req, res) {
   const { rows } = await pool.query(
     `SELECT rdlp.id, rdlp.brother_id, b.first_name, b.last_name,
-            rdlp.points, rdlp.reason, rdlp.created_at
+            rdlp.points, rdlp.reason, rdlp.category, rdlp.created_at
      FROM room_draw_legacy_points rdlp
      JOIN brothers b ON b.id = rdlp.brother_id
      ORDER BY b.first_name, b.last_name, rdlp.created_at`
@@ -224,9 +227,9 @@ async function getLegacyAdjustments(req, res) {
 async function addLegacyAdjustment(req, res) {
   const payload = legacyAdjustmentSchema.parse(req.body);
   const { rows } = await pool.query(
-    `INSERT INTO room_draw_legacy_points (brother_id, points, reason, added_by_user_id)
-     VALUES ($1, $2, $3, $4) RETURNING *`,
-    [payload.brother_id, payload.points, payload.reason, req.auth.userId]
+    `INSERT INTO room_draw_legacy_points (brother_id, points, reason, category, added_by_user_id)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [payload.brother_id, payload.points, payload.reason, payload.category, req.auth.userId]
   );
   res.status(201).json(rows[0]);
 }
