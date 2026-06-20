@@ -85,7 +85,8 @@ export default function App({ Component, pageProps }: AppProps) {
     router.pathname === "/expense-submit" ||
     router.pathname === "/meetings/[id]/print" ||
     router.pathname === "/workdays/[id]/print" ||
-    router.pathname === "/chapter-bonus/print"
+    router.pathname === "/chapter-bonus/print" ||
+    router.pathname === "/room-draw/print"
   ) {
     const printTitle =
       router.pathname === "/invite/[token]"
@@ -96,7 +97,9 @@ export default function App({ Component, pageProps }: AppProps) {
             ? "PKS - Meeting Minutes"
             : router.pathname === "/workdays/[id]/print"
               ? "PKS - Workday"
-              : "PKS - Chapter Bonus";
+              : router.pathname === "/chapter-bonus/print"
+                ? "PKS - Chapter Bonus"
+                : "PKS - Room Draw Standings";
     return (
       <ThemeProvider theme={lightTheme}>
         <CssBaseline />

@@ -33,6 +33,7 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import StarIcon from "@mui/icons-material/Star";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import { useAuth } from "../context/authContext";
 import { IRoomDrawLegacyAdjustment, IRoomDrawStanding } from "../interfaces/api.interface";
 import {
@@ -246,11 +247,27 @@ export default function RoomDrawPage() {
                             Standings per Article XXII of the bylaws. Points accumulate over first 4 years in the fraternity.
                         </Typography>
                     </Box>
-                    {canWrite && (
-                        <Button variant="outlined" startIcon={<AddOutlinedIcon />} onClick={openLegacyGeneral}>
-                            Legacy adjustments
+                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                        <Button
+                            variant="outlined"
+                            startIcon={<PictureAsPdfOutlinedIcon />}
+                            onClick={() => window.open("/room-draw/print?detailed=0&autoprint=1", "_blank", "noopener,noreferrer")}
+                        >
+                            Export Summary
                         </Button>
-                    )}
+                        <Button
+                            variant="outlined"
+                            startIcon={<PictureAsPdfOutlinedIcon />}
+                            onClick={() => window.open("/room-draw/print?detailed=1&autoprint=1", "_blank", "noopener,noreferrer")}
+                        >
+                            Export Detailed
+                        </Button>
+                        {canWrite && (
+                            <Button variant="outlined" startIcon={<AddOutlinedIcon />} onClick={openLegacyGeneral}>
+                                Legacy adjustments
+                            </Button>
+                        )}
+                    </Stack>
                 </Stack>
             </Paper>
 
