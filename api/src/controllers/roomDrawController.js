@@ -198,7 +198,10 @@ async function getStandings(req, res) {
       }
 
       let termIncomingPoints = 0;
-      const countsAsIncoming = incomingWeight && tenureStart >= accumStart && tenureStart <= effectiveEnd;
+      // "Incoming" = the term is currently held (not yet concluded) as of today.
+      // Once end_date passes, the term is history — past-office points only.
+      const termEnded = t.end_date && new Date(t.end_date) < today;
+      const countsAsIncoming = incomingWeight && tenureStart >= accumStart && tenureStart <= effectiveEnd && !termEnded;
       if (countsAsIncoming) {
         termIncomingPoints = incomingWeight;
         incoming += incomingWeight;

@@ -49,6 +49,8 @@ function pageTitle(pathname: string) {
       return "Role Permissions";
     case "/offices":
       return "Offices";
+    case "/room-draw":
+      return "Room Draw";
     case "/shifts/setup":
       return "Setup Shifts";
     case "/shifts/cleanup":
