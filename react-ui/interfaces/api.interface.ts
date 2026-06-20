@@ -330,8 +330,24 @@ export interface IRoomDrawBreakdown {
     incoming: number;
     meeting_deductions: number;
     workday_deductions: number;
-    committee: number;
     legacy: number;
+}
+
+export interface IRoomDrawOfficeTerm {
+    office_key: string;
+    display_name: string;
+    start_date: string;
+    end_date: string | null;
+    semesters: string[];
+    past_points: number;
+    incoming_points: number;
+}
+
+export interface IRoomDrawDetails {
+    active_semesters: string[];
+    office_terms: IRoomDrawOfficeTerm[];
+    missed_meetings: number;
+    missed_workdays: number;
 }
 
 export interface IRoomDrawStanding {
@@ -340,6 +356,7 @@ export interface IRoomDrawStanding {
     last_name: string;
     total: number;
     breakdown: IRoomDrawBreakdown;
+    details: IRoomDrawDetails;
     over_graduation: boolean;
     bypasses_ranking: boolean;
     accumulation_end: string | null;
@@ -353,6 +370,5 @@ export interface IRoomDrawLegacyAdjustment {
     last_name?: string;
     points: number;
     reason: string;
-    category: "committee" | "legacy";
     created_at?: string;
 }

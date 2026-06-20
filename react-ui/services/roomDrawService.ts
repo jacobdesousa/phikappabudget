@@ -19,7 +19,7 @@ export async function getLegacyAdjustments(): Promise<IRoomDrawLegacyAdjustment[
     }
 }
 
-export async function addLegacyAdjustment(adj: { brother_id: number; points: number; reason: string; category: "committee" | "legacy" }) {
+export async function addLegacyAdjustment(adj: { brother_id: number; points: number; reason: string }) {
     try {
         const res = await apiClient.post("/room-draw/legacy", adj);
         return { ok: true, status: res.status, data: res.data as IRoomDrawLegacyAdjustment };

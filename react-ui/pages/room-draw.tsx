@@ -67,6 +67,8 @@ function StandingRow({
     const [open, setOpen] = useState(false);
     const { breakdown } = standing;
 
+    const { details } = standing;
+
     return (
         <>
             <TableRow
@@ -117,7 +119,7 @@ function StandingRow({
             <TableRow>
                 <TableCell colSpan={5} sx={{ py: 0, borderBottom: open ? undefined : "none" }}>
                     <Collapse in={open} unmountOnExit>
-                        <Box sx={{ py: 1.5, px: 2, maxWidth: 420 }}>
+                        <Box sx={{ py: 1.5, px: 2, maxWidth: 560 }}>
                             <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: "uppercase", letterSpacing: 0.5 }}>
                                 Point breakdown
                             </Typography>
@@ -126,11 +128,63 @@ function StandingRow({
                             <BreakdownRow label="Incoming election points" value={`+${breakdown.incoming}`} />
                             <BreakdownRow label="Missed meetings" value={breakdown.meeting_deductions.toFixed(2)} color={breakdown.meeting_deductions < 0 ? "error.main" : undefined} />
                             <BreakdownRow label="Missed workdays" value={breakdown.workday_deductions.toFixed(2)} color={breakdown.workday_deductions < 0 ? "error.main" : undefined} />
-                            <BreakdownRow label="Committee participation" value={breakdown.committee > 0 ? `+${breakdown.committee}` : breakdown.committee.toFixed(2)} color={breakdown.committee > 0 ? "success.main" : undefined} />
                             <BreakdownRow label="Legacy adjustments" value={breakdown.legacy > 0 ? `+${breakdown.legacy}` : breakdown.legacy.toFixed(2)} color={breakdown.legacy < 0 ? "error.main" : breakdown.legacy > 0 ? "success.main" : undefined} />
+
+                            {details.active_semesters.length > 0 && (
+                                <Box sx={{ mt: 1.5 }}>
+                                    <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: "uppercase", letterSpacing: 0.5 }}>
+                                        Active semesters counted ({details.active_semesters.length})
+                                    </Typography>
+                                    <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5, gap: 0.5 }}>
+                                        {details.active_semesters.map((s) => (
+                                            <Chip key={s} label={s} size="small" variant="outlined" />
+                                        ))}
+                                    </Stack>
+                                </Box>
+                            )}
+
+                            {details.office_terms.length > 0 && (
+                                <Box sx={{ mt: 1.5 }}>
+                                    <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: "uppercase", letterSpacing: 0.5 }}>
+                                        Offices &amp; terms
+                                    </Typography>
+                                    <Stack spacing={0.75} sx={{ mt: 0.5 }}>
+                                        {details.office_terms.map((t, i) => (
+                                            <Box key={`${t.office_key}-${t.start_date}-${i}`} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1 }}>
+                                                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                                    <Typography variant="body2" fontWeight={600}>{t.display_name}</Typography>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        {new Date(t.start_date).toLocaleDateString("en-CA", { year: "numeric", month: "short" })}
+                                                        {" – "}
+                                                        {t.end_date ? new Date(t.end_date).toLocaleDateString("en-CA", { year: "numeric", month: "short" }) : "Present"}
+                                                    </Typography>
+                                                </Stack>
+                                                {t.semesters.length > 0 && (
+                                                    <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                                                        {t.semesters.join(", ")}
+                                                    </Typography>
+                                                )}
+                                                <Stack direction="row" spacing={2} sx={{ mt: 0.25 }}>
+                                                    {t.past_points > 0 && (
+                                                        <Typography variant="caption" color="success.main" fontWeight={600}>
+                                                            +{t.past_points} past ({t.semesters.length} sem)
+                                                        </Typography>
+                                                    )}
+                                                    {t.incoming_points > 0 && (
+                                                        <Typography variant="caption" color="success.main" fontWeight={600}>
+                                                            +{t.incoming_points} incoming election
+                                                        </Typography>
+                                                    )}
+                                                </Stack>
+                                            </Box>
+                                        ))}
+                                    </Stack>
+                                </Box>
+                            )}
+
                             {canWrite && (
-                                <Button size="small" variant="text" sx={{ mt: 1, px: 0 }} onClick={onManageLegacy}>
-                                    Manage adjustments
+                                <Button size="small" variant="text" sx={{ mt: 1.5, px: 0 }} onClick={onManageLegacy}>
+                                    Manage legacy adjustments
                                 </Button>
                             )}
                         </Box>
@@ -194,7 +248,7 @@ export default function RoomDrawPage() {
                     </Box>
                     {canWrite && (
                         <Button variant="outlined" startIcon={<AddOutlinedIcon />} onClick={openLegacyGeneral}>
-                            Committee &amp; legacy adjustments
+                            Legacy adjustments
                         </Button>
                     )}
                 </Stack>
@@ -273,7 +327,6 @@ function LegacyDialog({
     const [newBrotherId, setNewBrotherId] = useState<number | "">(focusBrotherId ?? "");
     const [newPoints, setNewPoints] = useState<string>("");
     const [newReason, setNewReason] = useState("");
-    const [newCategory, setNewCategory] = useState<"committee" | "legacy">("legacy");
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
@@ -297,7 +350,6 @@ function LegacyDialog({
             brother_id: Number(newBrotherId),
             points: Number(newPoints),
             reason: newReason.trim(),
-            category: newCategory,
         });
         setSubmitting(false);
         if (!res.ok) {
@@ -320,7 +372,7 @@ function LegacyDialog({
 
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
-            <DialogTitle>Committee &amp; Legacy Point Adjustments</DialogTitle>
+            <DialogTitle>Legacy Point Adjustments</DialogTitle>
             <DialogContent dividers>
                 {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
                 {loading ? (
@@ -330,7 +382,7 @@ function LegacyDialog({
                         <Box>
                             <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Add adjustment</Typography>
                             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-                                Committee: Recruitment/Social committee participation, +0.5 per semester served. Legacy: pre-system history or corrections (missed meetings/workdays, etc).
+                                Use for pre-system history or corrections (missed meetings/workdays, etc). Offices and committees are now tracked directly via the Offices page.
                             </Typography>
                             <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="flex-start">
                                 <FormControl size="small" sx={{ minWidth: 200 }} required>
@@ -345,17 +397,6 @@ function LegacyDialog({
                                                 {b.first_name} {b.last_name}
                                             </MenuItem>
                                         ))}
-                                    </Select>
-                                </FormControl>
-                                <FormControl size="small" sx={{ minWidth: 150 }} required>
-                                    <InputLabel>Category</InputLabel>
-                                    <Select
-                                        label="Category"
-                                        value={newCategory}
-                                        onChange={(e) => setNewCategory(e.target.value as "committee" | "legacy")}
-                                    >
-                                        <MenuItem value="committee">Committee</MenuItem>
-                                        <MenuItem value="legacy">Legacy</MenuItem>
                                     </Select>
                                 </FormControl>
                                 <TextField
@@ -375,7 +416,7 @@ function LegacyDialog({
                                     value={newReason}
                                     onChange={(e) => setNewReason(e.target.value)}
                                     sx={{ flex: 1, minWidth: 200 }}
-                                    placeholder={newCategory === "committee" ? "e.g. Recruitment committee, Fall 2024" : "e.g. 2 missed meetings from Fall 2021"}
+                                    placeholder="e.g. 2 missed meetings from Fall 2021"
                                     required
                                 />
                                 <Button
@@ -391,13 +432,12 @@ function LegacyDialog({
                         </Box>
 
                         {adjustments.length === 0 ? (
-                            <Typography variant="body2" color="text.secondary">No adjustments yet.</Typography>
+                            <Typography variant="body2" color="text.secondary">No legacy adjustments yet.</Typography>
                         ) : (
                             <Table size="small">
                                 <TableHead>
                                     <TableRow>
                                         <TableCell sx={{ fontWeight: 700 }}>Brother</TableCell>
-                                        <TableCell sx={{ fontWeight: 700 }}>Category</TableCell>
                                         <TableCell sx={{ fontWeight: 700 }}>Points</TableCell>
                                         <TableCell sx={{ fontWeight: 700 }}>Reason</TableCell>
                                         <TableCell sx={{ fontWeight: 700 }}>Added</TableCell>
@@ -408,14 +448,6 @@ function LegacyDialog({
                                     {adjustments.map((a) => (
                                         <TableRow key={a.id}>
                                             <TableCell>{a.first_name} {a.last_name}</TableCell>
-                                            <TableCell>
-                                                <Chip
-                                                    size="small"
-                                                    label={a.category === "committee" ? "Committee" : "Legacy"}
-                                                    color={a.category === "committee" ? "primary" : "default"}
-                                                    variant="outlined"
-                                                />
-                                            </TableCell>
                                             <TableCell sx={{ fontWeight: 600, color: a.points < 0 ? "error.main" : "success.main" }}>
                                                 {a.points > 0 ? `+${a.points}` : a.points}
                                             </TableCell>

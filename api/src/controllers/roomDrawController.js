@@ -7,11 +7,13 @@ const OFFICE_WEIGHTS = {
     alpha: 3, beta: 3, pi: 3, sigma: 3, tau: 3,
     iota: 2, psi: 2, gamma: 2, theta: 2, chi: 2, zeta: 2,
     omega: 1, upsilon: 1, rho: 1, phi: 1,
+    rush_committee: 0.5, social_committee: 0.5,
   },
   incoming: {
     alpha: 6, beta: 6, pi: 6, sigma: 6, tau: 6,
     iota: 4, psi: 4, gamma: 4, theta: 4, chi: 4, zeta: 4,
     omega: 2, upsilon: 2, rho: 2, phi: 2,
+    rush_committee: 1, social_committee: 1,
   },
 };
 
@@ -48,6 +50,17 @@ function round2(n) {
   return Math.round(n * 100) / 100;
 }
 
+function semLabel(sem) {
+  return `${sem.term} ${sem.year}`;
+}
+
+// The pledge_class semester is the pledge semester, not an active-brother semester.
+// Active-brother point counting begins the following Fall/Spring semester.
+function nextSemesterStart(d) {
+  const month = d.getMonth(); // 0 = Jan (Spring), 8 = Sep (Fall)
+  return month === 0 ? new Date(d.getFullYear(), 8, 1) : new Date(d.getFullYear() + 1, 0, 1);
+}
+
 async function getStandings(req, res) {
   const today = new Date();
   const currentYear = today.getFullYear();
@@ -62,12 +75,14 @@ async function getStandings(req, res) {
 
   const brotherIds = brothers.map((b) => b.id);
 
-  const [tenuresRes, missingMeetingsRes, missingWorkdaysRes, legacyRes] = await Promise.all([
+  const [tenuresRes, officesRes, missingMeetingsRes, missingWorkdaysRes, legacyRes] = await Promise.all([
     pool.query(
       `SELECT brother_id, office_key, start_date::date AS start_date, end_date::date AS end_date
-       FROM brother_offices WHERE brother_id = ANY($1)`,
+       FROM brother_offices WHERE brother_id = ANY($1)
+       ORDER BY start_date`,
       [brotherIds]
     ),
+    pool.query(`SELECT office_key, display_name FROM offices`),
     pool.query(
       `SELECT ma.brother_id, mm.meeting_date::date AS event_date
        FROM meeting_attendance ma
@@ -83,9 +98,9 @@ async function getStandings(req, res) {
       [brotherIds]
     ),
     pool.query(
-      `SELECT brother_id, category, SUM(points)::float AS total_points
+      `SELECT brother_id, SUM(points)::float AS total_points
        FROM room_draw_legacy_points WHERE brother_id = ANY($1)
-       GROUP BY brother_id, category`,
+       GROUP BY brother_id`,
       [brotherIds]
     ),
   ]);
@@ -94,6 +109,11 @@ async function getStandings(req, res) {
   const tenuresByBrother = {};
   for (const t of tenuresRes.rows) {
     (tenuresByBrother[t.brother_id] ??= []).push(t);
+  }
+
+  const officeDisplayNames = {};
+  for (const o of officesRes.rows) {
+    officeDisplayNames[o.office_key] = o.display_name;
   }
 
   const missingMeetingsByBrother = {};
@@ -106,11 +126,9 @@ async function getStandings(req, res) {
     (missingWorkdaysByBrother[r.brother_id] ??= []).push(new Date(r.event_date));
   }
 
-  const committeeByBrother = {};
   const legacyByBrother = {};
   for (const r of legacyRes.rows) {
-    if (r.category === "committee") committeeByBrother[r.brother_id] = r.total_points ?? 0;
-    else legacyByBrother[r.brother_id] = r.total_points ?? 0;
+    legacyByBrother[r.brother_id] = r.total_points ?? 0;
   }
 
   const standings = brothers.map((b) => {
@@ -127,7 +145,7 @@ async function getStandings(req, res) {
     };
 
     if (!accumStart) {
-      return { ...base, total: 0, breakdown: emptyBreakdown() };
+      return { ...base, total: 0, breakdown: emptyBreakdown(), details: emptyDetails() };
     }
 
     const accumEnd = new Date(accumStart);
@@ -139,17 +157,20 @@ async function getStandings(req, res) {
     const accEndStr = accumEnd.toISOString().slice(0, 10);
 
     if (today >= strippedAfter) {
-      return { ...base, total: 0, breakdown: emptyBreakdown(), accumulation_end: accEndStr, points_stripped: true };
+      return { ...base, total: 0, breakdown: emptyBreakdown(), details: emptyDetails(), accumulation_end: accEndStr, points_stripped: true };
     }
 
     const effectiveEnd = today < accumEnd ? today : accumEnd;
     const bTenures = tenuresByBrother[b.id] ?? [];
 
-    const pastBrother = getSemestersInRange(accumStart, effectiveEnd).length;
+    const activeStart = nextSemesterStart(accumStart);
+    const activeSemesters = activeStart <= effectiveEnd ? getSemestersInRange(activeStart, effectiveEnd) : [];
+    const pastBrother = activeSemesters.length;
 
     let pastOffice = 0;
     let incoming = 0;
     let bypassesRanking = false;
+    const officeTerms = [];
 
     for (const t of bTenures) {
       const tenureStart = new Date(t.start_date);
@@ -164,17 +185,34 @@ async function getStandings(req, res) {
       const incomingWeight = OFFICE_WEIGHTS.incoming[t.office_key];
       if (!pastWeight && !incomingWeight) continue;
 
+      let termSemesters = [];
+      let termPastPoints = 0;
       if (pastWeight) {
         const overlapStart = tenureStart > accumStart ? tenureStart : accumStart;
         const overlapEnd = tenureEnd < effectiveEnd ? tenureEnd : effectiveEnd;
         if (overlapStart <= overlapEnd) {
-          pastOffice += getSemestersInRange(overlapStart, overlapEnd).length * pastWeight;
+          termSemesters = getSemestersInRange(overlapStart, overlapEnd);
+          termPastPoints = round2(termSemesters.length * pastWeight);
+          pastOffice += termPastPoints;
         }
       }
 
-      if (incomingWeight && tenureStart >= accumStart && tenureStart <= effectiveEnd) {
+      let termIncomingPoints = 0;
+      const countsAsIncoming = incomingWeight && tenureStart >= accumStart && tenureStart <= effectiveEnd;
+      if (countsAsIncoming) {
+        termIncomingPoints = incomingWeight;
         incoming += incomingWeight;
       }
+
+      officeTerms.push({
+        office_key: t.office_key,
+        display_name: officeDisplayNames[t.office_key] ?? t.office_key,
+        start_date: t.start_date,
+        end_date: t.end_date,
+        semesters: termSemesters.map(semLabel),
+        past_points: termPastPoints,
+        incoming_points: termIncomingPoints,
+      });
     }
 
     const missedMeetings = (missingMeetingsByBrother[b.id] ?? []).filter(
@@ -186,15 +224,20 @@ async function getStandings(req, res) {
 
     const meetingDeductions = round2(-0.15 * missedMeetings);
     const workdayDeductions = round2(-0.15 * missedWorkdays);
-    const committeePts = committeeByBrother[b.id] ?? 0;
     const legacyPts = legacyByBrother[b.id] ?? 0;
 
-    const total = round2(pastBrother + pastOffice + incoming + meetingDeductions + workdayDeductions + committeePts + legacyPts);
+    const total = round2(pastBrother + pastOffice + incoming + meetingDeductions + workdayDeductions + legacyPts);
 
     return {
       ...base,
       total,
-      breakdown: { past_brother: pastBrother, past_office: pastOffice, incoming, meeting_deductions: meetingDeductions, workday_deductions: workdayDeductions, committee: committeePts, legacy: legacyPts },
+      breakdown: { past_brother: pastBrother, past_office: pastOffice, incoming, meeting_deductions: meetingDeductions, workday_deductions: workdayDeductions, legacy: legacyPts },
+      details: {
+        active_semesters: activeSemesters.map(semLabel),
+        office_terms: officeTerms,
+        missed_meetings: missedMeetings,
+        missed_workdays: missedWorkdays,
+      },
       bypasses_ranking: bypassesRanking,
       accumulation_end: accEndStr,
     };
@@ -210,13 +253,17 @@ async function getStandings(req, res) {
 }
 
 function emptyBreakdown() {
-  return { past_brother: 0, past_office: 0, incoming: 0, meeting_deductions: 0, workday_deductions: 0, committee: 0, legacy: 0 };
+  return { past_brother: 0, past_office: 0, incoming: 0, meeting_deductions: 0, workday_deductions: 0, legacy: 0 };
+}
+
+function emptyDetails() {
+  return { active_semesters: [], office_terms: [], missed_meetings: 0, missed_workdays: 0 };
 }
 
 async function getLegacyAdjustments(req, res) {
   const { rows } = await pool.query(
     `SELECT rdlp.id, rdlp.brother_id, b.first_name, b.last_name,
-            rdlp.points, rdlp.reason, rdlp.category, rdlp.created_at
+            rdlp.points, rdlp.reason, rdlp.created_at
      FROM room_draw_legacy_points rdlp
      JOIN brothers b ON b.id = rdlp.brother_id
      ORDER BY b.first_name, b.last_name, rdlp.created_at`
@@ -227,9 +274,9 @@ async function getLegacyAdjustments(req, res) {
 async function addLegacyAdjustment(req, res) {
   const payload = legacyAdjustmentSchema.parse(req.body);
   const { rows } = await pool.query(
-    `INSERT INTO room_draw_legacy_points (brother_id, points, reason, category, added_by_user_id)
-     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [payload.brother_id, payload.points, payload.reason, payload.category, req.auth.userId]
+    `INSERT INTO room_draw_legacy_points (brother_id, points, reason, added_by_user_id)
+     VALUES ($1, $2, $3, $4) RETURNING *`,
+    [payload.brother_id, payload.points, payload.reason, req.auth.userId]
   );
   res.status(201).json(rows[0]);
 }
