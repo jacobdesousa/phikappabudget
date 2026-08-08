@@ -87,7 +87,11 @@ export default function MakeupsPage() {
         </Stack>
       </Paper>
 
-      {loading && <CircularProgress />}
+      {loading && (
+        <Box display="flex" justifyContent="center" py={6}>
+          <CircularProgress />
+        </Box>
+      )}
       {error && <Alert severity="error">{error}</Alert>}
 
       {!loading && !error && data && total === 0 && (

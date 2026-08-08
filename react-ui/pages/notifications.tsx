@@ -1,6 +1,7 @@
 import * as React from "react";
 import {
   Alert,
+  Box,
   Chip,
   CircularProgress,
   Divider,
@@ -45,7 +46,11 @@ export default function NotificationsPage() {
         </Typography>
       </Paper>
 
-      {loading && <CircularProgress />}
+      {loading && (
+        <Box display="flex" justifyContent="center" py={6}>
+          <CircularProgress />
+        </Box>
+      )}
       {error && <Alert severity="error">{error}</Alert>}
 
       {!loading && !error && (

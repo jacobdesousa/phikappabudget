@@ -505,7 +505,9 @@ export default function ChapterBonusPage() {
         </Stack>
         {workdaysError ? <Alert severity="error" sx={{ mt: 2 }}>{workdaysError}</Alert> : null}
         {workdaysLoading ? (
-          <CircularProgress sx={{ mt: 2 }} />
+          <Box display="flex" justifyContent="center" py={4}>
+            <CircularProgress />
+          </Box>
         ) : (
           <Box sx={{ mt: 2 }}>
             {workdays.length === 0 ? (
@@ -585,7 +587,9 @@ export default function ChapterBonusPage() {
       </Paper>
 
       {loading ? (
-        <CircularProgress />
+        <Box display="flex" justifyContent="center" py={6}>
+          <CircularProgress />
+        </Box>
       ) : (
         <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
           <Typography variant="h6" sx={{ mb: 1 }}>

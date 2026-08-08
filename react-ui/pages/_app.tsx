@@ -61,6 +61,12 @@ function pageTitle(pathname: string) {
       return "Party Shifts";
     case "/shifts/[id]":
       return "Shift Detail";
+    case "/makeups":
+      return "Makeups";
+    case "/notifications":
+      return "Notifications";
+    case "/votes/[voteId]":
+      return "Vote";
     default:
       return "App";
   }

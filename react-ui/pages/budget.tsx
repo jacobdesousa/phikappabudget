@@ -6,7 +6,6 @@ import {
   Chip,
   CircularProgress,
   Collapse,
-  Grid,
   IconButton,
   InputAdornment,
   Paper,
@@ -95,7 +94,7 @@ function InlineBudgetCell({
     );
   }
   return (
-    <TableCell sx={{ py: "1px", px: "2px", position: "relative", overflow: "visible" }}>
+    <TableCell align="right" sx={{ py: "1px", px: "2px" }}>
       <TextField
         autoFocus
         size="small"
@@ -106,19 +105,10 @@ function InlineBudgetCell({
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
           if (e.key === "Escape") { setEditing(false); setDraft(value.toFixed(2)); }
         }}
-        inputProps={{ style: { fontSize: "0.72rem", padding: "2px 4px", textAlign: "right", width: 80 } }}
+        inputProps={{ style: { fontSize: "0.72rem", padding: "2px 4px", textAlign: "right", width: 52 } }}
         InputProps={{ startAdornment: <InputAdornment position="start" sx={{ fontSize: "0.7rem", mr: 0 }}>$</InputAdornment> }}
         variant="outlined"
-        sx={{
-          position: "absolute",
-          right: 0,
-          top: "50%",
-          transform: "translateY(-50%)",
-          zIndex: 10,
-          bgcolor: "background.paper",
-          boxShadow: 3,
-          "& .MuiOutlinedInput-root": { pl: "6px" },
-        }}
+        sx={{ "& .MuiOutlinedInput-root": { pl: "6px" } }}
       />
     </TableCell>
   );
@@ -519,7 +509,7 @@ function ReconciliationSection({
   const budgetedOverdrawn = budgetedNet < -reserve;
 
   return (
-    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 0, borderLeft: "none", borderRight: "none" }}>
+    <Paper variant="outlined" sx={{ p: 1.5 }}>
       <Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
         <AccountBalanceOutlinedIcon sx={{ fontSize: 16, color: "text.secondary" }} />
         <Typography variant="caption" fontWeight={700} sx={{ letterSpacing: 1, color: "text.secondary" }}>
@@ -708,71 +698,71 @@ export default function BudgetPage() {
 
   return (
     <Stack spacing={2}>
-      <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={2}
-          alignItems={{ sm: "center" }}
-          justifyContent="space-between"
-        >
-          <Box>
-            <Typography variant="h5">Budget</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Budgeted vs actual spend by category. Edit allocations to plan the year.
-            </Typography>
-          </Box>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <SchoolYearSelector value={year} onChange={setYear} />
-            <Tooltip title="Export PDF">
-              <IconButton size="small" onClick={() => window.open(`/budget/print?year=${year}&autoprint=1`, "_blank")}>
-                <PictureAsPdfOutlinedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+        <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            alignItems={{ sm: "center" }}
+            justifyContent="space-between"
+          >
+            <Box>
+              <Typography variant="h5">Budget</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Budgeted vs actual spend by category. Edit allocations to plan the year.
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <SchoolYearSelector value={year} onChange={setYear} />
+              <Button
+                variant="outlined"
+                startIcon={<PictureAsPdfOutlinedIcon />}
+                onClick={() => window.open(`/budget/print?year=${year}&autoprint=1`, "_blank")}
+              >
+                Export PDF
+              </Button>
+            </Stack>
           </Stack>
-        </Stack>
-      </Paper>
+        </Paper>
 
-      {loading && (
-        <Box display="flex" justifyContent="center" py={6}>
-          <CircularProgress />
-        </Box>
-      )}
+        {loading && (
+          <Box display="flex" justifyContent="center" py={6}>
+            <CircularProgress />
+          </Box>
+        )}
 
-      {error && <Alert severity="error" sx={{ mx: 2 }}>{error}</Alert>}
+        {error && <Alert severity="error">{error}</Alert>}
 
-      {summary && !loading && (
-        <>
-          {summary.outstanding_disbursements.count > 0 && (
-            <Alert
-              severity="warning"
-              icon={<WarningAmberIcon fontSize="small" />}
-              sx={{ mx: 2 }}
-              action={
-                <Button size="small" component={Link} href="/expenses">
-                  View
-                </Button>
+        {summary && !loading && (
+          <>
+            {summary.outstanding_disbursements.count > 0 && (
+              <Alert
+                severity="warning"
+                icon={<WarningAmberIcon fontSize="small" />}
+                action={
+                  <Button size="small" component={Link} href="/expenses">
+                    View
+                  </Button>
+                }
+              >
+                {summary.outstanding_disbursements.count} approved expense
+                {summary.outstanding_disbursements.count !== 1 ? "s" : ""} totalling $
+                {formatMoney(summary.outstanding_disbursements.total)} not yet disbursed.
+              </Alert>
+            )}
+
+            <ReconciliationSection
+              data={summary.reconciliation}
+              canWrite={canWrite}
+              year={year}
+              revenueBudgeted={summary.totals.revenue.budgeted}
+              expenseBudgeted={summary.totals.expense.budgeted}
+              onSaved={(d) =>
+                setSummary((s) => s ? { ...s, reconciliation: d } : s)
               }
-            >
-              {summary.outstanding_disbursements.count} approved expense
-              {summary.outstanding_disbursements.count !== 1 ? "s" : ""} totalling $
-              {formatMoney(summary.outstanding_disbursements.total)} not yet disbursed.
-            </Alert>
-          )}
+            />
 
-          <ReconciliationSection
-            data={summary.reconciliation}
-            canWrite={canWrite}
-            year={year}
-            revenueBudgeted={summary.totals.revenue.budgeted}
-            expenseBudgeted={summary.totals.expense.budgeted}
-            onSaved={(d) =>
-              setSummary((s) => s ? { ...s, reconciliation: d } : s)
-            }
-          />
-
-          <Box px={2} pb={2}>
-            <Grid container spacing={1.5}>
-              <Grid item xs={12} md={5}>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
+              <Box sx={{ flex: { md: "0 0 41.67%" }, minWidth: 0 }}>
                 <Typography
                   variant="caption"
                   fontWeight={700}
@@ -790,8 +780,8 @@ export default function BudgetPage() {
                   onSaveCbRate={handleSaveCbRate}
                   totals={summary.totals.revenue}
                 />
-              </Grid>
-              <Grid item xs={12} md={7}>
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography
                   variant="caption"
                   fontWeight={700}
@@ -805,11 +795,10 @@ export default function BudgetPage() {
                   onSaveBudget={handleSaveExpenseBudget}
                   totals={summary.totals.expense}
                 />
-              </Grid>
-            </Grid>
-          </Box>
-        </>
-      )}
+              </Box>
+            </Stack>
+          </>
+        )}
     </Stack>
   );
 }

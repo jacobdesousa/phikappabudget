@@ -165,12 +165,14 @@ export default function WorkdayDetailPage() {
             ) : null}
           </Box>
           <Stack direction="row" spacing={1}>
+            <Button variant="outlined" onClick={() => router.push("/workdays")}>
+              Back
+            </Button>
             {isEditing ? (
               <>
                 <Button
                   variant="outlined"
                   onClick={() => {
-                    // Revert to last-saved state (workday is kept in sync on autosave)
                     if (workday) {
                       setDraftDate(asDateInputValue(workday.workday_date));
                       setDraftBonusMonth(String((workday as any).bonus_month ?? dayjs(workday.workday_date).format("YYYY-MM")));
@@ -219,9 +221,6 @@ export default function WorkdayDetailPage() {
                 ) : null}
               </>
             )}
-            <Button variant="outlined" onClick={() => router.push("/workdays")}>
-              Back
-            </Button>
           </Stack>
         </Stack>
       </Paper>
@@ -235,7 +234,9 @@ export default function WorkdayDetailPage() {
       </Snackbar>
 
       {loading ? (
-        <CircularProgress />
+        <Box display="flex" justifyContent="center" py={6}>
+          <CircularProgress />
+        </Box>
       ) : !workday ? null : (
         <>
           {isEditing ? (

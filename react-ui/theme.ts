@@ -6,13 +6,13 @@ export function getTheme(mode: ColorMode) {
   return createTheme({
     palette: {
       mode,
-      primary: { main: "#1f4b99" },
+      primary: { main: mode === "dark" ? "#60a5fa" : "#1f4b99" },
       secondary: { main: "#cfb53b" },
       background:
         mode === "dark"
           ? {
               default: "#0b1220",
-              paper: "#0f172a",
+              paper: "#111827",
             }
           : {
               default: "#f6f7fb",

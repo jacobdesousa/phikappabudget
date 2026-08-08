@@ -464,7 +464,11 @@ export default function MeetingMinutesEditor() {
   }, [meetingDate]);
 
   if (!router.isReady || loading) {
-    return <CircularProgress />;
+    return (
+      <Box display="flex" justifyContent="center" py={6}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
   if (!meeting) {

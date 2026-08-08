@@ -283,7 +283,9 @@ export default function RoomDrawPage() {
             )}
 
             {loading ? (
-                <CircularProgress />
+                <Box display="flex" justifyContent="center" py={6}>
+                    <CircularProgress />
+                </Box>
             ) : standings.length === 0 ? (
                 <Typography color="text.secondary">No brothers found.</Typography>
             ) : (
@@ -393,7 +395,9 @@ function LegacyDialog({
             <DialogContent dividers>
                 {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
                 {loading ? (
-                    <CircularProgress />
+                    <Box display="flex" justifyContent="center" py={4}>
+                        <CircularProgress />
+                    </Box>
                 ) : (
                     <Stack spacing={3}>
                         <Box>
