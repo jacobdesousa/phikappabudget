@@ -389,6 +389,16 @@ export interface IBudgetRevenueRow {
     budgeted_amount: number;
     actual_amount: number;
     entries: IBudgetRevenueEntry[];
+    is_dues?: boolean;
+    is_chapter_bonus?: boolean;
+}
+
+export interface IBudgetDuesConfig {
+    active_count: number;
+    dues_rate_active: number;
+    dues_rate_pledge: number;
+    estimated_pledges: number;
+    chapter_bonus_monthly_rate: number;
 }
 
 export interface IBudgetReconciliation {
@@ -402,13 +412,13 @@ export interface IBudgetSummary {
     year: number;
     expense_rows: IBudgetExpenseRow[];
     revenue_rows: IBudgetRevenueRow[];
+    dues_config: IBudgetDuesConfig;
     reconciliation: IBudgetReconciliation;
     outstanding_disbursements: { count: number; total: number };
     totals: {
         expense: { budgeted: number; actual: number; remaining: number };
         revenue: { budgeted: number; actual: number };
         net: number;
-        total_known_money: number;
     };
 }
 

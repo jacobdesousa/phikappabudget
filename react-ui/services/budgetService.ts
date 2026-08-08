@@ -1,4 +1,4 @@
-import { IBudgetReconciliation, IBudgetSummary } from "../interfaces/api.interface";
+import { IBudgetSummary } from "../interfaces/api.interface";
 import { apiClient, parseApiError } from "./apiClient";
 
 export async function getBudgetSummary(year?: number): Promise<IBudgetSummary> {
@@ -35,10 +35,21 @@ export async function saveRevenueAllocations(
 
 export async function saveReconciliation(
   year: number,
-  data: IBudgetReconciliation
+  emergency_reserve: number
 ): Promise<void> {
   try {
-    await apiClient.put(`/budget/reconciliation?year=${year}`, data);
+    await apiClient.put(`/budget/reconciliation?year=${year}`, { emergency_reserve });
+  } catch (e) {
+    throw new Error(parseApiError(e).message);
+  }
+}
+
+export async function saveDuesConfig(
+  year: number,
+  data: { estimated_pledges: number; chapter_bonus_monthly_rate: number }
+): Promise<void> {
+  try {
+    await apiClient.put(`/budget/dues-config?year=${year}`, data);
   } catch (e) {
     throw new Error(parseApiError(e).message);
   }

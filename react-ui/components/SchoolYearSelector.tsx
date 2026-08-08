@@ -10,7 +10,7 @@ interface Props {
   maxYear?: number;
 }
 
-const DEFAULT_MAX = schoolYearStartForDate(new Date());
+const DEFAULT_MAX = schoolYearStartForDate(new Date()) + 1;
 const DEFAULT_MIN = DEFAULT_MAX - 4;
 
 export default function SchoolYearSelector({ value, onChange, minYear = DEFAULT_MIN, maxYear = DEFAULT_MAX }: Props) {
