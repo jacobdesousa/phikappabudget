@@ -942,6 +942,46 @@ async function setupTables() {
     // ignore if offices table not ready
   }
 
+  // Budget allocations: treasurer sets budgeted amounts per category per year.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS budget_expense_allocations (
+      school_year     INTEGER NOT NULL,
+      category_id     INTEGER NOT NULL REFERENCES expense_categories(id) ON DELETE CASCADE,
+      budgeted_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+      PRIMARY KEY (school_year, category_id)
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS budget_revenue_allocations (
+      school_year     INTEGER NOT NULL,
+      category_id     INTEGER NOT NULL REFERENCES revenue_categories(id) ON DELETE CASCADE,
+      budgeted_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+      PRIMARY KEY (school_year, category_id)
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS budget_reconciliation (
+      school_year         INTEGER PRIMARY KEY,
+      cash_amount         NUMERIC(10,2) NOT NULL DEFAULT 0,
+      emergency_reserve   NUMERIC(10,2) NOT NULL DEFAULT 0,
+      bank_balance        NUMERIC(10,2) NOT NULL DEFAULT 0,
+      accounts_receivable NUMERIC(10,2) NOT NULL DEFAULT 0
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS budget_dues_config (
+      school_year                  INTEGER PRIMARY KEY,
+      dues_rate_active             NUMERIC(10,2) NOT NULL DEFAULT 0,
+      dues_rate_pledge             NUMERIC(10,2) NOT NULL DEFAULT 0,
+      estimated_pledges            INTEGER NOT NULL DEFAULT 15,
+      chapter_bonus_monthly_rate   NUMERIC(10,2) NOT NULL DEFAULT 500
+    );
+  `);
+  await addColumnIfMissing("budget_dues_config", "chapter_bonus_monthly_rate", "NUMERIC(10,2) NOT NULL DEFAULT 500");
+
   // Room draw legacy point adjustments.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS room_draw_legacy_points (

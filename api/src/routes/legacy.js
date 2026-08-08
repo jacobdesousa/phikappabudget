@@ -115,6 +115,13 @@ const {
 } = require("../controllers/shiftsController");
 const { getNotifications, getAllMakeups } = require("../controllers/notificationsController");
 const { getStandings, getLegacyAdjustments, addLegacyAdjustment, deleteLegacyAdjustment } = require("../controllers/roomDrawController");
+const {
+  getBudgetSummary,
+  batchUpsertExpenseAllocations,
+  batchUpsertRevenueAllocations,
+  upsertReconciliation,
+  upsertBudgetDuesConfig,
+} = require("../controllers/budgetController");
 const { requireAuth, requirePermission } = require("../middleware/auth");
 const { auditWrites } = require("../middleware/audit");
 const { pool } = require("../db/pool");
@@ -277,6 +284,13 @@ router.get("/room-draw/standings",     requirePermission("roomDraw.read"),  asyn
 router.get("/room-draw/legacy",        requirePermission("roomDraw.read"),  asyncHandler(getLegacyAdjustments));
 router.post("/room-draw/legacy",       requirePermission("roomDraw.write"), asyncHandler(addLegacyAdjustment));
 router.delete("/room-draw/legacy/:id", requirePermission("roomDraw.write"), asyncHandler(deleteLegacyAdjustment));
+
+// Budget
+router.get("/budget/summary",              requirePermission("budget.read"),  asyncHandler(getBudgetSummary));
+router.put("/budget/expense-allocations",  requirePermission("budget.write"), asyncHandler(batchUpsertExpenseAllocations));
+router.put("/budget/revenue-allocations",  requirePermission("budget.write"), asyncHandler(batchUpsertRevenueAllocations));
+router.put("/budget/reconciliation",       requirePermission("budget.write"), asyncHandler(upsertReconciliation));
+router.put("/budget/dues-config",          requirePermission("budget.write"), asyncHandler(upsertBudgetDuesConfig));
 
 module.exports = { legacyRouter: router };
 

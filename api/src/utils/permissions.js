@@ -15,6 +15,8 @@ const ROLE_PERMISSIONS = {
     "expenses.write",
     "expenses.review",
     "expenses.disburse",
+    "budget.read",
+    "budget.write",
     "meetings.read",
     "meetings.write",
     "chapterBonus.read",
@@ -46,6 +48,8 @@ const ROLE_PERMISSIONS = {
     "expenses.write",
     "expenses.review",
     "expenses.disburse",
+    "budget.read",
+    "budget.write",
     "meetings.read",
     "meetings.write",
     "chapterBonus.read",
@@ -66,6 +70,7 @@ const ROLE_PERMISSIONS = {
     "dues.read",
     "revenue.read",
     "expenses.read",
+    "budget.read",
     "meetings.read",
     "meetings.write",
     "chapterBonus.read",
@@ -78,7 +83,7 @@ const ROLE_PERMISSIONS = {
     "roomDraw.write",
   ],
   // Finance officer (if used)
-  beta: ["revenue.read", "revenue.write", "dues.read", "expenses.read", "roomDraw.read", "roomDraw.write"],
+  beta: ["revenue.read", "revenue.write", "dues.read", "expenses.read", "budget.read", "roomDraw.read", "roomDraw.write"],
   // Secretary (Sigma): owns meeting minutes and votes
   sigma: ["meetings.read", "meetings.write"],
   // Psi: manages setup shifts
@@ -97,6 +102,7 @@ const ROLE_PERMISSIONS = {
     "dues.read",
     "revenue.read",
     "expenses.read",
+    "budget.read",
     "meetings.read",
     "workdays.read",
     "chapterBonus.read",
