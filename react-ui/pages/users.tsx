@@ -352,7 +352,12 @@ export default function UsersPage() {
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                 Role from office:{" "}
-                <b>{brothers.find((b) => b.id === Number(brotherId))?.office?.trim() || "— (none)"}</b>
+                <b>
+                  {(() => {
+                    const b = brothers.find((b) => b.id === Number(brotherId));
+                    return (b?.current_offices ?? []).map((o) => o.display_name).join(", ") || b?.office?.trim() || "— (none)";
+                  })()}
+                </b>
               </Typography>
             </Paper>
           ) : null}

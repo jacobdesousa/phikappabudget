@@ -38,6 +38,7 @@ import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import LogoutIcon from "@mui/icons-material/Logout";
 import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
+import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
 import { useTheme } from "@mui/material/styles";
 import { useColorMode } from "../../theme/colorMode";
 import { logout } from "../../services/authService";
@@ -51,6 +52,7 @@ const navItems = [
   { href: "/dues", label: "Dues", icon: <PaymentsIcon />, anyPermissions: ["dues.read"] },
   { href: "/revenue", label: "Revenue", icon: <TrendingUpIcon />, anyPermissions: ["revenue.read"] },
   { href: "/expenses", label: "Expenses", icon: <ReceiptLongIcon />, anyPermissions: ["expenses.read"] },
+  { href: "/budget", label: "Budget", icon: <AccountBalanceOutlinedIcon />, anyPermissions: ["budget.read"] },
   { href: "/meetings", label: "Meetings", icon: <EventNoteIcon />, anyPermissions: ["meetings.read"] },
   { href: "/workdays", label: "Workdays", icon: <BuildIcon />, anyPermissions: ["workdays.read"] },
   { href: "/chapter-bonus", label: "Chapter Bonus", icon: <GavelIcon />, anyPermissions: ["chapterBonus.read"] },

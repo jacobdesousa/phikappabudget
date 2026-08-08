@@ -363,6 +363,55 @@ export interface IRoomDrawStanding {
     points_stripped: boolean;
 }
 
+export interface IBudgetExpenseRow {
+    category_id: number;
+    category_name: string;
+    prior_year_actual: number;
+    budgeted_amount: number;
+    actual_amount: number;
+    remaining: number;
+}
+
+export interface IBudgetRevenueEntry {
+    id: number;
+    date: string;
+    description: string;
+    amount: number;
+    cash_amount: number;
+    square_amount: number;
+    etransfer_amount: number;
+}
+
+export interface IBudgetRevenueRow {
+    category_id: number;
+    category_name: string;
+    prior_year_actual: number;
+    budgeted_amount: number;
+    actual_amount: number;
+    entries: IBudgetRevenueEntry[];
+}
+
+export interface IBudgetReconciliation {
+    cash_amount: number;
+    emergency_reserve: number;
+    bank_balance: number;
+    accounts_receivable: number;
+}
+
+export interface IBudgetSummary {
+    year: number;
+    expense_rows: IBudgetExpenseRow[];
+    revenue_rows: IBudgetRevenueRow[];
+    reconciliation: IBudgetReconciliation;
+    outstanding_disbursements: { count: number; total: number };
+    totals: {
+        expense: { budgeted: number; actual: number; remaining: number };
+        revenue: { budgeted: number; actual: number };
+        net: number;
+        total_known_money: number;
+    };
+}
+
 export interface IRoomDrawLegacyAdjustment {
     id?: number;
     brother_id: number;
