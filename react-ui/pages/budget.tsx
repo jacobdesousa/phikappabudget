@@ -20,7 +20,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import AccountBalanceIcon from "@mui/icons-material/AccountBalanceOutlined";
+import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
@@ -28,6 +28,7 @@ import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import {
@@ -47,9 +48,9 @@ import SchoolYearSelector from "../components/SchoolYearSelector";
 import { formatMoney, normalizeMoneyInput } from "../utils/money";
 import { schoolYearStartForDate } from "../utils/schoolYear";
 
-const CELL_SX = { py: "3px", px: "6px", fontSize: "0.72rem", whiteSpace: "nowrap" };
-const HEAD_SX = { ...CELL_SX, fontWeight: 700, backgroundColor: "grey.100" };
-const TOTAL_SX = { ...CELL_SX, fontWeight: 700, borderTop: "2px solid", borderColor: "grey.400" };
+const CELL_SX = { py: "3px", px: "6px", fontSize: "0.72rem", whiteSpace: "nowrap" as const };
+const HEAD_SX = { ...CELL_SX, fontWeight: 700 };
+const TOTAL_SX = { ...CELL_SX, fontWeight: 700, borderTop: "2px solid", borderColor: "divider" };
 
 function remainingColor(remaining: number, budgeted: number) {
   if (budgeted === 0) return "inherit";
@@ -88,6 +89,45 @@ function EditableMoneyCell({
   );
 }
 
+function InlineMoneyField({
+  label,
+  value,
+  onBlur,
+  canWrite,
+  resetKey,
+}: {
+  label: string;
+  value: number;
+  onBlur: (raw: string) => void;
+  canWrite: boolean;
+  resetKey: string;
+}) {
+  return (
+    <Box>
+      <Typography variant="caption" color="text.secondary" display="block">
+        {label}
+      </Typography>
+      {canWrite ? (
+        <TextField
+          size="small"
+          defaultValue={value.toFixed(2)}
+          key={resetKey}
+          onBlur={(e) => onBlur(e.target.value)}
+          inputProps={{ style: { fontSize: "0.78rem", padding: "3px 6px", width: 90, textAlign: "right" } }}
+          InputProps={{
+            startAdornment: <InputAdornment position="start" sx={{ fontSize: "0.7rem" }}>$</InputAdornment>,
+          }}
+          variant="outlined"
+        />
+      ) : (
+        <Typography variant="body2" fontWeight={500}>
+          ${formatMoney(value)}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
 function RevenueSection({
   rows,
   editMode,
@@ -108,7 +148,7 @@ function RevenueSection({
     <Paper variant="outlined" sx={{ overflow: "hidden" }}>
       <Table size="small" sx={{ tableLayout: "fixed" }}>
         <TableHead>
-          <TableRow>
+          <TableRow sx={{ bgcolor: "action.hover" }}>
             <TableCell sx={{ ...HEAD_SX, width: 24 }} />
             <TableCell sx={HEAD_SX}>Revenue Category</TableCell>
             <TableCell align="right" sx={{ ...HEAD_SX, width: 72 }}>Prior Yr</TableCell>
@@ -152,7 +192,7 @@ function RevenueSection({
                 <TableRow key={`${r.category_id}-entries`}>
                   <TableCell colSpan={5} sx={{ p: 0, border: 0 }}>
                     <Collapse in={!!expanded[r.category_id]} timeout="auto" unmountOnExit>
-                      <Table size="small" sx={{ backgroundColor: "grey.50" }}>
+                      <Table size="small" sx={{ bgcolor: "action.hover" }}>
                         <TableBody>
                           {r.entries.map((e) => (
                             <TableRow key={e.id}>
@@ -203,7 +243,7 @@ function ExpenseSection({
     <Paper variant="outlined" sx={{ overflow: "hidden" }}>
       <Table size="small" sx={{ tableLayout: "fixed" }}>
         <TableHead>
-          <TableRow>
+          <TableRow sx={{ bgcolor: "action.hover" }}>
             <TableCell sx={HEAD_SX}>Expense Category</TableCell>
             <TableCell align="right" sx={{ ...HEAD_SX, width: 72 }}>Prior Yr</TableCell>
             <TableCell align="right" sx={{ ...HEAD_SX, width: 80 }}>Budgeted</TableCell>
@@ -291,36 +331,68 @@ function ReconciliationSection({
     }
   };
 
-  const fieldDef: { key: keyof IBudgetReconciliation; label: string }[] = [
-    { key: "cash_amount", label: "Cash on Hand" },
-    { key: "emergency_reserve", label: "Emergency Reserve" },
-    { key: "bank_balance", label: "Bank Balance" },
-    { key: "accounts_receivable", label: "Accounts Receivable" },
-  ];
-
   const totalKnown = fields.bank_balance + fields.cash_amount + fields.accounts_receivable;
+  const spendable = totalKnown - fields.emergency_reserve;
+  const reserveDip = fields.emergency_reserve - fields.bank_balance;
+  const ateIntoReserve = reserveDip > 0;
 
   return (
     <Paper variant="outlined" sx={{ p: 1.5 }}>
-      <Stack direction="row" alignItems="center" spacing={1} mb={1}>
-        <AccountBalanceIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+      <Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
+        <AccountBalanceOutlinedIcon sx={{ fontSize: 16, color: "text.secondary" }} />
         <Typography variant="caption" fontWeight={700} sx={{ letterSpacing: 1, color: "text.secondary" }}>
           RECONCILIATION
         </Typography>
         {saving && <CircularProgress size={12} />}
       </Stack>
-      <Stack direction="row" flexWrap="wrap" gap={2} mb={1}>
-        {fieldDef.map(({ key, label }) => (
-          <Box key={key}>
+
+      {/* Regular fields */}
+      <Stack direction="row" flexWrap="wrap" gap={2} mb={1.5}>
+        <InlineMoneyField
+          label="Cash on Hand"
+          value={fields.cash_amount}
+          onBlur={(v) => handleBlur("cash_amount", v)}
+          canWrite={canWrite}
+          resetKey={`cash-${data.cash_amount}`}
+        />
+        <InlineMoneyField
+          label="Bank Balance"
+          value={fields.bank_balance}
+          onBlur={(v) => handleBlur("bank_balance", v)}
+          canWrite={canWrite}
+          resetKey={`bank-${data.bank_balance}`}
+        />
+        <InlineMoneyField
+          label="Accounts Receivable"
+          value={fields.accounts_receivable}
+          onBlur={(v) => handleBlur("accounts_receivable", v)}
+          canWrite={canWrite}
+          resetKey={`ar-${data.accounts_receivable}`}
+        />
+      </Stack>
+
+      {/* Emergency reserve — visually distinct */}
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 1,
+          mb: 1.5,
+          borderColor: ateIntoReserve ? "error.main" : "warning.main",
+          borderStyle: "dashed",
+        }}
+      >
+        <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
+          <ShieldOutlinedIcon sx={{ fontSize: 16, color: ateIntoReserve ? "error.main" : "warning.main" }} />
+          <Box flex={1}>
             <Typography variant="caption" color="text.secondary" display="block">
-              {label}
+              Emergency Reserve <Typography component="span" variant="caption" color="text.disabled">(set-aside — not for spending)</Typography>
             </Typography>
             {canWrite ? (
               <TextField
                 size="small"
-                defaultValue={fields[key].toFixed(2)}
-                key={`${key}-${data[key]}`}
-                onBlur={(e) => handleBlur(key, e.target.value)}
+                defaultValue={fields.emergency_reserve.toFixed(2)}
+                key={`reserve-${data.emergency_reserve}`}
+                onBlur={(e) => handleBlur("emergency_reserve", e.target.value)}
                 inputProps={{ style: { fontSize: "0.78rem", padding: "3px 6px", width: 90, textAlign: "right" } }}
                 InputProps={{
                   startAdornment: <InputAdornment position="start" sx={{ fontSize: "0.7rem" }}>$</InputAdornment>,
@@ -329,12 +401,31 @@ function ReconciliationSection({
               />
             ) : (
               <Typography variant="body2" fontWeight={500}>
-                ${formatMoney(fields[key])}
+                ${formatMoney(fields.emergency_reserve)}
               </Typography>
             )}
           </Box>
-        ))}
-      </Stack>
+          {ateIntoReserve && (
+            <Chip
+              icon={<WarningAmberIcon sx={{ fontSize: 14 }} />}
+              label={`$${formatMoney(reserveDip)} drawn from reserve`}
+              color="error"
+              size="small"
+              sx={{ fontWeight: 700 }}
+            />
+          )}
+        </Stack>
+      </Paper>
+
+      {/* Alert if ate into reserve */}
+      {ateIntoReserve && (
+        <Alert severity="error" icon={<WarningAmberIcon />} sx={{ mb: 1.5, fontSize: "0.8rem", py: 0.5 }}>
+          Bank balance (${formatMoney(fields.bank_balance)}) is below the emergency reserve (${formatMoney(fields.emergency_reserve)}).
+          You have drawn <strong>${formatMoney(reserveDip)}</strong> from emergency funds.
+        </Alert>
+      )}
+
+      {/* Derived totals */}
       <Stack direction="row" gap={3} flexWrap="wrap">
         <Box>
           <Typography variant="caption" color="text.secondary">
@@ -343,6 +434,20 @@ function ReconciliationSection({
           <Typography variant="body2" fontWeight={700}>
             ${formatMoney(totalKnown)}
           </Typography>
+        </Box>
+        <Box>
+          <Typography variant="caption" color="text.secondary">
+            Available to Spend
+          </Typography>
+          <Tooltip title="Bank + Cash + AR − Emergency Reserve">
+            <Typography
+              variant="body2"
+              fontWeight={700}
+              color={spendable < 0 ? "error.main" : spendable < fields.emergency_reserve * 0.25 ? "warning.main" : "success.main"}
+            >
+              ${formatMoney(spendable)}
+            </Typography>
+          </Tooltip>
         </Box>
       </Stack>
     </Paper>
@@ -426,147 +531,163 @@ export default function BudgetPage() {
   };
 
   return (
-    <Box p={2}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2} flexWrap="wrap" gap={1}>
-        <Stack direction="row" alignItems="center" gap={1}>
-          <AccountBalanceIcon />
-          <Typography variant="h6" fontWeight={700}>
-            Budget Dashboard
-          </Typography>
-        </Stack>
-        <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
-          <SchoolYearSelector value={year} onChange={setYear} />
-          {canWrite && !editMode && (
-            <Button
-              size="small"
-              startIcon={<EditOutlinedIcon />}
-              variant="outlined"
-              onClick={() => setEditMode(true)}
-            >
-              Edit Budgets
-            </Button>
-          )}
-          {canWrite && editMode && (
-            <>
+    <Stack spacing={2}>
+      <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={2}
+          alignItems={{ sm: "center" }}
+          justifyContent="space-between"
+        >
+          <Box>
+            <Typography variant="h5">Budget</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Budgeted vs actual spend by category. Edit allocations to plan the year.
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+            <SchoolYearSelector value={year} onChange={setYear} />
+            {canWrite && !editMode && (
               <Button
                 size="small"
-                startIcon={saving ? <CircularProgress size={14} /> : <SaveOutlinedIcon />}
-                variant="contained"
-                onClick={handleSave}
-                disabled={saving}
+                startIcon={<EditOutlinedIcon />}
+                variant="outlined"
+                onClick={() => setEditMode(true)}
               >
-                Save
+                Edit Budgets
               </Button>
-              <Button size="small" startIcon={<CancelOutlinedIcon />} onClick={handleCancelEdit} disabled={saving}>
-                Cancel
-              </Button>
-            </>
-          )}
-          <Tooltip title="Print view">
-            <IconButton size="small" onClick={() => router.push(`/budget/print?year=${year}`)}>
-              <PrintOutlinedIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Stack>
-      </Stack>
-
-      {saveError && (
-        <Alert severity="error" sx={{ mb: 1 }} onClose={() => setSaveError(null)}>
-          {saveError}
-        </Alert>
-      )}
-
-      {loading && (
-        <Box display="flex" justifyContent="center" py={6}>
-          <CircularProgress />
-        </Box>
-      )}
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      {summary && !loading && (
-        <Stack gap={1.5}>
-          {summary.outstanding_disbursements.count > 0 && (
-            <Alert
-              severity="warning"
-              icon={<WarningAmberIcon fontSize="small" />}
-              action={
-                <Button size="small" component={Link} href="/expenses">
-                  View
+            )}
+            {canWrite && editMode && (
+              <>
+                <Button
+                  size="small"
+                  startIcon={saving ? <CircularProgress size={14} /> : <SaveOutlinedIcon />}
+                  variant="contained"
+                  onClick={handleSave}
+                  disabled={saving}
+                >
+                  Save
                 </Button>
-              }
-            >
-              {summary.outstanding_disbursements.count} approved expense
-              {summary.outstanding_disbursements.count !== 1 ? "s" : ""} totalling $
-              {formatMoney(summary.outstanding_disbursements.total)} not yet disbursed.
+                <Button size="small" startIcon={<CancelOutlinedIcon />} onClick={handleCancelEdit} disabled={saving}>
+                  Cancel
+                </Button>
+              </>
+            )}
+            <Tooltip title="Print view">
+              <IconButton size="small" onClick={() => router.push(`/budget/print?year=${year}`)}>
+                <PrintOutlinedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        </Stack>
+      </Paper>
+
+      <Box px={2} pb={2}>
+        <Stack gap={1.5}>
+          {saveError && (
+            <Alert severity="error" onClose={() => setSaveError(null)}>
+              {saveError}
             </Alert>
           )}
 
-          <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
-            <Chip
-              label={`Net: ${summary.totals.net >= 0 ? "+" : ""}$${formatMoney(summary.totals.net)}`}
-              color={summary.totals.net >= 0 ? "success" : "error"}
-              size="small"
-              sx={{ fontWeight: 700 }}
-            />
-            <Typography variant="caption" color="text.secondary">
-              Revenue ${formatMoney(summary.totals.revenue.actual)} − Expenses $
-              {formatMoney(summary.totals.expense.actual)}
-            </Typography>
-          </Stack>
+          {loading && (
+            <Box display="flex" justifyContent="center" py={6}>
+              <CircularProgress />
+            </Box>
+          )}
 
-          <Grid container spacing={1.5}>
-            <Grid item xs={12} md={5}>
-              <Typography variant="caption" fontWeight={700} sx={{ letterSpacing: 1, color: "text.secondary", mb: 0.5, display: "block" }}>
-                REVENUE
-              </Typography>
-              <RevenueSection
-                rows={summary.revenue_rows}
-                editMode={editMode}
-                budgets={revenueBudgets}
-                onBudgetChange={(id, v) => setRevenueBudgets((p) => ({ ...p, [id]: v }))}
-                totals={summary.totals.revenue}
-              />
-            </Grid>
-            <Grid item xs={12} md={7}>
-              <Typography variant="caption" fontWeight={700} sx={{ letterSpacing: 1, color: "text.secondary", mb: 0.5, display: "block" }}>
-                EXPENSES
-              </Typography>
-              <ExpenseSection
-                rows={summary.expense_rows}
-                editMode={editMode}
-                budgets={expenseBudgets}
-                onBudgetChange={(id, v) => setExpenseBudgets((p) => ({ ...p, [id]: v }))}
-                totals={summary.totals.expense}
-              />
-            </Grid>
-          </Grid>
+          {error && <Alert severity="error">{error}</Alert>}
 
-          <ReconciliationSection
-            data={summary.reconciliation}
-            canWrite={canWrite}
-            year={year}
-            onSaved={(d) =>
-              setSummary((s) =>
-                s
-                  ? {
-                      ...s,
-                      reconciliation: d,
-                      totals: {
-                        ...s.totals,
-                        total_known_money: d.bank_balance + d.cash_amount + d.accounts_receivable,
-                      },
-                    }
-                  : s
-              )
-            }
-          />
+          {summary && !loading && (
+            <>
+              {summary.outstanding_disbursements.count > 0 && (
+                <Alert
+                  severity="warning"
+                  icon={<WarningAmberIcon fontSize="small" />}
+                  action={
+                    <Button size="small" component={Link} href="/expenses">
+                      View
+                    </Button>
+                  }
+                >
+                  {summary.outstanding_disbursements.count} approved expense
+                  {summary.outstanding_disbursements.count !== 1 ? "s" : ""} totalling $
+                  {formatMoney(summary.outstanding_disbursements.total)} not yet disbursed.
+                </Alert>
+              )}
+
+              <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
+                <Chip
+                  label={`Net: ${summary.totals.net >= 0 ? "+" : ""}$${formatMoney(summary.totals.net)}`}
+                  color={summary.totals.net >= 0 ? "success" : "error"}
+                  size="small"
+                  sx={{ fontWeight: 700 }}
+                />
+                <Typography variant="caption" color="text.secondary">
+                  Revenue ${formatMoney(summary.totals.revenue.actual)} − Expenses $
+                  {formatMoney(summary.totals.expense.actual)}
+                </Typography>
+              </Stack>
+
+              <Grid container spacing={1.5}>
+                <Grid item xs={12} md={5}>
+                  <Typography
+                    variant="caption"
+                    fontWeight={700}
+                    sx={{ letterSpacing: 1, color: "text.secondary", mb: 0.5, display: "block" }}
+                  >
+                    REVENUE
+                  </Typography>
+                  <RevenueSection
+                    rows={summary.revenue_rows}
+                    editMode={editMode}
+                    budgets={revenueBudgets}
+                    onBudgetChange={(id, v) => setRevenueBudgets((p) => ({ ...p, [id]: v }))}
+                    totals={summary.totals.revenue}
+                  />
+                </Grid>
+                <Grid item xs={12} md={7}>
+                  <Typography
+                    variant="caption"
+                    fontWeight={700}
+                    sx={{ letterSpacing: 1, color: "text.secondary", mb: 0.5, display: "block" }}
+                  >
+                    EXPENSES
+                  </Typography>
+                  <ExpenseSection
+                    rows={summary.expense_rows}
+                    editMode={editMode}
+                    budgets={expenseBudgets}
+                    onBudgetChange={(id, v) => setExpenseBudgets((p) => ({ ...p, [id]: v }))}
+                    totals={summary.totals.expense}
+                  />
+                </Grid>
+              </Grid>
+
+              <ReconciliationSection
+                data={summary.reconciliation}
+                canWrite={canWrite}
+                year={year}
+                onSaved={(d) =>
+                  setSummary((s) =>
+                    s
+                      ? {
+                          ...s,
+                          reconciliation: d,
+                          totals: {
+                            ...s.totals,
+                            total_known_money: d.bank_balance + d.cash_amount + d.accounts_receivable,
+                          },
+                        }
+                      : s
+                  )
+                }
+              />
+            </>
+          )}
         </Stack>
-      )}
-    </Box>
+      </Box>
+    </Stack>
   );
 }
+
