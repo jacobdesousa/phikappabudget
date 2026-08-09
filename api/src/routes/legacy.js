@@ -122,6 +122,44 @@ const {
   upsertReconciliation,
   upsertBudgetDuesConfig,
 } = require("../controllers/budgetController");
+const {
+  listAssignments,
+  getRoster,
+  createAssignment,
+  updateAssignment,
+  deleteAssignment,
+  houseSummary,
+} = require("../controllers/houseController");
+const { getHouseAgreement } = require("../controllers/houseAgreementController");
+const {
+  listRooms,
+  getHouseConfig,
+  upsertHouseConfig,
+  seedHouseConfig,
+} = require("../controllers/houseConfigController");
+const {
+  listHousePayments,
+  createHousePayment,
+  updateHousePayment,
+  deleteHousePayment,
+  listHouseDeposits,
+  createHouseDeposit,
+  updateHouseDeposit,
+  deleteHouseDeposit,
+} = require("../controllers/housePaymentsController");
+const {
+  getHouseAccount,
+  listDisbursements,
+  createDisbursement,
+  updateDisbursement,
+  deleteDisbursement,
+  postDisbursementRevenue,
+  listTransactions,
+  listAdjustments,
+  createAdjustment,
+  updateAdjustment,
+  deleteAdjustment,
+} = require("../controllers/houseAccountController");
 const { requireAuth, requirePermission } = require("../middleware/auth");
 const { auditWrites } = require("../middleware/audit");
 const { pool } = require("../db/pool");
@@ -291,6 +329,39 @@ router.put("/budget/expense-allocations",  requirePermission("budget.write"), as
 router.put("/budget/revenue-allocations",  requirePermission("budget.write"), asyncHandler(batchUpsertRevenueAllocations));
 router.put("/budget/reconciliation",       requirePermission("budget.write"), asyncHandler(upsertReconciliation));
 router.put("/budget/dues-config",          requirePermission("budget.write"), asyncHandler(upsertBudgetDuesConfig));
+
+// Chapter house. Literal paths are declared before any `/:id` route so they
+// aren't swallowed by the wildcard.
+router.get("/house/config",             requirePermission("house.config"), asyncHandler(getHouseConfig));
+router.put("/house/config",             requirePermission("house.config"), asyncHandler(upsertHouseConfig));
+router.post("/house/config/seed",       requirePermission("house.config"), asyncHandler(seedHouseConfig));
+router.get("/house/agreement",          requirePermission("house.read"),   asyncHandler(getHouseAgreement));
+router.get("/house/rooms",              requirePermission("house.read"),   asyncHandler(listRooms));
+router.get("/house/roster",             requirePermission("house.read"),   asyncHandler(getRoster));
+router.get("/house/summary",            requirePermission("house.read"),   asyncHandler(houseSummary));
+router.get("/house/assignments",        requirePermission("house.read"),   asyncHandler(listAssignments));
+router.post("/house/assignments",       requirePermission("house.write"),  asyncHandler(createAssignment));
+router.put("/house/assignments/:id",    requirePermission("house.write"),  asyncHandler(updateAssignment));
+router.delete("/house/assignments/:id", requirePermission("house.write"),  asyncHandler(deleteAssignment));
+router.get("/house/payments",           requirePermission("house.read"),   asyncHandler(listHousePayments));
+router.post("/house/payments",          requirePermission("house.write"),  asyncHandler(createHousePayment));
+router.put("/house/payments/:id",       requirePermission("house.write"),  asyncHandler(updateHousePayment));
+router.delete("/house/payments/:id",    requirePermission("house.write"),  asyncHandler(deleteHousePayment));
+router.get("/house/deposits",           requirePermission("house.read"),   asyncHandler(listHouseDeposits));
+router.post("/house/deposits",          requirePermission("house.write"),  asyncHandler(createHouseDeposit));
+router.put("/house/deposits/:id",       requirePermission("house.write"),  asyncHandler(updateHouseDeposit));
+router.delete("/house/deposits/:id",    requirePermission("house.write"),  asyncHandler(deleteHouseDeposit));
+router.get("/house/account",                         requirePermission("house.read"),  asyncHandler(getHouseAccount));
+router.get("/house/account/transactions",            requirePermission("house.read"),  asyncHandler(listTransactions));
+router.get("/house/account/adjustments",             requirePermission("house.read"),  asyncHandler(listAdjustments));
+router.post("/house/account/adjustments",            requirePermission("house.write"), asyncHandler(createAdjustment));
+router.put("/house/account/adjustments/:id",         requirePermission("house.write"), asyncHandler(updateAdjustment));
+router.delete("/house/account/adjustments/:id",      requirePermission("house.write"), asyncHandler(deleteAdjustment));
+router.get("/house/disbursements",                   requirePermission("house.read"),  asyncHandler(listDisbursements));
+router.post("/house/disbursements",                  requirePermission("house.write"), asyncHandler(createDisbursement));
+router.post("/house/disbursements/:id/post-revenue", requirePermission("house.write"), asyncHandler(postDisbursementRevenue));
+router.put("/house/disbursements/:id",               requirePermission("house.write"), asyncHandler(updateDisbursement));
+router.delete("/house/disbursements/:id",            requirePermission("house.write"), asyncHandler(deleteDisbursement));
 
 module.exports = { legacyRouter: router };
 

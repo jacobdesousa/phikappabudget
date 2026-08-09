@@ -994,6 +994,250 @@ async function setupTables() {
     );
   `);
 
+  // ── Chapter house (Bannerman House) ────────────────────────────────────────
+  // Residence fees are held in a separate bank account from the social budget.
+  // Nothing here writes to `revenue` or `expenses`; the only link is the
+  // "House Fee Rebate" pinned budget line (see budgetController) and the
+  // nullable house_disbursement_shares.revenue_id pointer.
+
+  // Physical bedrooms. Stable across years; capacity/type/rates live per-year.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS house_rooms (
+      id          SERIAL PRIMARY KEY,
+      room_code   TEXT NOT NULL UNIQUE,
+      floor       INTEGER,
+      sort_order  INTEGER,
+      is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+      notes       TEXT
+    );
+  `);
+
+  // Sessions: winter = Sep 1 – Apr 30, summer = May 1 – Aug 31 of the same
+  // school year (school_year is the September start year).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS house_sessions (
+      id                       SERIAL PRIMARY KEY,
+      school_year              INTEGER NOT NULL,
+      session_type             TEXT NOT NULL,
+      -- A term is a 4-month period. Winter (Sep-Apr) is two terms, summer one.
+      -- Room rates and the member rebate are both configured per term.
+      terms                    INTEGER NOT NULL DEFAULT 1,
+      start_date               DATE,
+      end_date                 DATE,
+      member_rebate            NUMERIC(10,2) NOT NULL DEFAULT 0,
+      prepay_discount_pct      NUMERIC(6,3) NOT NULL DEFAULT 0,
+      prepay_deadline          DATE,
+      security_deposit_amount  NUMERIC(10,2) NOT NULL DEFAULT 500,
+      UNIQUE (school_year, session_type)
+    );
+  `);
+
+  // Instalments are stored as weights so one schedule scales to every
+  // resident's own total.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS house_session_instalments (
+      id            SERIAL PRIMARY KEY,
+      school_year   INTEGER NOT NULL,
+      session_type  TEXT NOT NULL,
+      seq           INTEGER NOT NULL,
+      due_date      DATE,
+      weight_pct    NUMERIC(6,3) NOT NULL,
+      UNIQUE (school_year, session_type, seq)
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS house_room_rates (
+      id               SERIAL PRIMARY KEY,
+      school_year      INTEGER NOT NULL,
+      session_type     TEXT NOT NULL,
+      room_id          INTEGER NOT NULL REFERENCES house_rooms(id) ON DELETE CASCADE,
+      capacity         INTEGER NOT NULL DEFAULT 1,
+      -- One price per room per term. For a double this is per person, so a
+      -- buy-out costs capacity x rate_per_person.
+      rate_per_person  NUMERIC(10,2),
+      UNIQUE (school_year, session_type, room_id)
+    );
+  `);
+
+  // No unique constraint on (year, session, room, bed): a mid-session move-out
+  // followed by a move-in produces two rows for the same bed. Overlap is
+  // validated in the controller instead.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS house_assignments (
+      id               SERIAL PRIMARY KEY,
+      school_year      INTEGER NOT NULL,
+      session_type     TEXT NOT NULL,
+      room_id          INTEGER NOT NULL REFERENCES house_rooms(id) ON DELETE CASCADE,
+      bed             INTEGER NOT NULL DEFAULT 1,
+      brother_id       INTEGER NOT NULL REFERENCES brothers(id) ON DELETE CASCADE,
+      occupancy        TEXT NOT NULL DEFAULT 'standard',
+      start_date       DATE,
+      end_date         DATE,
+      base_amount      NUMERIC(10,2),
+      amount_override  NUMERIC(10,2),
+      override_note    TEXT,
+      member_discount  BOOLEAN NOT NULL DEFAULT FALSE,
+      -- On a buy-out the Co-op may or may not grant the rebate on both beds.
+      double_rebate    BOOLEAN NOT NULL DEFAULT FALSE,
+      prepay_discount  BOOLEAN NOT NULL DEFAULT FALSE,
+      notes            TEXT
+    );
+  `);
+  await createIndexIfMissing(
+    "house_assignments_bed_idx",
+    `CREATE INDEX house_assignments_bed_idx ON house_assignments (school_year, session_type, room_id, bed);`
+  );
+  await createIndexIfMissing(
+    "house_assignments_brother_idx",
+    `CREATE INDEX house_assignments_brother_idx ON house_assignments (brother_id, school_year, session_type);`
+  );
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS house_payments (
+      id             SERIAL PRIMARY KEY,
+      brother_id     INTEGER NOT NULL REFERENCES brothers(id) ON DELETE CASCADE,
+      school_year    INTEGER NOT NULL,
+      session_type   TEXT NOT NULL,
+      assignment_id  INTEGER REFERENCES house_assignments(id) ON DELETE SET NULL,
+      paid_at        DATE NOT NULL,
+      amount         NUMERIC(10,2) NOT NULL,
+      memo           TEXT
+    );
+  `);
+  await createIndexIfMissing(
+    "house_payments_brother_year_idx",
+    `CREATE INDEX house_payments_brother_year_idx ON house_payments (brother_id, school_year, session_type);`
+  );
+
+  // Deposits are per resident, not per session — they carry over between years
+  // and stay in the residence account until refunded.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS house_deposits (
+      id           SERIAL PRIMARY KEY,
+      -- One deposit per resident: it carries over between years rather than
+      -- being re-taken each session.
+      brother_id   INTEGER NOT NULL UNIQUE REFERENCES brothers(id) ON DELETE CASCADE,
+      amount       NUMERIC(10,2) NOT NULL,
+      received_at  DATE,
+      -- outstanding | received | refunded
+      status       TEXT NOT NULL DEFAULT 'outstanding',
+      released_at  DATE,
+      -- The cheque the refund went out on; only meaningful once refunded.
+      refund_cheque_number TEXT,
+      note         TEXT
+    );
+  `);
+  await createIndexIfMissing(
+    "house_deposits_brother_idx",
+    `CREATE INDEX house_deposits_brother_idx ON house_deposits (brother_id);`
+  );
+
+  // Damages and cleaning charges withheld from a deposit at move-out. Itemised
+  // so the resident can be shown what was taken and why.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS house_deposit_deductions (
+      id          SERIAL PRIMARY KEY,
+      deposit_id  INTEGER NOT NULL REFERENCES house_deposits(id) ON DELETE CASCADE,
+      description TEXT,
+      amount      NUMERIC(10,2) NOT NULL DEFAULT 0
+    );
+  `);
+  await createIndexIfMissing(
+    "house_deposit_deductions_deposit_idx",
+    `CREATE INDEX house_deposit_deductions_deposit_idx ON house_deposit_deductions (deposit_id);`
+  );
+
+  // ── Disbursements (schema only for now; UI is a follow-up) ─────────────────
+  // Payees are rows rather than fixed columns so the split can change.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS house_disbursement_payees (
+      id           SERIAL PRIMARY KEY,
+      school_year  INTEGER NOT NULL,
+      payee        TEXT NOT NULL,
+      pct          NUMERIC(6,3) NOT NULL,
+      is_internal  BOOLEAN NOT NULL DEFAULT FALSE,
+      sort_order   INTEGER,
+      UNIQUE (school_year, payee)
+    );
+  `);
+
+  // sub_total = bank_balance - security_to_refund - security_on_account (derived).
+  // A row exists only once the money has actually left the account, so there is
+  // no draft state — see neon-disbursement-drop-status.sql.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS house_disbursements (
+      id                   SERIAL PRIMARY KEY,
+      school_year          INTEGER NOT NULL,
+      session_type         TEXT NOT NULL,
+      -- Identifies and orders the row, and derives school_year/session_type.
+      disbursed_on         DATE,
+      bank_balance         NUMERIC(12,2) NOT NULL DEFAULT 0,
+      security_to_refund   NUMERIC(12,2) NOT NULL DEFAULT 0,
+      security_on_account  NUMERIC(12,2) NOT NULL DEFAULT 0,
+      notes                TEXT
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS house_disbursement_shares (
+      id               SERIAL PRIMARY KEY,
+      disbursement_id  INTEGER NOT NULL REFERENCES house_disbursements(id) ON DELETE CASCADE,
+      payee            TEXT NOT NULL,
+      pct              NUMERIC(6,3) NOT NULL,
+      amount           NUMERIC(12,2) NOT NULL,
+      -- Each payee is paid separately, so the cheque number is per share.
+      cheque_number    TEXT,
+      -- Set once the chapter's share is booked as revenue. ON DELETE SET NULL
+      -- rather than CASCADE: deleting the revenue entry un-posts the share so
+      -- it can be booked again, but must never delete the disbursement itself.
+      -- See neon-disbursement-revenue-fk.sql.
+      revenue_id       INTEGER REFERENCES revenue(id) ON DELETE SET NULL,
+      UNIQUE (disbursement_id, payee)
+    );
+  `);
+
+  // Anything moving through the residence account that isn't a fee payment,
+  // deposit, or disbursement (bank fees, PM revenue bonus, corrections).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS house_account_adjustments (
+      id           SERIAL PRIMARY KEY,
+      occurred_on  DATE,
+      amount       NUMERIC(12,2) NOT NULL,
+      description  TEXT,
+      school_year  INTEGER,
+      -- Set when the row is the automatic reconciliation for a disbursement
+      -- whose entered bank balance disagreed with the derived one. NULL for a
+      -- manually entered adjustment. See neon-adjustment-disbursement-link.sql.
+      disbursement_id INTEGER REFERENCES house_disbursements(id) ON DELETE CASCADE
+    );
+  `);
+
+  // Seed the 15 physical bedrooms from the floor plans.
+  {
+    const rooms = [
+      ["1A", 1], ["2A", 2], ["2B", 2], ["2C", 2], ["2D", 2], ["2E", 2],
+      ["2F", 2], ["2G", 2], ["3A", 3], ["3B", 3], ["3C", 3], ["3D", 3],
+      ["3E", 3], ["3F", 3], ["3G", 3],
+    ];
+    for (let i = 0; i < rooms.length; i++) {
+      const [code, floor] = rooms[i];
+      await pool.query(
+        `INSERT INTO house_rooms (room_code, floor, sort_order)
+         SELECT $1, $2, $3
+         WHERE NOT EXISTS (SELECT 1 FROM house_rooms WHERE room_code = $1);`,
+        [code, floor, (i + 1) * 10]
+      );
+    }
+  }
+
+  // Pinned revenue category for the PKSAB share of house disbursements.
+  await pool.query(`
+    INSERT INTO revenue_categories (name)
+    SELECT 'House Fee Rebate'
+    WHERE NOT EXISTS (SELECT 1 FROM revenue_categories WHERE name = 'House Fee Rebate');
+  `);
+
   // Optional bootstrap admin for first-time setup (creates user if none exist).
   if (env.bootstrap?.adminEmail && env.bootstrap?.adminPassword) {
     const existing = await pool.query(`SELECT COUNT(*)::int AS c FROM users;`);

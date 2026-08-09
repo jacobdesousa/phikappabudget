@@ -32,6 +32,9 @@ const ROLE_PERMISSIONS = {
     "shifts.party.write",
     "roomDraw.read",
     "roomDraw.write",
+    "house.read",
+    "house.write",
+    "house.config",
   ],
   // Treasurer / finance chair: full access
   tau: [
@@ -62,6 +65,9 @@ const ROLE_PERMISSIONS = {
     "shifts.party.read",
     "roomDraw.read",
     "roomDraw.write",
+    "house.read",
+    "house.write",
+    "house.config",
   ],
   // President: broad write access except financial disbursement by default
   alpha: [
@@ -81,9 +87,11 @@ const ROLE_PERMISSIONS = {
     "shifts.party.read",
     "roomDraw.read",
     "roomDraw.write",
+    "house.read",
+    "house.write",
   ],
   // Finance officer (if used)
-  beta: ["revenue.read", "revenue.write", "dues.read", "expenses.read", "budget.read", "roomDraw.read", "roomDraw.write"],
+  beta: ["revenue.read", "revenue.write", "dues.read", "expenses.read", "budget.read", "roomDraw.read", "roomDraw.write", "house.read"],
   // Secretary (Sigma): owns meeting minutes and votes
   sigma: ["meetings.read", "meetings.write"],
   // Psi: manages setup shifts

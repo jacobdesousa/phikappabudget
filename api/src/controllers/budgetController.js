@@ -1,6 +1,7 @@
 const { pool } = require("../db/pool");
 const { currentSchoolYearStart } = require("../utils/schoolYear");
 const { roundMoney } = require("../utils/money");
+const { totalOwedFor } = require("../utils/houseFees");
 const z = require("zod");
 
 const allocationRowSchema = z.object({
@@ -19,6 +20,62 @@ const duesConfigSchema = z.object({
   estimated_pledges: z.number().int().min(0),
   chapter_bonus_monthly_rate: z.number().min(0),
 });
+
+// Forecast the chapter's cut of residence fees for a school year: every room
+// assignment's total owed across both sessions, times the internal payee's
+// percentage (PKSAB, 11%). Read-only — the house account stays separate.
+async function houseRebateBudgeted(year) {
+  const [assignmentsRes, sessionsRes, ratesRes, payeeRes] = await Promise.all([
+    pool.query(
+      `SELECT session_type, room_id, occupancy, base_amount, amount_override,
+              member_discount, double_rebate, prepay_discount
+       FROM house_assignments WHERE school_year = $1`,
+      [year]
+    ),
+    pool.query(
+      `SELECT session_type, terms, member_rebate, prepay_discount_pct
+       FROM house_sessions WHERE school_year = $1`,
+      [year]
+    ),
+    pool.query(
+      `SELECT session_type, room_id, capacity, rate_per_person
+       FROM house_room_rates WHERE school_year = $1`,
+      [year]
+    ),
+    pool.query(
+      `SELECT payee, pct FROM house_disbursement_payees
+       WHERE school_year = $1 AND is_internal = TRUE
+       ORDER BY sort_order ASC LIMIT 1`,
+      [year]
+    ),
+  ]);
+
+  const sessionByType = new Map(sessionsRes.rows.map((s) => [s.session_type, s]));
+  const rateByKey = new Map(
+    ratesRes.rows.map((r) => [`${r.session_type}:${r.room_id}`, r])
+  );
+
+  const fees_total = roundMoney(
+    assignmentsRes.rows.reduce(
+      (sum, a) =>
+        sum +
+        totalOwedFor(
+          a,
+          sessionByType.get(a.session_type),
+          rateByKey.get(`${a.session_type}:${a.room_id}`)
+        ),
+      0
+    )
+  );
+
+  const pct = Number(payeeRes.rows[0]?.pct ?? 0);
+  return {
+    fees_total,
+    pct,
+    payee: payeeRes.rows[0]?.payee ?? null,
+    budgeted: roundMoney(fees_total * (pct / 100)),
+  };
+}
 
 async function getBudgetSummary(req, res) {
   const yearRaw = req.query.year;
@@ -160,15 +217,24 @@ async function getBudgetSummary(req, res) {
   // Chapter bonus: 8 bonus months per year × monthly rate (e.g. 8 × $500 = $4,000)
   const chapter_bonus_budgeted = roundMoney(8 * dues_config.chapter_bonus_monthly_rate);
 
+  // House fee rebate: the chapter's share of residence fees. Read-only against
+  // the house tables — actuals arrive as ordinary revenue rows when the
+  // disbursement is received, same as Chapter Bonus.
+  const house_rebate = await houseRebateBudgeted(year);
+  const house_rebate_budgeted = house_rebate.budgeted;
+
   // ── Build revenue rows, overriding Dues budgeted ───────────────────────────
   const revenue_rows = revenueCatRes.rows.map((r) => {
     const isDues = r.category_name === "Dues";
     const isChapterBonus = r.category_name === "Chapter Bonus";
+    const isHouseRebate = r.category_name === "House Fee Rebate";
 
     const budgeted_amount = isDues
       ? dues_budgeted
       : isChapterBonus
       ? chapter_bonus_budgeted
+      : isHouseRebate
+      ? house_rebate_budgeted
       : roundMoney(Number(r.budgeted_amount));
 
     return {
@@ -180,6 +246,7 @@ async function getBudgetSummary(req, res) {
       entries: entriesByCategory[r.category_id] ?? [],
       is_dues: isDues,
       is_chapter_bonus: isChapterBonus,
+      is_house_rebate: isHouseRebate,
     };
   });
 
@@ -228,6 +295,7 @@ async function getBudgetSummary(req, res) {
     expense_rows,
     revenue_rows,
     dues_config,
+    house_rebate,
     reconciliation,
     outstanding_disbursements,
     totals: {
