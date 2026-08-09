@@ -16,6 +16,7 @@ import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import GavelIcon from "@mui/icons-material/Gavel";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import BusinessOutlinedIcon from "@mui/icons-material/BusinessOutlined";
+import HomeWorkOutlinedIcon from "@mui/icons-material/HomeWorkOutlined";
 import { useAuth } from "../context/authContext";
 
 const CARD_MIN_HEIGHT = 124;
@@ -50,6 +51,7 @@ function ConfigCard(props: {
 export default function ConfigPage() {
   const { can } = useAuth();
   const isAdmin = can("admin.users");
+  const canHouseConfig = can("house.config");
   return (
     <Stack spacing={2}>
       <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
@@ -96,6 +98,17 @@ export default function ConfigPage() {
               icon={<GavelIcon />}
             />
           </Grid>
+
+          {canHouseConfig ? (
+            <Grid item xs={12} md={4} sx={{ display: "flex" }}>
+              <ConfigCard
+                href="/house-config"
+                title="House Config"
+                description="Bedrooms, rates, session dates, and instalment schedules."
+                icon={<HomeWorkOutlinedIcon />}
+              />
+            </Grid>
+          ) : null}
 
           {isAdmin ? (
             <Grid item xs={12} md={4} sx={{ display: "flex" }}>

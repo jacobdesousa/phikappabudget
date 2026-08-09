@@ -106,6 +106,8 @@ export default function EditBrotherModalComponent(props: Props) {
         return () => { cancelled = true; };
     }, [brotherId]);
 
+    const isBoarder = status === BrotherOptionsSchema.boarderStatus;
+
     function handleCancel() {
         props.onClose();
     }
@@ -128,8 +130,9 @@ export default function EditBrotherModalComponent(props: Props) {
             last_name: lastName,
             email,
             phone,
-            pledge_class: `${pcSeason} ${pcYear}`,
-            graduation: Number(graduation),
+            // Boarders have no pledge class or graduation year.
+            pledge_class: isBoarder ? null : `${pcSeason} ${pcYear}`,
+            graduation: isBoarder || !graduation ? null : Number(graduation),
             status,
         };
 
@@ -223,24 +226,7 @@ const activeTenures = tenures.filter((t) => !t.end_date || dayjs(t.end_date).isA
                     <TextField required fullWidth label="Phone" value={phone}
                         onChange={(e) => handleFieldChange(e, "phone")} />
 
-                    <Stack direction="row" spacing={1}>
-                        <FormControl sx={{ minWidth: 120 }}>
-                            <InputLabel id="pc-season-label">Season</InputLabel>
-                            <Select labelId="pc-season-label" label="Season" value={pcSeason}
-                                onChange={(e) => setPcSeason(e.target.value as "Fall" | "Spring")}>
-                                <MenuItem value="Fall">Fall</MenuItem>
-                                <MenuItem value="Spring">Spring</MenuItem>
-                            </Select>
-                        </FormControl>
-                        <TextField label="Year" type="number" value={pcYear}
-                            onChange={(e) => setPcYear(Number(e.target.value))}
-                            inputProps={{ min: 1900, max: 2100, step: 1 }}
-                            sx={{ flex: 1 }} />
-                    </Stack>
-
-                    <TextField required fullWidth label="Graduation" value={graduation}
-                        onChange={(e) => handleFieldChange(e, "graduation")} />
-
+                    {/* Status comes first: it decides whether the chapter fields apply. */}
                     <FormControl fullWidth required error={Boolean(statusError)}>
                         <InputLabel id="status-label-edit">Status</InputLabel>
                         <Select labelId="status-label-edit" required label="Status"
@@ -249,12 +235,38 @@ const activeTenures = tenures.filter((t) => !t.end_date || dayjs(t.end_date).isA
                                 <MenuItem key={s} value={s}>{s}</MenuItem>
                             ))}
                         </Select>
-                        {statusError && <FormHelperText>{statusError}</FormHelperText>}
+                        <FormHelperText>
+                            {statusError ?? (isBoarder ? "Boarders are house residents who aren't members — contact info only." : undefined)}
+                        </FormHelperText>
                     </FormControl>
 
-                    <Divider />
+                    {!isBoarder && (
+                        <Stack direction="row" spacing={1}>
+                            <FormControl sx={{ minWidth: 120 }}>
+                                <InputLabel id="pc-season-label">Season</InputLabel>
+                                <Select labelId="pc-season-label" label="Season" value={pcSeason}
+                                    onChange={(e) => setPcSeason(e.target.value as "Fall" | "Spring")}>
+                                    <MenuItem value="Fall">Fall</MenuItem>
+                                    <MenuItem value="Spring">Spring</MenuItem>
+                                </Select>
+                            </FormControl>
+                            <TextField label="Year" type="number" value={pcYear}
+                                onChange={(e) => setPcYear(Number(e.target.value))}
+                                inputProps={{ min: 1900, max: 2100, step: 1 }}
+                                sx={{ flex: 1 }} />
+                        </Stack>
+                    )}
 
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Offices</Typography>
+                    {!isBoarder && (
+                        <TextField required fullWidth label="Graduation" value={graduation}
+                            onChange={(e) => handleFieldChange(e, "graduation")} />
+                    )}
+
+                    {!isBoarder && <Divider />}
+
+                    {!isBoarder && (
+                      <>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Offices</Typography>
 
                     {tenureError && <Alert severity="error" sx={{ py: 0 }}>{tenureError}</Alert>}
 
@@ -340,6 +352,8 @@ const activeTenures = tenures.filter((t) => !t.end_date || dayjs(t.end_date).isA
                             </Button>
                         </Stack>
                     </Box>
+                      </>
+                    )}
                 </Stack>
             </DialogContent>
             <DialogActions>

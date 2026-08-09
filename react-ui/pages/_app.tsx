@@ -53,6 +53,14 @@ function pageTitle(pathname: string) {
       return "Budget";
     case "/room-draw":
       return "Room Draw";
+    case "/house":
+      return "House Residents";
+    case "/house-instalments":
+      return "Resident Instalments";
+    case "/house-account":
+      return "House Account";
+    case "/house-config":
+      return "House Config";
     case "/shifts/setup":
       return "Setup Shifts";
     case "/shifts/cleanup":
@@ -95,7 +103,8 @@ export default function App({ Component, pageProps }: AppProps) {
     router.pathname === "/workdays/[id]/print" ||
     router.pathname === "/chapter-bonus/print" ||
     router.pathname === "/room-draw/print" ||
-    router.pathname === "/budget/print"
+    router.pathname === "/budget/print" ||
+    router.pathname === "/house/agreement"
   ) {
     const printTitle =
       router.pathname === "/invite/[token]"
@@ -108,6 +117,8 @@ export default function App({ Component, pageProps }: AppProps) {
               ? "PKS - Workday"
               : router.pathname === "/chapter-bonus/print"
                 ? "PKS - Chapter Bonus"
+                : router.pathname === "/house/agreement"
+                  ? "PKS - Resident Agreement"
                 : router.pathname === "/budget/print"
                   ? "PKS - Budget"
                   : "PKS - Room Draw Standings";
@@ -169,6 +180,7 @@ function InnerApp(props: { title: string; children: React.ReactNode }) {
       "/workdays/[id]/print",
       "/chapter-bonus/print",
       "/budget/print",
+      "/house/agreement",
     ]);
     if (publicPaths.has(router.pathname)) return;
 

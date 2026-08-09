@@ -5,11 +5,12 @@ import {useEffect, useState} from "react";
 import AddBrotherModalComponent from "../components/addBrother/addBrother";
 import {getAllBrothers} from "../services/brotherService";
 import {IBrother} from "../interfaces/api.interface";
-import {CircularProgress, Paper, Stack, Typography} from "@mui/material";
+import {Checkbox, CircularProgress, FormControlLabel, Paper, Stack, Typography} from "@mui/material";
 import EditBrotherModalComponent from "../components/editBrother/editBrother";
 import GraduateBrotherModalComponent from "../components/graduateBrother/graduateBrother";
 import ImportBrothersDialog from "../components/importBrothers/importBrothers";
 import { useAuth } from "../context/authContext";
+import BrotherOptionsSchema from "../interfaces/brotherOptions.schema";
 
 export default function BrothersPage() {
     const { can } = useAuth();
@@ -23,6 +24,7 @@ export default function BrothersPage() {
     const [loading, setLoading] = useState(true);
     const [brothers, setBrothers] = useState(new Array<IBrother>);
     const [refreshTable, setRefreshTable] = useState(false);
+    const [showBoarders, setShowBoarders] = useState(false);
 
     useEffect(() => {
         setLoading(true);
@@ -43,6 +45,12 @@ export default function BrothersPage() {
     }
 
 
+    // Boarders are house residents, not members — keep them out of the roster
+    // unless explicitly asked for.
+    const visibleBrothers = showBoarders
+        ? brothers
+        : brothers.filter((b) => b.status !== BrotherOptionsSchema.boarderStatus);
+
     return (
         <>
             {canWrite && addModal && <AddBrotherModalComponent onClose={() => onRefreshTable()}></AddBrotherModalComponent>}
@@ -59,7 +67,11 @@ export default function BrothersPage() {
                                 Manage roster, contact info, and status.
                             </Typography>
                         </div>
-                        <Stack direction="row" spacing={1}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                        <FormControlLabel
+                            control={<Checkbox size="small" checked={showBoarders} onChange={(e) => setShowBoarders(e.target.checked)} />}
+                            label="Show boarders"
+                        />
                         {canImport && (
                           <Button variant="outlined" onClick={() => { setImportModal(true); }}>
                               Import CSV
@@ -81,7 +93,7 @@ export default function BrothersPage() {
                       canWrite={canWrite}
                       setGraduatingBrother={setGraduatingBrother}
                       setEditingBrother={setEditingBrother}
-                      data={brothers}
+                      data={visibleBrothers}
                     ></BrotherTableComponent>
                 )}
             </Stack>

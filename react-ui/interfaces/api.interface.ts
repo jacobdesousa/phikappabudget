@@ -431,3 +431,238 @@ export interface IRoomDrawLegacyAdjustment {
     reason: string;
     created_at?: string;
 }
+
+// ── Chapter house ───────────────────────────────────────────────────────────
+
+export type HouseSessionType = "winter" | "summer";
+export type HouseOccupancy = "standard" | "full_room";
+export type HouseDepositStatus = "outstanding" | "received" | "refunded";
+
+export interface IHouseRoom {
+    id: number;
+    room_code: string;
+    floor: number | null;
+    sort_order: number | null;
+    is_active: boolean;
+    notes: string | null;
+}
+
+export interface IHouseInstalment {
+    seq: number;
+    due_date: string | null;
+    weight_pct: number;
+}
+
+export interface IHouseSession {
+    session_type: HouseSessionType;
+    // 4-month terms in the session: winter is 2, summer 1.
+    terms: number;
+    start_date: string | null;
+    end_date: string | null;
+    member_rebate: number;
+    prepay_discount_pct: number;
+    prepay_deadline: string | null;
+    security_deposit_amount: number;
+    instalments: IHouseInstalment[];
+}
+
+export interface IHouseRoomRate {
+    session_type: HouseSessionType;
+    room_id: number;
+    capacity: number;
+    rate_per_person: number | null;
+}
+
+export interface IHousePayee {
+    payee: string;
+    pct: number;
+    is_internal: boolean;
+    sort_order: number | null;
+}
+
+export interface IHouseConfig {
+    year: number;
+    rooms: IHouseRoom[];
+    sessions: IHouseSession[];
+    rates: IHouseRoomRate[];
+    payees: IHousePayee[];
+    is_configured: boolean;
+}
+
+export interface IHouseAssignment {
+    id: number;
+    school_year: number;
+    session_type: HouseSessionType;
+    room_id: number;
+    bed: number;
+    brother_id: number;
+    occupancy: HouseOccupancy;
+    start_date: string | null;
+    end_date: string | null;
+    base_amount: number | null;
+    amount_override: number | null;
+    override_note: string | null;
+    member_discount: boolean;
+    double_rebate: boolean;
+    prepay_discount: boolean;
+    notes: string | null;
+    room_code: string;
+    first_name: string;
+    last_name: string;
+    email: string | null;
+    phone: string | null;
+    brother_status: string | null;
+    capacity: number;
+    resolved_rate: number | null;
+    base_amount_effective: number;
+    session_base: number;
+    terms: number;
+    rebate_per_term: number;
+    rebate_beds: number;
+    rebate_amount: number;
+    prepay_pct: number;
+    prepay_amount: number;
+    total_owed: number;
+}
+
+export interface IHouseRosterRoom extends IHouseRoom {
+    capacity: number;
+    rate_per_person: number | null;
+    is_bought_out: boolean;
+    beds: { bed: number; assignments: IHouseAssignment[] }[];
+}
+
+export interface IHouseRoster {
+    year: number;
+    session_type: HouseSessionType;
+    session: IHouseSession | null;
+    instalments: IHouseInstalment[];
+    rooms: IHouseRosterRoom[];
+}
+
+export interface IHousePayment {
+    id: number;
+    brother_id: number;
+    school_year: number;
+    session_type: HouseSessionType;
+    assignment_id: number | null;
+    paid_at: string;
+    amount: number;
+    memo: string | null;
+    first_name?: string;
+    last_name?: string;
+}
+
+export interface IHouseDepositDeduction {
+    id?: number;
+    description: string | null;
+    amount: number;
+}
+
+export interface IHouseDeposit {
+    id: number;
+    brother_id: number;
+    amount: number;
+    received_at: string | null;
+    status: HouseDepositStatus;
+    released_at: string | null;
+    note: string | null;
+    deductions: IHouseDepositDeduction[];
+    first_name?: string;
+    last_name?: string;
+}
+
+export interface IHouseResidentRow {
+    brother_id: number;
+    first_name: string;
+    last_name: string;
+    email: string | null;
+    phone: string | null;
+    brother_status: string | null;
+    assignments: IHouseAssignment[];
+    year: number;
+    session_type: HouseSessionType;
+    total_owed: number;
+    total_paid: number;
+    payment_count: number;
+    last_paid_at: string | null;
+    deposit_held: number;
+    due_to_date: number;
+    balance_total: number;
+    balance_due_to_date: number;
+    is_behind: boolean;
+}
+
+export interface IHouseSummary {
+    year: number;
+    session_type: HouseSessionType;
+    session: IHouseSession | null;
+    instalments: IHouseInstalment[];
+    residents: IHouseResidentRow[];
+}
+
+export type HouseDisbursementStatus = "estimated" | "disbursed";
+
+export interface IHouseDisbursementShare {
+    id: number;
+    payee: string;
+    // Captured at creation, so a later config change can't rewrite history.
+    pct: number;
+    amount: number;
+    revenue_id: number | null;
+    // Cumulative across every disbursement on record, not just the year shown.
+    running_total: number;
+}
+
+export interface IHouseDisbursement {
+    id: number;
+    school_year: number;
+    session_type: HouseSessionType;
+    seq: number | null;
+    label: string | null;
+    disbursed_on: string | null;
+    status: HouseDisbursementStatus;
+    bank_balance: number;
+    security_to_refund: number;
+    security_on_account: number;
+    // Derived server-side: bank_balance − both security lines.
+    sub_total: number;
+    notes: string | null;
+    shares: IHouseDisbursementShare[];
+}
+
+export interface IHouseAccountAdjustment {
+    id: number;
+    occurred_on: string;
+    // Signed: a bank fee is negative, the PM revenue bonus positive.
+    amount: number;
+    description: string | null;
+    school_year: number;
+}
+
+export interface IHouseAccountBalance {
+    payments_total: number;
+    deposits_in: number;
+    deposits_held: number;
+    deposits_refunded: number;
+    disbursed_total: number;
+    adjustments_total: number;
+    balance: number;
+    undisbursed_surplus: number;
+}
+
+export interface IHouseSecuritySnapshot {
+    on_account: number;
+    to_refund: number;
+    deposits_held_count: number;
+}
+
+export interface IHouseAccount {
+    year: number;
+    balance: IHouseAccountBalance;
+    security: IHouseSecuritySnapshot;
+    payees: IHousePayee[];
+    payee_totals: { payee: string; total: number }[];
+    disbursements: IHouseDisbursement[];
+    adjustments: IHouseAccountAdjustment[];
+}

@@ -34,6 +34,8 @@ export default function AddBrotherModalComponent(props: any) {
     const [emailError, setEmailError] = useState<string | undefined>(undefined);
     const [statusError, setStatusError] = useState<string | undefined>(undefined);
 
+    const isBoarder = status === BrotherOptionsSchema.boarderStatus;
+
     function handleCancel() {
         props.onClose();
     }
@@ -55,8 +57,9 @@ export default function AddBrotherModalComponent(props: any) {
             last_name: lastName,
             email: email,
             phone: phone,
-            pledge_class: pledgeClass,
-            graduation: Number(graduation),
+            // Boarders have no pledge class or graduation year.
+            pledge_class: isBoarder ? null : pledgeClass,
+            graduation: isBoarder || !graduation ? null : Number(graduation),
             status: status
         }
 
@@ -159,29 +162,7 @@ export default function AddBrotherModalComponent(props: any) {
                         onChange={(event) => handleFieldChange(event, "phone")}
                     />
 
-                    <FormControl fullWidth>
-                        <InputLabel id="pledge-class-label">Pledge Class</InputLabel>
-                        <Select
-                            labelId="pledge-class-label"
-                            required
-                            label="Pledge Class"
-                            value={pledgeClass}
-                            onChange={(event) => handleFieldChange(event, "pledgeClass")}
-                        >
-                            {generatePledgeClassOptions().map((pc) => (
-                                <MenuItem key={pc} value={pc}>{pc}</MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-
-                    <TextField
-                        required
-                        fullWidth
-                        label="Graduation"
-                        value={graduation}
-                        onChange={(event) => handleFieldChange(event, "graduation")}
-                    />
-
+                    {/* Status comes first: it decides whether the chapter fields apply. */}
                     <FormControl fullWidth required error={Boolean(statusError)}>
                         <InputLabel id="status-label">Status</InputLabel>
                         <Select
@@ -195,8 +176,37 @@ export default function AddBrotherModalComponent(props: any) {
                                 <MenuItem key={s} value={s}>{s}</MenuItem>
                             ))}
                         </Select>
-                        {statusError && <FormHelperText>{statusError}</FormHelperText>}
+                        <FormHelperText>
+                            {statusError ?? (isBoarder ? "Boarders are house residents who aren't members — contact info only." : undefined)}
+                        </FormHelperText>
                     </FormControl>
+
+                    {!isBoarder && (
+                        <FormControl fullWidth>
+                            <InputLabel id="pledge-class-label">Pledge Class</InputLabel>
+                            <Select
+                                labelId="pledge-class-label"
+                                required
+                                label="Pledge Class"
+                                value={pledgeClass}
+                                onChange={(event) => handleFieldChange(event, "pledgeClass")}
+                            >
+                                {generatePledgeClassOptions().map((pc) => (
+                                    <MenuItem key={pc} value={pc}>{pc}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    )}
+
+                    {!isBoarder && (
+                        <TextField
+                            required
+                            fullWidth
+                            label="Graduation"
+                            value={graduation}
+                            onChange={(event) => handleFieldChange(event, "graduation")}
+                        />
+                    )}
                 </Stack>
             </DialogContent>
             <DialogActions>

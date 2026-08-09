@@ -42,6 +42,9 @@ import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlin
 import { useTheme } from "@mui/material/styles";
 import { useColorMode } from "../../theme/colorMode";
 import { logout } from "../../services/authService";
+import HomeWorkOutlinedIcon from "@mui/icons-material/HomeWorkOutlined";
+import ApartmentOutlinedIcon from "@mui/icons-material/ApartmentOutlined";
+import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
 import { useAuth } from "../../context/authContext";
 import { getNotifications } from "../../services/notificationsService";
 
@@ -60,13 +63,16 @@ const navItems = [
   { href: "/shifts/cleanup", label: "Cleanup Shifts", icon: <CleaningServicesIcon />, anyPermissions: ["shifts.cleanup.read"] },
   { href: "/shifts/party", label: "Party Shifts", icon: <CelebrationIcon />, anyPermissions: ["shifts.party.read"] },
   { href: "/room-draw", label: "Room Draw", icon: <MeetingRoomOutlinedIcon />, anyPermissions: ["roomDraw.read"] },
+  { href: "/house", label: "House Residents", icon: <HomeWorkOutlinedIcon />, anyPermissions: ["house.read"] },
+  { href: "/house-instalments", label: "Resident Instalments", icon: <ApartmentOutlinedIcon />, anyPermissions: ["house.read"] },
+  { href: "/house-account", label: "House Account", icon: <AccountBalanceWalletOutlinedIcon />, anyPermissions: ["house.read"] },
   { href: "/makeups", label: "Makeups", icon: <AssignmentLateIcon />, anyPermissions: [] },
   { href: "/sessions", label: "Sessions", icon: <SecurityOutlinedIcon />, anyPermissions: ["admin.sessions"] },
   {
     href: "/config",
     label: "Config",
     icon: <SettingsIcon />,
-    anyPermissions: ["dues.config", "revenue.config", "chapterBonus.config", "expenses.write"],
+    anyPermissions: ["dues.config", "revenue.config", "chapterBonus.config", "expenses.write", "house.config"],
   },
 ];
 

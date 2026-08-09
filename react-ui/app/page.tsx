@@ -34,6 +34,9 @@ import ConstructionIcon from "@mui/icons-material/Construction";
 import CleaningServicesIcon from "@mui/icons-material/CleaningServices";
 import CelebrationIcon from "@mui/icons-material/Celebration";
 import MeetingRoomOutlinedIcon from "@mui/icons-material/MeetingRoomOutlined";
+import HomeWorkOutlinedIcon from "@mui/icons-material/HomeWorkOutlined";
+import ApartmentOutlinedIcon from "@mui/icons-material/ApartmentOutlined";
+import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
 import AssignmentLateIcon from "@mui/icons-material/AssignmentLate";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { me } from "../services/authService";
@@ -62,12 +65,15 @@ const MODULES: ModuleCard[] = [
   { href: "/shifts/cleanup", title: "Cleanup Shifts", description: "Schedule and track chapter cleanup shifts.", anyPermissions: ["shifts.cleanup.read"], icon: <CleaningServicesIcon /> },
   { href: "/shifts/party", title: "Party Shifts", description: "Party timetable with duty slots and attendance.", anyPermissions: ["shifts.party.read"], icon: <CelebrationIcon /> },
   { href: "/room-draw", title: "Room Draw", description: "Points standings per bylaws for room selection.", anyPermissions: ["roomDraw.read"], icon: <MeetingRoomOutlinedIcon /> },
+  { href: "/house", title: "House Residents", description: "Who lives in which bedroom, and for what dates.", anyPermissions: ["house.read"], icon: <HomeWorkOutlinedIcon /> },
+  { href: "/house-instalments", title: "Resident Instalments", description: "Room fees owed, paid, and outstanding per session.", anyPermissions: ["house.read"], icon: <ApartmentOutlinedIcon /> },
+  { href: "/house-account", title: "House Account", description: "Bank balance, disbursements to TSPHC and PKSAB.", anyPermissions: ["house.read"], icon: <AccountBalanceWalletOutlinedIcon /> },
   { href: "/makeups", title: "Makeups", description: "All unresolved absences requiring makeup.", anyPermissions: [], icon: <AssignmentLateIcon /> },
   {
     href: "/config",
     title: "Config",
     description: "Manage dues config, categories, and bonus rules.",
-    anyPermissions: ["dues.config", "revenue.config", "chapterBonus.config", "expenses.write"],
+    anyPermissions: ["dues.config", "revenue.config", "chapterBonus.config", "expenses.write", "house.config"],
     icon: <SettingsIcon />,
   },
 ];
@@ -179,7 +185,7 @@ export default function LandingPage() {
                   Sign in to continue
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Access is invite-only. Once signed in, you'll see the modules you have permissions for.
+                  Access is invite-only. Once signed in, you&apos;ll see the modules you have permissions for.
                 </Typography>
                 <Button
                   variant="contained"

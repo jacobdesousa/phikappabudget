@@ -33,3 +33,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Out-of-band build output used to verify without disturbing the dev server
+.next-verify
