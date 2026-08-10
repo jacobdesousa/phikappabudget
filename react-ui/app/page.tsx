@@ -40,7 +40,7 @@ import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalance
 import AssignmentLateIcon from "@mui/icons-material/AssignmentLate";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { me } from "../services/authService";
-import { getAccessToken } from "../services/apiClient";
+import { getAccessToken, redirectToLogin } from "../services/apiClient";
 import { logout } from "../services/authService";
 import { useColorMode } from "../theme/colorMode";
 
@@ -101,21 +101,23 @@ export default function LandingPage() {
       try {
         const token = getAccessToken();
         if (!token) {
-          setPermissions(null);
-          setUserEmail(null);
+          // Not signed in: go straight to login instead of stalling here.
+          redirectToLogin("unauthorized");
           return;
         }
         const u = await me();
         if (cancelled) return;
         setPermissions(u.permissions ?? []);
         setUserEmail(u.email ?? null);
-      } catch (e: any) {
+        setLoading(false);
+      } catch {
         if (cancelled) return;
         setPermissions(null);
         setUserEmail(null);
         setError(null);
-      } finally {
-        if (!cancelled) setLoading(false);
+        // Session is dead (refresh already failed in the interceptor); leave the
+        // spinner up while the redirect completes.
+        redirectToLogin("expired");
       }
     })();
     return () => {

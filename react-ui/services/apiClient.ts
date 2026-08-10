@@ -74,9 +74,14 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
-function redirectToLogin(reason: "expired" | "unauthorized" = "unauthorized") {
+let redirecting = false;
+
+export function redirectToLogin(reason: "expired" | "unauthorized" = "unauthorized") {
   if (typeof window === "undefined") return;
+  if (redirecting) return;
   if (window.location.pathname === "/login") return;
+  redirecting = true;
+  setAccessToken(null);
   const next = window.location.pathname + window.location.search;
   window.location.assign(`/login?reason=${encodeURIComponent(reason)}&next=${encodeURIComponent(next)}`);
 }
@@ -103,8 +108,15 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // The refresh/logout calls must never re-enter the refresh flow: doing so would
+    // await the very request whose handler is running, and hang forever.
+    if (url.startsWith("/auth/refresh") || url.startsWith("/auth/logout")) {
+      return Promise.reject(error);
+    }
+
     if (status === 401 && original && !original._retry) {
       original._retry = true;
+      const hadToken = Boolean(getAccessToken());
       refreshPromise = refreshPromise ?? refreshAccessToken();
       const token = await refreshPromise.finally(() => {
         refreshPromise = null;
@@ -116,7 +128,7 @@ apiClient.interceptors.response.use(
       }
 
       // Refresh failed => session expired or not signed in.
-      redirectToLogin(getAccessToken() ? "expired" : "unauthorized");
+      redirectToLogin(hadToken ? "expired" : "unauthorized");
     }
 
     return Promise.reject(error);
