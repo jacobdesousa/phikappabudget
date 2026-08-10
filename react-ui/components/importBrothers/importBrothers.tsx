@@ -17,7 +17,7 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { importBrothers, ImportBrotherRow } from "../../services/brotherService";
-import { formatNorthAmericanPhone } from "../../utils/phone";
+import { toE164 } from "../../utils/phone";
 
 const EXPECTED_HEADERS = ["first_name", "last_name", "email", "phone", "pledge_class", "graduation", "status"] as const;
 
@@ -48,7 +48,7 @@ function parseCsv(text: string): { rows: ImportBrotherRow[]; error: string | nul
             first_name: obj.first_name ?? "",
             last_name: obj.last_name ?? "",
             email: obj.email || undefined,
-            phone: obj.phone ? formatNorthAmericanPhone(obj.phone) || undefined : undefined,
+            phone: obj.phone ? toE164(obj.phone) || undefined : undefined,
             pledge_class: pledgeClass,
             graduation: obj.graduation || undefined,
             status: obj.status || undefined,
@@ -112,6 +112,7 @@ export default function ImportBrothersDialog({ onClose }: Props) {
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     Upload a CSV with a header row. Required columns: <b>first_name</b>, <b>last_name</b>.
                     Optional: <b>email</b>, <b>phone</b>, <b>pledge_class</b>, <b>graduation</b>, <b>status</b>.
+                    Phone numbers outside North America need their <b>+</b> country code.
                 </Typography>
 
                 {!done && (

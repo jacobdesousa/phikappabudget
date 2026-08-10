@@ -2,7 +2,7 @@ import { Box, Chip, IconButton, Paper, Stack, Table, TableBody, TableCell, Table
 import EditIcon from '@mui/icons-material/Edit';
 import SchoolIcon from '@mui/icons-material/School';
 import {IBrother} from "../../interfaces/api.interface";
-import { formatNorthAmericanPhone } from "../../utils/phone";
+import { formatPhoneForDisplay } from "../../utils/phone";
 
 interface Props {
     data: Array<IBrother>;
@@ -33,7 +33,7 @@ export default function BrotherTableComponent(props: Props) {
                                     {row.first_name} {row.last_name}
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary">{row.email}</Typography>
-                                {row.phone ? <Typography variant="body2" color="text.secondary">{formatNorthAmericanPhone(row.phone)}</Typography> : null}
+                                {row.phone ? <Typography variant="body2" color="text.secondary">{formatPhoneForDisplay(row.phone)}</Typography> : null}
                                 <Stack direction="row" spacing={1} sx={{ mt: 0.5 }} flexWrap="wrap">
                                     <Chip label={row.status ?? "—"} size="small" />
                                     {(row.current_offices ?? []).map((o) => (
@@ -77,7 +77,7 @@ export default function BrotherTableComponent(props: Props) {
                                 <TableCell component="th" scope="row">{row.first_name}</TableCell>
                                 <TableCell align="right">{row.last_name}</TableCell>
                                 <TableCell align="right">{row.email}</TableCell>
-                                <TableCell align="right">{row.phone ? formatNorthAmericanPhone(row.phone) : ""}</TableCell>
+                                <TableCell align="right">{row.phone ? formatPhoneForDisplay(row.phone) : ""}</TableCell>
                                 <TableCell align="right">{row.pledge_class}</TableCell>
                                 <TableCell align="right">{row.graduation}</TableCell>
                                 <TableCell align="right">

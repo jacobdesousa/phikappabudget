@@ -18,7 +18,7 @@ import {useState} from "react";
 import BrotherOptionsSchema from "../../interfaces/brotherOptions.schema";
 import {addBrother} from "../../services/brotherService";
 import CloseIcon from "@mui/icons-material/Close";
-import { formatNorthAmericanPhone } from "../../utils/phone";
+import { formatPhoneInput, toE164 } from "../../utils/phone";
 
 export default function AddBrotherModalComponent(props: any) {
 
@@ -56,7 +56,7 @@ export default function AddBrotherModalComponent(props: any) {
             first_name: firstName,
             last_name: lastName,
             email: email,
-            phone: phone,
+            phone: toE164(phone),
             // Boarders have no pledge class or graduation year.
             pledge_class: isBoarder ? null : pledgeClass,
             graduation: isBoarder || !graduation ? null : Number(graduation),
@@ -91,7 +91,7 @@ export default function AddBrotherModalComponent(props: any) {
                 setEmailError(undefined);
                 break;
             case "phone":
-                setPhone(formatNorthAmericanPhone(event.target.value))
+                setPhone(formatPhoneInput(event.target.value))
                 break;
             case "pledgeClass":
                 setPledgeClass(event.target.value)
@@ -160,6 +160,7 @@ export default function AddBrotherModalComponent(props: any) {
                         label="Phone"
                         value={phone}
                         onChange={(event) => handleFieldChange(event, "phone")}
+                        helperText="Include the + country code for numbers outside North America, e.g. +353 83 123 4567"
                     />
 
                     {/* Status comes first: it decides whether the chapter fields apply. */}

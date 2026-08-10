@@ -38,7 +38,9 @@ import SchoolYearSelector from "../components/SchoolYearSelector";
 import HouseSessionSelector from "../components/HouseSessionSelector";
 import AssignResidentDialog from "../components/houseAssignment/assignResidentDialog";
 import { schoolYearStartForDate } from "../utils/schoolYear";
+import { formatPhoneForDisplay } from "../utils/phone";
 import {
+  bedVacancies,
   roomTypeLabel,
   sessionLabel,
   tintSx,
@@ -86,7 +88,16 @@ export default function HousePage() {
   const [brothers, setBrothers] = useState<IBrother[]>([]);
 
   const [assigning, setAssigning] = useState<
-    { room: IHouseRosterRoom; bed: number; existing?: IHouseAssignment } | undefined
+    {
+      room: IHouseRosterRoom;
+      bed: number;
+      existing?: IHouseAssignment;
+      // Set when assigning into a mid-session gap, so the dialog opens on the
+      // window that is actually free rather than the whole session.
+      defaultStart?: string;
+      defaultEnd?: string;
+    }
+    | undefined
   >(undefined);
   const [deleting, setDeleting] = useState<IHouseAssignment | undefined>(undefined);
 
@@ -147,6 +158,8 @@ export default function HousePage() {
           bed={assigning.bed}
           brothers={brothers}
           existing={assigning.existing}
+          defaultStartDate={assigning.defaultStart}
+          defaultEndDate={assigning.defaultEnd}
           onClose={() => setAssigning(undefined)}
           onSaved={async () => {
             setAssigning(undefined);
@@ -247,33 +260,66 @@ export default function HousePage() {
                         if (isDuplicateBuyout && bedEntry.assignments.length > 0) return null;
 
                         const key = `${room.id}-${bedEntry.bed}`;
-                        if (bedEntry.assignments.length === 0) {
-                          return (
-                            <TableRow key={key} hover sx={tintSx(TINT_PALETTE.vacant)}>
-                              <TableCell sx={CELL_SX}>
-                                {room.room_code}
-                                {room.capacity > 1 ? ` · ${bedEntry.bed}` : ""}
-                              </TableCell>
-                              <TableCell sx={CELL_SX}>{roomTypeLabel(room.capacity)}</TableCell>
-                              <TableCell sx={CELL_SX} colSpan={3}>
-                                <Typography variant="body2" color="text.secondary">Vacant</Typography>
-                              </TableCell>
-                              <TableCell sx={CELL_SX} align="right">
-                                {canWrite && (
-                                  <Button
-                                    size="small"
-                                    startIcon={<AddIcon />}
-                                    onClick={() => setAssigning({ room, bed: bedEntry.bed })}
-                                  >
-                                    Assign
-                                  </Button>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        }
 
-                        return bedEntry.assignments.map((a) => (
+                        // A bed is free for whatever the current occupants
+                        // don't cover — the whole session when empty, or the
+                        // remainder when someone leaves part-way through.
+                        const gaps = bedVacancies(
+                          roster.session?.start_date,
+                          roster.session?.end_date,
+                          bedEntry.assignments
+                        );
+
+                        const vacantRows = gaps.map((gap) => (
+                          <TableRow
+                            key={`${key}-vacant-${gap.start_date}`}
+                            hover
+                            sx={tintSx(TINT_PALETTE.vacant)}
+                          >
+                            <TableCell sx={CELL_SX}>
+                              {room.room_code}
+                              {room.capacity > 1 ? ` · ${bedEntry.bed}` : ""}
+                            </TableCell>
+                            <TableCell sx={CELL_SX}>{roomTypeLabel(room.capacity)}</TableCell>
+                            <TableCell sx={CELL_SX} colSpan={3}>
+                              <Stack direction="row" spacing={0.75} alignItems="center">
+                                <Typography variant="body2" color="text.secondary">
+                                  Vacant
+                                </Typography>
+                                {bedEntry.assignments.length > 0 && (
+                                  <Chip
+                                    label={`${gap.start_date} → ${gap.end_date}`}
+                                    size="small"
+                                    variant="outlined"
+                                    sx={SUBTLE_CHIP_SX}
+                                  />
+                                )}
+                              </Stack>
+                            </TableCell>
+                            <TableCell sx={CELL_SX} align="right">
+                              {canWrite && (
+                                <Button
+                                  size="small"
+                                  startIcon={<AddIcon />}
+                                  onClick={() =>
+                                    setAssigning({
+                                      room,
+                                      bed: bedEntry.bed,
+                                      defaultStart: gap.start_date,
+                                      defaultEnd: gap.end_date,
+                                    })
+                                  }
+                                >
+                                  Assign
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ));
+
+                        if (bedEntry.assignments.length === 0) return vacantRows;
+
+                        const occupiedRows = bedEntry.assignments.map((a) => (
                           <TableRow key={`${key}-${a.id}`} hover sx={tintSx(((): TintColor | null => {
                             const t = tintFor(a.brother_status);
                             return t ? TINT_PALETTE[t] : null;
@@ -312,7 +358,7 @@ export default function HousePage() {
                             </TableCell>
                             <TableCell sx={CELL_SX}>
                               <Typography variant="caption" display="block">{a.email ?? "—"}</Typography>
-                              <Typography variant="caption" color="text.secondary">{a.phone ?? "—"}</Typography>
+                              <Typography variant="caption" color="text.secondary">{formatPhoneForDisplay(a.phone) || "—"}</Typography>
                             </TableCell>
                             <TableCell sx={CELL_SX}>
                               <Typography variant="caption">{dateRange(a)}</Typography>
@@ -346,6 +392,9 @@ export default function HousePage() {
                             </TableCell>
                           </TableRow>
                         ));
+
+                        // Any remaining window is offered for re-letting.
+                        return [...occupiedRows, ...vacantRows];
                       })
                     )}
                   </TableBody>

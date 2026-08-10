@@ -2,12 +2,29 @@ import {
   IHouseAccount,
   IHouseAccountAdjustment,
   IHouseDisbursement,
+  IHouseTransactionPage,
 } from "../interfaces/api.interface";
 import { apiClient, parseApiError } from "./apiClient";
 
-export async function getHouseAccount(year: number): Promise<IHouseAccount> {
+// The whole ledger, as of today. No year or session filter — the balance never
+// had one, and the history is short enough to show in full.
+export async function getHouseAccount(): Promise<IHouseAccount> {
   try {
-    const res = await apiClient.get(`/house/account?year=${year}`);
+    const res = await apiClient.get(`/house/account`);
+    return res.data;
+  } catch (e) {
+    throw new Error(parseApiError(e).message);
+  }
+}
+
+// Paginated: derived from every payment, deposit, refund, disbursement share
+// and adjustment, so it grows much faster than the disbursement list.
+export async function getHouseTransactions(
+  limit: number,
+  offset: number
+): Promise<IHouseTransactionPage> {
+  try {
+    const res = await apiClient.get(`/house/account/transactions?limit=${limit}&offset=${offset}`);
     return res.data;
   } catch (e) {
     throw new Error(parseApiError(e).message);

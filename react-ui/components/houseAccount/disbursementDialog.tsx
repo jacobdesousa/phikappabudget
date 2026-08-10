@@ -9,7 +9,6 @@ import {
   Divider,
   IconButton,
   InputAdornment,
-  MenuItem,
   Stack,
   TextField,
   Typography,
@@ -24,47 +23,34 @@ import {
 } from "../../interfaces/api.interface";
 import { createDisbursement, updateDisbursement } from "../../services/houseAccountService";
 import { formatMoney, roundMoney } from "../../utils/money";
-import { sessionLabel } from "../../utils/house";
+import { sessionLabel, sessionTypeForDate } from "../../utils/house";
+import { schoolYearStartForDate } from "../../utils/schoolYear";
 
 interface Props {
-  year: number;
-  session: HouseSessionType;
   payees: IHousePayee[];
-  // Live deposit figures, used to prefill the two security lines.
+  // Live deposit figures, used to prefill the two deposit lines.
   security: IHouseSecuritySnapshot;
-  nextSeq: number;
+  // Balance derived from recorded payments, deposits and past disbursements.
+  // Prefills the bank balance; the treasurer overrides it if the statement
+  // disagrees, and that difference is what adjustments are for.
+  derivedBalance: number;
   existing?: IHouseDisbursement;
   onClose: () => void;
   onSaved: () => void;
-}
-
-const ORDINALS = ["First", "Second", "Third", "Fourth", "Fifth", "Sixth"];
-
-// The sheet labels disbursements "First (September)". The month drifts year to
-// year, so this is only a starting point — the field stays editable.
-function suggestLabel(seq: number, date: string): string {
-  const ordinal = ORDINALS[seq - 1] ?? `${seq}th`;
-  const month = dayjs(date).isValid() ? dayjs(date).format("MMMM") : "";
-  return month ? `${ordinal} (${month})` : ordinal;
 }
 
 export default function DisbursementDialog(props: Props) {
   const existing = props.existing;
 
   const [date, setDate] = useState(existing?.disbursed_on ?? dayjs().format("YYYY-MM-DD"));
-  const [status, setStatus] = useState(existing?.status ?? "estimated");
-  const [seq, setSeq] = useState(String(existing?.seq ?? props.nextSeq));
-  const [label, setLabel] = useState(
-    existing?.label ?? suggestLabel(props.nextSeq, dayjs().format("YYYY-MM-DD"))
-  );
   const [bankBalance, setBankBalance] = useState(
-    existing ? String(existing.bank_balance) : ""
+    String(existing ? existing.bank_balance : props.derivedBalance)
   );
   const [toRefund, setToRefund] = useState(
     String(existing ? existing.security_to_refund : props.security.to_refund)
   );
   const [onAccount, setOnAccount] = useState(
-    String(existing ? existing.security_on_account : props.security.on_account)
+    String(existing ? existing.security_on_account : props.security.held)
   );
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [submitting, setSubmitting] = useState(false);
@@ -76,6 +62,16 @@ export default function DisbursementDialog(props: Props) {
     ? existing.shares.map((s) => ({ payee: s.payee, pct: Number(s.pct) }))
     : props.payees.map((p) => ({ payee: p.payee, pct: Number(p.pct) }));
 
+  // One cheque per payee, keyed by name so it survives reordering.
+  const [cheques, setCheques] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      splitBasis.map((p) => [
+        p.payee,
+        existing?.shares.find((s) => s.payee === p.payee)?.cheque_number ?? "",
+      ])
+    )
+  );
+
   const subTotal = roundMoney(
     (Number(bankBalance) || 0) - (Number(toRefund) || 0) - (Number(onAccount) || 0)
   );
@@ -86,7 +82,10 @@ export default function DisbursementDialog(props: Props) {
 
   const securityMatchesLive =
     roundMoney(Number(toRefund) || 0) === roundMoney(props.security.to_refund) &&
-    roundMoney(Number(onAccount) || 0) === roundMoney(props.security.on_account);
+    roundMoney(Number(onAccount) || 0) === roundMoney(props.security.held);
+
+  const balanceMatchesDerived =
+    roundMoney(Number(bankBalance) || 0) === roundMoney(props.derivedBalance);
 
   async function handleSubmit() {
     if (bankBalance === "") {
@@ -95,17 +94,17 @@ export default function DisbursementDialog(props: Props) {
     }
     setSubmitting(true);
     setError(null);
+    // school_year and session_type are derived from the date on the server.
     const payload: any = {
-      school_year: props.year,
-      session_type: props.session,
-      seq: seq === "" ? null : Number(seq),
-      label: label || null,
-      disbursed_on: date || null,
-      status,
+      disbursed_on: date,
       bank_balance: Number(bankBalance),
       security_to_refund: Number(toRefund) || 0,
       security_on_account: Number(onAccount) || 0,
       notes: notes || null,
+      cheques: splitBasis.map((p) => ({
+        payee: p.payee,
+        cheque_number: cheques[p.payee]?.trim() || null,
+      })),
     };
     try {
       if (existing) await updateDisbursement(existing.id, payload);
@@ -122,7 +121,12 @@ export default function DisbursementDialog(props: Props) {
       <DialogTitle sx={{ pr: 6 }}>
         {existing ? "Edit disbursement" : "New disbursement"}
         <Typography variant="body2" color="text.secondary">
-          {sessionLabel(props.year, props.session)}
+          {/* Year and session follow the date, so the title states what will
+              be recorded rather than asking for it. */}
+          {sessionLabel(
+            schoolYearStartForDate(new Date(`${date}T00:00:00`)),
+            sessionTypeForDate(date)
+          )}
         </Typography>
         <IconButton onClick={props.onClose} sx={{ position: "absolute", right: 8, top: 8 }}>
           <CloseIcon />
@@ -132,49 +136,14 @@ export default function DisbursementDialog(props: Props) {
         <Stack spacing={2} sx={{ pt: 1 }}>
           {error ? <Alert severity="error">{error}</Alert> : null}
 
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-            <TextField
-              label="Sequence"
-              type="number"
-              value={seq}
-              onChange={(e) => setSeq(e.target.value)}
-              sx={{ width: { sm: 120 } }}
-            />
-            <TextField
-              label="Label"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              fullWidth
-              helperText="e.g. First (September)"
-            />
-          </Stack>
-
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-            <TextField
-              label="Date"
-              type="date"
-              value={date}
-              onChange={(e) => {
-                setDate(e.target.value);
-                // Only re-suggest while the label is still untouched boilerplate.
-                if (!existing && label === suggestLabel(Number(seq) || props.nextSeq, date)) {
-                  setLabel(suggestLabel(Number(seq) || props.nextSeq, e.target.value));
-                }
-              }}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-            />
-            <TextField
-              select
-              label="Status"
-              value={status}
-              onChange={(e) => setStatus(e.target.value as "estimated" | "disbursed")}
-              fullWidth
-            >
-              <MenuItem value="estimated">Estimated</MenuItem>
-              <MenuItem value="disbursed">Disbursed</MenuItem>
-            </TextField>
-          </Stack>
+          <TextField
+            label="Date disbursed"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            fullWidth
+          />
 
           <TextField
             label="Bank balance"
@@ -182,12 +151,19 @@ export default function DisbursementDialog(props: Props) {
             value={bankBalance}
             onChange={(e) => setBankBalance(e.target.value)}
             InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+            helperText={
+              balanceMatchesDerived
+                ? "Calculated from recorded payments, deposits and past disbursements. Change it if the bank statement says otherwise."
+                : `Calculated balance is $${formatMoney(props.derivedBalance)}. The $${formatMoney(
+                    Math.abs((Number(bankBalance) || 0) - props.derivedBalance)
+                  )} difference will be recorded as an adjustment automatically.`
+            }
             fullWidth
           />
 
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
             <TextField
-              label="Less security to refund"
+              label="Less deposits to refund"
               type="number"
               value={toRefund}
               onChange={(e) => setToRefund(e.target.value)}
@@ -195,7 +171,7 @@ export default function DisbursementDialog(props: Props) {
               fullWidth
             />
             <TextField
-              label="Less security on account"
+              label="Less current deposits held"
               type="number"
               value={onAccount}
               onChange={(e) => setOnAccount(e.target.value)}
@@ -206,16 +182,18 @@ export default function DisbursementDialog(props: Props) {
 
           <Stack direction="row" spacing={1} alignItems="center">
             <Typography variant="caption" color="text.secondary">
-              Live deposits: ${formatMoney(props.security.to_refund)} to refund, $
-              {formatMoney(props.security.on_account)} on account (
-              {props.security.deposits_held_count} held).
+              Deposits on hand: ${formatMoney(props.security.to_refund)} owed back to{" "}
+              {props.security.to_refund_count} past resident
+              {props.security.to_refund_count === 1 ? "" : "s"}, $
+              {formatMoney(props.security.held)} held for {props.security.held_count} current
+              resident{props.security.held_count === 1 ? "" : "s"}.
             </Typography>
             {securityMatchesLive ? null : (
               <Button
                 size="small"
                 onClick={() => {
                   setToRefund(String(props.security.to_refund));
-                  setOnAccount(String(props.security.on_account));
+                  setOnAccount(String(props.security.held));
                 }}
               >
                 Reset
@@ -236,18 +214,37 @@ export default function DisbursementDialog(props: Props) {
             </Stack>
             {preview.length === 0 ? (
               <Alert severity="warning">
-                No payees are configured for {props.year}. Set the split on the House Config page
-                first.
+                No payees are configured for {schoolYearStartForDate(new Date(`${date}T00:00:00`))}. Set the split on the
+                House Config page first.
               </Alert>
             ) : (
               preview.map((p) => (
-                <Stack key={p.payee} direction="row" justifyContent="space-between">
+                <Stack
+                  key={p.payee}
+                  direction="row"
+                  spacing={2}
+                  alignItems="center"
+                  justifyContent="space-between"
+                >
                   <Typography variant="body2" color="text.secondary">
                     {p.payee} ({p.pct}%)
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    ${formatMoney(p.amount)}
-                  </Typography>
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    {/* Each payee is paid by its own cheque, so the number is
+                        captured per share rather than per disbursement. */}
+                    <TextField
+                      label="Cheque #"
+                      size="small"
+                      value={cheques[p.payee] ?? ""}
+                      onChange={(e) =>
+                        setCheques((prev) => ({ ...prev, [p.payee]: e.target.value }))
+                      }
+                      sx={{ width: 120 }}
+                    />
+                    <Typography variant="body2" color="text.secondary" sx={{ minWidth: 90, textAlign: "right" }}>
+                      ${formatMoney(p.amount)}
+                    </Typography>
+                  </Stack>
                 </Stack>
               ))
             )}

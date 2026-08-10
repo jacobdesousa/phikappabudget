@@ -522,6 +522,9 @@ export interface IHouseAssignment {
     rebate_amount: number;
     prepay_pct: number;
     prepay_amount: number;
+    // True when amount_override is set: the fee is billed exactly as entered,
+    // with rebate_amount and prepay_amount forced to 0.
+    is_override: boolean;
     total_owed: number;
 }
 
@@ -566,6 +569,8 @@ export interface IHouseDeposit {
     received_at: string | null;
     status: HouseDepositStatus;
     released_at: string | null;
+    // The cheque the refund went out on; only meaningful once refunded.
+    refund_cheque_number: string | null;
     note: string | null;
     deductions: IHouseDepositDeduction[];
     first_name?: string;
@@ -601,16 +606,16 @@ export interface IHouseSummary {
     residents: IHouseResidentRow[];
 }
 
-export type HouseDisbursementStatus = "estimated" | "disbursed";
-
 export interface IHouseDisbursementShare {
     id: number;
     payee: string;
     // Captured at creation, so a later config change can't rewrite history.
     pct: number;
     amount: number;
+    // The cheque this payee was paid with. Each payee is paid separately.
+    cheque_number: string | null;
     revenue_id: number | null;
-    // Cumulative across every disbursement on record, not just the year shown.
+    // Year-to-date for this payee, restarting each school year.
     running_total: number;
 }
 
@@ -618,10 +623,9 @@ export interface IHouseDisbursement {
     id: number;
     school_year: number;
     session_type: HouseSessionType;
-    seq: number | null;
-    label: string | null;
-    disbursed_on: string | null;
-    status: HouseDisbursementStatus;
+    // Identifies and orders the disbursement; school_year and session_type are
+    // derived from it.
+    disbursed_on: string;
     bank_balance: number;
     security_to_refund: number;
     security_on_account: number;
@@ -631,6 +635,43 @@ export interface IHouseDisbursement {
     shares: IHouseDisbursementShare[];
 }
 
+export type HouseTransactionKind =
+    | "payment"
+    | "deposit"
+    | "deposit_refund"
+    | "disbursement"
+    | "adjustment";
+
+// Derived, never stored — one row per movement of money through the residence
+// account. A refunded deposit appears twice: in when received, out when
+// released.
+export interface IHouseTransaction {
+    kind: HouseTransactionKind;
+    source_id: number;
+    occurred_on: string;
+    counterparty: string | null;
+    detail: string | null;
+    cheque_number: string | null;
+    // Signed: positive into the account, negative out.
+    amount: number;
+    // Balance after this row, computed over the whole ledger in date order.
+    running_balance: number;
+}
+
+export interface IHouseTransactionPage {
+    limit: number;
+    offset: number;
+    total: number;
+    transactions: IHouseTransaction[];
+}
+
+// Write-only: cheque numbers keyed by payee, sent alongside a disbursement.
+// The amounts themselves are always computed server-side.
+export interface IHouseDisbursementCheque {
+    payee: string;
+    cheque_number: string | null;
+}
+
 export interface IHouseAccountAdjustment {
     id: number;
     occurred_on: string;
@@ -638,6 +679,9 @@ export interface IHouseAccountAdjustment {
     amount: number;
     description: string | null;
     school_year: number;
+    // Set when the row is the automatic reconciliation booked because a
+    // disbursement's entered bank balance differed from the derived one.
+    disbursement_id: number | null;
 }
 
 export interface IHouseAccountBalance {
@@ -651,18 +695,24 @@ export interface IHouseAccountBalance {
     undisbursed_surplus: number;
 }
 
+// The deposit money in the account, split by whether the resident is still
+// here. Both figures are gross, so to_refund + held is exactly the deposits on
+// hand — which is what a disbursement subtracts.
 export interface IHouseSecuritySnapshot {
-    on_account: number;
+    // The session the split was measured against — today's, not a chosen one.
+    as_of_year: number;
+    as_of_session: HouseSessionType;
     to_refund: number;
-    deposits_held_count: number;
+    held: number;
+    to_refund_count: number;
+    held_count: number;
 }
 
 export interface IHouseAccount {
-    year: number;
+    current_year: number;
     balance: IHouseAccountBalance;
     security: IHouseSecuritySnapshot;
     payees: IHousePayee[];
-    payee_totals: { payee: string; total: number }[];
     disbursements: IHouseDisbursement[];
     adjustments: IHouseAccountAdjustment[];
 }

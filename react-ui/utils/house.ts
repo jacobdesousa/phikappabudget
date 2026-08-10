@@ -40,6 +40,14 @@ export function sessionLabel(year: number, sessionType: HouseSessionType): strin
     : `Summer ${year + 1}`;
 }
 
+// Which session a date falls in: winter runs Sep 1 – Apr 30, summer May 1 –
+// Aug 31. Mirrors sessionTypeForDate in the API's houseFees.
+export function sessionTypeForDate(date: string | Date): HouseSessionType {
+  const d = date instanceof Date ? date : new Date(`${date}T00:00:00`);
+  const month = d.getMonth();
+  return month >= 4 && month <= 7 ? "summer" : "winter";
+}
+
 // "1st", "2nd", "3rd", "4th" — derived from seq, never stored.
 export function instalmentLabel(seq: number): string {
   const tens = seq % 100;
@@ -86,6 +94,53 @@ export function netRefund(deposit: Pick<IHouseDeposit, "amount" | "deductions">)
 
 // Small outlined annotation chip — "Boarder", "Buy-out". Sized to sit inside a
 // table row without competing with the text it labels.
+export interface DateGap {
+  start_date: string;
+  end_date: string;
+}
+
+function addDays(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+// The stretches of a session where a bed has nobody in it. A resident who
+// leaves mid-session frees the bed for the remainder, and the room can be re-let
+// for exactly that window — the server allows two assignments on one bed as
+// long as their dates don't overlap.
+//
+// Assignments missing a bound are treated as running to the session edge, which
+// matches how the API's rangesOverlap reads an open range.
+export function bedVacancies(
+  sessionStart: string | null | undefined,
+  sessionEnd: string | null | undefined,
+  assignments: { start_date: string | null; end_date: string | null }[]
+): DateGap[] {
+  if (!sessionStart || !sessionEnd) return [];
+
+  const occupied = assignments
+    .map((a) => ({
+      start: a.start_date && a.start_date > sessionStart ? a.start_date : sessionStart,
+      end: a.end_date && a.end_date < sessionEnd ? a.end_date : sessionEnd,
+    }))
+    .filter((r) => r.start <= r.end)
+    .sort((a, b) => a.start.localeCompare(b.start));
+
+  const gaps: DateGap[] = [];
+  let cursor = sessionStart;
+
+  for (const r of occupied) {
+    if (r.start > cursor) gaps.push({ start_date: cursor, end_date: addDays(r.start, -1) });
+    // Ranges can overlap each other (a buy-out spans every bed), so only ever
+    // advance the cursor.
+    if (r.end >= cursor) cursor = addDays(r.end, 1);
+  }
+  if (cursor <= sessionEnd) gaps.push({ start_date: cursor, end_date: sessionEnd });
+
+  return gaps;
+}
+
 export const SUBTLE_CHIP_SX = {
   height: 16,
   fontSize: "0.65rem",

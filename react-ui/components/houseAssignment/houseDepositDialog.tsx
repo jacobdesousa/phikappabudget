@@ -50,6 +50,7 @@ export default function HouseDepositDialog(props: Props) {
   // A deposit starts owed at room allocation; it becomes Received when it lands.
   const [status, setStatus] = useState<HouseDepositStatus>(props.existing?.status ?? "outstanding");
   const [releasedAt, setReleasedAt] = useState(props.existing?.released_at ?? "");
+  const [refundCheque, setRefundCheque] = useState(props.existing?.refund_cheque_number ?? "");
   const [note, setNote] = useState(props.existing?.note ?? "");
   const [deductions, setDeductions] = useState<IHouseDepositDeduction[]>(
     props.existing?.deductions ?? []
@@ -81,6 +82,7 @@ export default function HouseDepositDialog(props: Props) {
       status,
       // Anything closed out has left the account, so it needs a date.
       released_at: isRefunded ? releasedAt || dayjs().format("YYYY-MM-DD") : null,
+      refund_cheque_number: isRefunded ? refundCheque.trim() || null : null,
       note: note || null,
       deductions: showDeductions ? deductions.filter((d) => Number(d.amount) > 0) : [],
     };
@@ -146,14 +148,24 @@ export default function HouseDepositDialog(props: Props) {
           )}
 
           {isRefunded && (
-            <TextField
-              label="Refunded on"
-              type="date"
-              value={releasedAt}
-              onChange={(e) => setReleasedAt(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-            />
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField
+                label="Refunded on"
+                type="date"
+                value={releasedAt}
+                onChange={(e) => setReleasedAt(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+              />
+              {/* The refund leaves the residence account by cheque, so the
+                  number makes it traceable in the account's transactions. */}
+              <TextField
+                label="Cheque #"
+                value={refundCheque}
+                onChange={(e) => setRefundCheque(e.target.value)}
+                fullWidth
+              />
+            </Stack>
           )}
 
           {showDeductions && (

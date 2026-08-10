@@ -1,16 +1,45 @@
-export function formatNorthAmericanPhone(value: string): string {
-  const digitsRaw = (value ?? "").replace(/\D/g, "");
+import { AsYouType, parsePhoneNumberFromString } from "libphonenumber-js";
 
-  // Allow a leading country code "1"
-  const digits = digitsRaw.length === 11 && digitsRaw.startsWith("1")
-    ? digitsRaw.slice(1)
-    : digitsRaw.slice(0, 10);
+// Numbers typed without a country code are assumed local to the chapter.
+// International residents enter their number with the "+" prefix.
+export const DEFAULT_COUNTRY = "CA";
 
-  const len = digits.length;
-  if (len === 0) return "";
-  if (len <= 3) return `(${digits}`;
-  if (len <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+// Phones are stored in E.164 ("+353831234567"); this is the human-facing shape.
+// Local numbers read as "(416) 555-1234", everything else as
+// "+353 83 123 4567" so the country is visible.
+export function formatPhoneForDisplay(value: string | null | undefined): string {
+  const raw = (value ?? "").trim();
+  if (!raw) return "";
+
+  const parsed = parsePhoneNumberFromString(raw, DEFAULT_COUNTRY);
+  if (!parsed || !parsed.isValid()) return raw;
+
+  return parsed.country === DEFAULT_COUNTRY
+    ? parsed.formatNational()
+    : parsed.formatInternational();
 }
 
+// Progressive formatting while the field is being typed. Unlike the display
+// formatter this must never reorder or drop characters — the caret would jump.
+export function formatPhoneInput(value: string): string {
+  const raw = value ?? "";
+  if (!raw) return "";
 
+  // Once a "+" is present the country comes from the number itself; without one
+  // we format against the default country.
+  const typed = new AsYouType(raw.trim().startsWith("+") ? undefined : DEFAULT_COUNTRY).input(raw);
+
+  // AsYouType returns "" for input it can't lay out yet (e.g. a lone "+");
+  // showing the raw keystrokes beats blanking the field.
+  return typed || raw;
+}
+
+// What gets sent to the API. The server normalises too, so this is only to keep
+// the value the user sees and the value stored in step.
+export function toE164(value: string | null | undefined): string | null {
+  const raw = (value ?? "").trim();
+  if (!raw) return null;
+
+  const parsed = parsePhoneNumberFromString(raw, DEFAULT_COUNTRY);
+  return parsed && parsed.isValid() ? parsed.number : raw;
+}

@@ -5,6 +5,7 @@ import { Alert, Box, CircularProgress } from "@mui/material";
 import { apiClient, parseApiError } from "../../services/apiClient";
 import { formatMoney } from "../../utils/money";
 import { sessionLabel } from "../../utils/house";
+import { formatPhoneForDisplay } from "../../utils/phone";
 import type { HouseSessionType } from "../../interfaces/api.interface";
 
 // ── Types returned by GET /house/agreement ─────────────────────────────────
@@ -258,7 +259,7 @@ function AgreementPage({
           <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.25 }}>
             {r.first_name} {r.last_name}
           </div>
-          <div style={{ fontSize: 9.5, color: MUTED }}>{[r.phone, r.email].filter(Boolean).join("  ·  ")}</div>
+          <div style={{ fontSize: 9.5, color: MUTED }}>{[formatPhoneForDisplay(r.phone), r.email].filter(Boolean).join("  ·  ")}</div>
           <div style={{ ...eyebrow, fontSize: 7.4, color: INK, paddingTop: 3 }}>{extras.status}</div>
         </div>
         <div style={{ borderLeft: `1px solid ${RULE}`, paddingLeft: 18, textAlign: "right" }}>

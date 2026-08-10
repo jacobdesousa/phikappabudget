@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -17,6 +16,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   Tooltip,
   Typography,
@@ -30,20 +30,20 @@ import {
   deleteAccountAdjustment,
   deleteDisbursement,
   getHouseAccount,
+  getHouseTransactions,
   postDisbursementRevenue,
 } from "../services/houseAccountService";
 import {
-  HouseSessionType,
   IHouseAccount,
   IHouseAccountAdjustment,
   IHouseDisbursement,
+  IHouseTransaction,
+  IHouseTransactionPage,
 } from "../interfaces/api.interface";
-import SchoolYearSelector from "../components/SchoolYearSelector";
-import HouseSessionSelector from "../components/HouseSessionSelector";
 import DisbursementDialog from "../components/houseAccount/disbursementDialog";
 import AccountAdjustmentDialog from "../components/houseAccount/accountAdjustmentDialog";
-import { schoolYearStartForDate } from "../utils/schoolYear";
-import { sessionLabel, tintSx, tintSwatchSx, SUBTLE_CHIP_SX, TintColor } from "../utils/house";
+import { schoolYearLabel } from "../utils/schoolYear";
+import { sessionLabel } from "../utils/house";
 import { formatMoney } from "../utils/money";
 
 const CELL_SX = { py: 0.75 };
@@ -54,8 +54,6 @@ export default function HouseAccountPage() {
   const { can } = useAuth();
   const canWrite = can("house.write");
 
-  const [year, setYear] = useState(schoolYearStartForDate(new Date()));
-  const [session, setSession] = useState<HouseSessionType>("winter");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [account, setAccount] = useState<IHouseAccount | null>(null);
@@ -68,37 +66,81 @@ export default function HouseAccountPage() {
   const [deletingAdjustment, setDeletingAdjustment] = useState<IHouseAccountAdjustment | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  const [txPage, setTxPage] = useState(0);
+  const [txRowsPerPage, setTxRowsPerPage] = useState(25);
+  const [transactions, setTransactions] = useState<IHouseTransactionPage | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      setAccount(await getHouseAccount(year));
+      setAccount(await getHouseAccount());
     } catch (e: any) {
       setError(e?.message ?? "Could not load the house account.");
     } finally {
       setLoading(false);
     }
-  }, [year]);
+  }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  // The account is a single bank account; only the disbursement table is
-  // session-scoped.
-  const disbursements = (account?.disbursements ?? []).filter((d) => d.session_type === session);
-  const payees = account?.payees ?? [];
-  // Fall back to the payees seen on existing rows so a year with no config
-  // still renders its history.
-  const columnPayees = payees.length
-    ? payees.map((p) => p.payee)
-    : Array.from(new Set(disbursements.flatMap((d) => d.shares.map((s) => s.payee))));
-  const internalPayee = payees.find((p) => p.is_internal)?.payee ?? null;
-  const nextSeq =
-    disbursements.reduce((max, d) => Math.max(max, d.seq ?? 0), 0) + 1;
+  // Paged separately from the rest of the page: changing page shouldn't refetch
+  // the balance, and a mutation elsewhere should refresh the ledger.
+  const loadTransactions = useCallback(async () => {
+    try {
+      setTransactions(await getHouseTransactions(txRowsPerPage, txPage * txRowsPerPage));
+    } catch (e: any) {
+      setError(e?.message ?? "Could not load transactions.");
+    }
+  }, [txPage, txRowsPerPage]);
 
-  function statusTint(d: IHouseDisbursement): TintColor | null {
-    return d.status === "disbursed" ? "success" : "warning";
+  useEffect(() => {
+    loadTransactions();
+  }, [loadTransactions, account]);
+
+  const disbursements = account?.disbursements ?? [];
+  const payees = account?.payees ?? [];
+  // Columns span every payee that appears anywhere in the history, plus any
+  // newly configured one — a year whose split has since changed still renders.
+  //
+  // The header percentage comes from the current config, falling back to the
+  // most recent share for a payee no longer configured. Historical rows keep
+  // whatever pct they were created with, so a row can legitimately not match
+  // the header if the split has since been changed.
+  const columnPayees = Array.from(
+    new Set([
+      ...payees.map((p) => p.payee),
+      ...disbursements.flatMap((d) => d.shares.map((s) => s.payee)),
+    ])
+  ).map((payee) => {
+    const configured = payees.find((p) => p.payee === payee);
+    const lastShare = [...disbursements]
+      .reverse()
+      .flatMap((d) => d.shares)
+      .find((s) => s.payee === payee);
+    const pct = Number(configured?.pct ?? lastShare?.pct);
+    return { payee, pct: Number.isFinite(pct) ? pct : null };
+  });
+  const internalPayee = payees.find((p) => p.is_internal)?.payee ?? null;
+
+  // Rows are grouped under a school-year subheader; ordering already comes from
+  // the server, so grouping only has to preserve it.
+  const byYear = disbursements.reduce<Record<number, IHouseDisbursement[]>>((acc, d) => {
+    (acc[d.school_year] ??= []).push(d);
+    return acc;
+  }, {});
+  const years = Object.keys(byYear)
+    .map(Number)
+    .sort((a, b) => a - b);
+
+
+  // The chapter's own share, and only while it hasn't been booked yet. Deleting
+  // the revenue entry clears revenue_id server-side, so the action returns.
+  function internalShare(d: IHouseDisbursement) {
+    if (!internalPayee) return null;
+    return d.shares.find((s) => s.payee === internalPayee && s.revenue_id === null) ?? null;
   }
 
   async function handlePost(d: IHouseDisbursement) {
@@ -139,11 +181,9 @@ export default function HouseAccountPage() {
     <>
       {canWrite && (creating || editing) && account ? (
         <DisbursementDialog
-          year={year}
-          session={session}
           payees={account.payees}
           security={account.security}
-          nextSeq={nextSeq}
+          derivedBalance={account.balance.balance}
           existing={editing ?? undefined}
           onClose={() => {
             setCreating(false);
@@ -159,7 +199,6 @@ export default function HouseAccountPage() {
 
       {canWrite && (creatingAdjustment || editingAdjustment) ? (
         <AccountAdjustmentDialog
-          year={year}
           existing={editingAdjustment ?? undefined}
           onClose={() => {
             setCreatingAdjustment(false);
@@ -183,8 +222,7 @@ export default function HouseAccountPage() {
               </Alert>
             ) : null}
             <Typography variant="body2">
-              {deleting.label ?? `Disbursement #${deleting.id}`} and its payee shares will be
-              removed.
+              The disbursement of {deleting.disbursed_on} and its payee shares will be removed.
             </Typography>
           </DialogContent>
           <DialogActions>
@@ -221,23 +259,13 @@ export default function HouseAccountPage() {
 
       <Stack spacing={2}>
         <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-          <Stack
-            direction={{ xs: "column", sm: "row" }}
-            spacing={2}
-            alignItems={{ sm: "center" }}
-            justifyContent="space-between"
-          >
-            <Box>
-              <Typography variant="h5">House Account</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Residence bank balance and disbursements for {sessionLabel(year, session)}.
-              </Typography>
-            </Box>
-            <Stack direction="row" spacing={2} alignItems="center">
-              <HouseSessionSelector value={session} onChange={setSession} />
-              <SchoolYearSelector value={year} onChange={setYear} />
-            </Stack>
-          </Stack>
+          {/* No year or session selector: the balance was never scoped to one,
+              and the full history is short enough to read in one pass. */}
+          <Typography variant="h5">House Account</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Residence bank balance and every disbursement on record, as of today
+            {account ? ` — ${sessionLabel(account.security.as_of_year, account.security.as_of_session)}` : ""}.
+          </Typography>
         </Paper>
 
         {error ? <Alert severity="error">{error}</Alert> : null}
@@ -254,162 +282,146 @@ export default function HouseAccountPage() {
         ) : !account ? null : (
           <>
             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+              <SummaryTile label="Account balance" value={account.balance.balance} />
               <SummaryTile
-                label="Account balance"
-                value={account.balance.balance}
-                hint="Fees + deposits − refunds − disbursements ± adjustments. Not session-specific."
+                label="Deposits to refund"
+                value={account.security.to_refund}
+                hint={`${account.security.to_refund_count} deposits for residents past move out date.`}
               />
               <SummaryTile
-                label="Deposits held"
-                value={account.balance.deposits_held}
-                hint={`${account.security.deposits_held_count} residents. Owed back, so never disbursed.`}
+                label="Current deposits held"
+                value={account.security.held}
+                hint={`${account.security.held_count} deposits for current or future residents.`}
               />
               <SummaryTile
                 label="Undisbursed surplus"
                 value={account.balance.undisbursed_surplus}
-                hint="Balance less deposits held — what is actually available to split."
+                hint="Balance less deposits held — what is actually available to disburse."
               />
             </Stack>
 
-            {account.payee_totals.length ? (
-              <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  Disbursed to date
-                </Typography>
-                <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-                  {account.payee_totals.map((t) => (
-                    <Chip
-                      key={t.payee}
-                      size="small"
-                      variant="outlined"
-                      label={`${t.payee}: $${formatMoney(t.total)}`}
-                    />
-                  ))}
-                </Stack>
-              </Paper>
-            ) : null}
-
-            <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
-              <Stack direction="row" spacing={0.75} alignItems="center">
-                <Box sx={tintSwatchSx("warning")} />
-                <Typography variant="caption" color="text.secondary">
-                  Estimated
-                </Typography>
+            {/* Same shape as Adjustments below: titled box, description, and
+                its own add button in the header row. */}
+            <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                <Box>
+                  <Typography variant="subtitle1">Disbursements</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    The balance split between the payees each time money leaves the account.
+                  </Typography>
+                </Box>
+                {canWrite ? (
+                  <Button size="small" startIcon={<AddIcon />} onClick={() => setCreating(true)}>
+                    Disbursement
+                  </Button>
+                ) : null}
               </Stack>
-              <Stack direction="row" spacing={0.75} alignItems="center">
-                <Box sx={tintSwatchSx("success")} />
-                <Typography variant="caption" color="text.secondary">
-                  Disbursed
-                </Typography>
-              </Stack>
-              <Box sx={{ flexGrow: 1 }} />
-              {canWrite ? (
-                <Button size="small" startIcon={<AddIcon />} onClick={() => setCreating(true)}>
-                  Disbursement
-                </Button>
-              ) : null}
-            </Stack>
-
-            <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
               {disbursements.length === 0 ? (
-                <Alert severity="info" sx={{ m: 2 }}>
-                  No disbursements recorded for {sessionLabel(year, session)}.
-                </Alert>
+                <Typography variant="body2" color="text.secondary">
+                  None recorded.
+                </Typography>
               ) : (
                 <TableContainer sx={{ overflowX: "auto" }}>
                   <Table size="small">
                     <TableHead>
                       <TableRow>
-                        <TableCell sx={HEAD_SX}>Disbursement</TableCell>
-                        <TableCell sx={HEAD_SX}>Date</TableCell>
+                        <TableCell sx={HEAD_SX}>Disbursed</TableCell>
                         <TableCell sx={{ ...HEAD_SX, textAlign: "right" }}>Balance</TableCell>
                         <TableCell sx={{ ...HEAD_SX, textAlign: "right" }}>
-                          Less security to refund
+                          Less deposits to refund
                         </TableCell>
                         <TableCell sx={{ ...HEAD_SX, textAlign: "right" }}>
-                          Less security on account
+                          Less deposits held
                         </TableCell>
                         <TableCell sx={{ ...HEAD_SX, textAlign: "right" }}>Sub-total</TableCell>
-                        {columnPayees.map((p) => (
-                          <TableCell key={p} sx={{ ...HEAD_SX, textAlign: "right" }}>
-                            {p}
+                        {columnPayees.map(({ payee, pct }) => (
+                          <TableCell key={payee} sx={{ ...HEAD_SX, textAlign: "right" }}>
+                            {payee}
+                            {pct === null ? "" : ` (${pct}%)`}
                           </TableCell>
                         ))}
                         <TableCell sx={HEAD_SX} />
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {disbursements.map((d) => (
-                        <TableRow key={d.id} sx={tintSx(statusTint(d))}>
+                      {years.map((y) => [
+                        <TableRow key={`year-${y}`}>
+                          <TableCell
+                            colSpan={5 + columnPayees.length + 1}
+                            sx={{
+                              ...CELL_SX,
+                              fontWeight: 700,
+                              bgcolor: "action.hover",
+                              position: "sticky",
+                              left: 0,
+                            }}
+                          >
+                            {schoolYearLabel(y)}
+                          </TableCell>
+                        </TableRow>,
+                        ...byYear[y].map((d) => (
+                        <TableRow key={d.id}>
                           <TableCell sx={CELL_SX}>
-                            <Stack direction="row" spacing={1} alignItems="center">
-                              <Typography variant="body2">
-                                {d.label ?? `#${d.seq ?? d.id}`}
-                              </Typography>
-                              {d.status === "estimated" ? (
-                                <Chip size="small" variant="outlined" sx={SUBTLE_CHIP_SX} label="estimated" />
-                              ) : null}
-                            </Stack>
+                            <Typography variant="body2" sx={{ whiteSpace: "nowrap" }}>
+                              {d.disbursed_on}
+                            </Typography>
                             {d.notes ? (
                               <Typography variant="caption" color="text.secondary">
                                 {d.notes}
                               </Typography>
                             ) : null}
                           </TableCell>
-                          <TableCell sx={CELL_SX}>{d.disbursed_on ?? "—"}</TableCell>
                           <TableCell sx={NUM_SX}>${formatMoney(d.bank_balance)}</TableCell>
                           <TableCell sx={NUM_SX}>${formatMoney(d.security_to_refund)}</TableCell>
                           <TableCell sx={NUM_SX}>${formatMoney(d.security_on_account)}</TableCell>
                           <TableCell sx={{ ...NUM_SX, fontWeight: 700 }}>
                             ${formatMoney(d.sub_total)}
                           </TableCell>
-                          {columnPayees.map((p) => {
-                            const share = d.shares.find((s) => s.payee === p);
+                          {columnPayees.map(({ payee }) => {
+                            const share = d.shares.find((s) => s.payee === payee);
                             if (!share) {
                               return (
-                                <TableCell key={p} sx={NUM_SX}>
+                                <TableCell key={payee} sx={NUM_SX}>
                                   —
                                 </TableCell>
                               );
                             }
-                            const postable =
-                              canWrite &&
-                              d.status === "disbursed" &&
-                              share.revenue_id === null &&
-                              p === internalPayee;
+                            // Money columns hold nothing but money, so every
+                            // figure right-aligns under its header. Actions live
+                            // in the actions column.
                             return (
-                              <TableCell key={p} sx={NUM_SX}>
-                                <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center">
-                                  <Box>
-                                    <Typography variant="body2">
-                                      ${formatMoney(share.amount)}
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                      ${formatMoney(share.running_total)} total
-                                    </Typography>
-                                  </Box>
-                                  {share.revenue_id !== null ? (
-                                    <Chip
-                                      size="small"
-                                      variant="outlined"
-                                      sx={SUBTLE_CHIP_SX}
-                                      label="posted"
-                                    />
-                                  ) : null}
-                                  {postable ? (
-                                    <Tooltip title="Post this share to revenue">
-                                      <IconButton size="small" onClick={() => handlePost(d)}>
-                                        <PostAddOutlinedIcon fontSize="small" />
-                                      </IconButton>
-                                    </Tooltip>
-                                  ) : null}
-                                </Stack>
+                              <TableCell key={payee} sx={NUM_SX}>
+                                <Typography variant="body2">
+                                  ${formatMoney(share.amount)}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  ${formatMoney(share.running_total)} YTD
+                                </Typography>
+                                {share.cheque_number ? (
+                                  <Typography variant="caption" color="text.secondary" display="block">
+                                    cheque #{share.cheque_number}
+                                  </Typography>
+                                ) : null}
+                                {share.revenue_id !== null ? (
+                                  <Typography variant="caption" color="success.main" display="block">
+                                    posted
+                                  </Typography>
+                                ) : null}
                               </TableCell>
                             );
                           })}
                           <TableCell sx={{ ...CELL_SX, whiteSpace: "nowrap" }}>
                             {canWrite ? (
                               <>
+                                {internalShare(d) ? (
+                                  <Tooltip
+                                    title={`Post the ${internalPayee} share to revenue`}
+                                  >
+                                    <IconButton size="small" onClick={() => handlePost(d)}>
+                                      <PostAddOutlinedIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                ) : null}
                                 <IconButton size="small" onClick={() => setEditing(d)}>
                                   <EditOutlinedIcon fontSize="small" />
                                 </IconButton>
@@ -420,7 +432,8 @@ export default function HouseAccountPage() {
                             ) : null}
                           </TableCell>
                         </TableRow>
-                      ))}
+                        )),
+                      ])}
                     </TableBody>
                   </Table>
                 </TableContainer>
@@ -447,7 +460,7 @@ export default function HouseAccountPage() {
               </Stack>
               {account.adjustments.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
-                  None recorded for {year}.
+                  None recorded.
                 </Typography>
               ) : (
                 <TableContainer sx={{ overflowX: "auto" }}>
@@ -464,14 +477,24 @@ export default function HouseAccountPage() {
                       {account.adjustments.map((a) => (
                         <TableRow key={a.id}>
                           <TableCell sx={CELL_SX}>{a.occurred_on}</TableCell>
-                          <TableCell sx={CELL_SX}>{a.description ?? "—"}</TableCell>
+                          <TableCell sx={CELL_SX}>
+                            {a.description ?? "—"}
+                            {a.disbursement_id !== null ? (
+                              <Typography variant="caption" color="text.secondary" display="block">
+                                automatic — recalculated with its disbursement
+                              </Typography>
+                            ) : null}
+                          </TableCell>
                           <TableCell
                             sx={{ ...NUM_SX, color: Number(a.amount) < 0 ? "error.main" : undefined }}
                           >
                             ${formatMoney(a.amount)}
                           </TableCell>
                           <TableCell sx={{ ...CELL_SX, whiteSpace: "nowrap" }}>
-                            {canWrite ? (
+                            {/* An automatic reconciliation is owned by its
+                                disbursement: editing it here would be undone the
+                                next time that disbursement is saved. */}
+                            {canWrite && a.disbursement_id === null ? (
                               <>
                                 <IconButton size="small" onClick={() => setEditingAdjustment(a)}>
                                   <EditOutlinedIcon fontSize="small" />
@@ -489,6 +512,75 @@ export default function HouseAccountPage() {
                 </TableContainer>
               )}
             </Paper>
+
+            <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="subtitle1">Transactions</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Every movement through the account — fees, deposits, refunds, disbursements and
+                  adjustments — newest first.
+                </Typography>
+              </Box>
+              {!transactions || transactions.total === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  Nothing recorded.
+                </Typography>
+              ) : (
+                <>
+                  <TableContainer sx={{ overflowX: "auto" }}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={HEAD_SX}>Date</TableCell>
+                          <TableCell sx={HEAD_SX}>Type</TableCell>
+                          <TableCell sx={HEAD_SX}>Detail</TableCell>
+                          <TableCell sx={HEAD_SX}>Cheque #</TableCell>
+                          <TableCell sx={{ ...HEAD_SX, textAlign: "right" }}>Amount</TableCell>
+                          <TableCell sx={{ ...HEAD_SX, textAlign: "right" }}>Balance</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {transactions.transactions.map((t) => (
+                          <TableRow key={`${t.kind}-${t.source_id}`}>
+                            <TableCell sx={{ ...CELL_SX, whiteSpace: "nowrap" }}>
+                              {t.occurred_on}
+                            </TableCell>
+                            <TableCell sx={CELL_SX}>{TX_LABELS[t.kind]}</TableCell>
+                            <TableCell sx={CELL_SX}>
+                              {t.counterparty ?? t.detail ?? "—"}
+                              {t.counterparty && t.detail ? (
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  {t.detail}
+                                </Typography>
+                              ) : null}
+                            </TableCell>
+                            <TableCell sx={CELL_SX}>{t.cheque_number ?? "—"}</TableCell>
+                            <TableCell
+                              sx={{ ...NUM_SX, color: t.amount < 0 ? "error.main" : undefined }}
+                            >
+                              {t.amount < 0 ? "−" : ""}${formatMoney(Math.abs(t.amount))}
+                            </TableCell>
+                            <TableCell sx={NUM_SX}>${formatMoney(t.running_balance)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                  <TablePagination
+                    component="div"
+                    count={transactions.total}
+                    page={txPage}
+                    onPageChange={(_e, next) => setTxPage(next)}
+                    rowsPerPage={txRowsPerPage}
+                    onRowsPerPageChange={(e) => {
+                      setTxRowsPerPage(Number(e.target.value));
+                      setTxPage(0);
+                    }}
+                    rowsPerPageOptions={[25, 50, 100]}
+                  />
+                </>
+              )}
+            </Paper>
           </>
         )}
       </Stack>
@@ -496,7 +588,15 @@ export default function HouseAccountPage() {
   );
 }
 
-function SummaryTile(props: { label: string; value: number; hint: string }) {
+const TX_LABELS: Record<IHouseTransaction["kind"], string> = {
+  payment: "Fee payment",
+  deposit: "Deposit received",
+  deposit_refund: "Deposit refund",
+  disbursement: "Disbursement",
+  adjustment: "Adjustment",
+};
+
+function SummaryTile(props: { label: string; value: number; hint?: string }) {
   return (
     <Paper
       elevation={0}
@@ -506,9 +606,11 @@ function SummaryTile(props: { label: string; value: number; hint: string }) {
         {props.label}
       </Typography>
       <Typography variant="h5">${formatMoney(props.value)}</Typography>
-      <Typography variant="caption" color="text.secondary">
-        {props.hint}
-      </Typography>
+      {props.hint ? (
+        <Typography variant="caption" color="text.secondary">
+          {props.hint}
+        </Typography>
+      ) : null}
     </Paper>
   );
 }

@@ -24,7 +24,7 @@ import { IBrother, IBrotherOffice } from "../../interfaces/api.interface";
 import CloseIcon from "@mui/icons-material/Close";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
-import { formatNorthAmericanPhone } from "../../utils/phone";
+import { formatPhoneInput, toE164 } from "../../utils/phone";
 import { getOffices, type OfficeListItem } from "../../services/officesService";
 import dayjs from "dayjs";
 
@@ -74,7 +74,7 @@ export default function EditBrotherModalComponent(props: Props) {
         setFirstName(props.newBrother.first_name);
         setLastName(props.newBrother.last_name);
         setEmail(props.newBrother.email);
-        setPhone(formatNorthAmericanPhone(props.newBrother.phone));
+        setPhone(formatPhoneInput(props.newBrother.phone));
         setPledgeClass(props.newBrother.pledge_class);
         const parts = String(props.newBrother.pledge_class ?? "").trim().split(" ");
         if (parts.length === 2) {
@@ -129,7 +129,7 @@ export default function EditBrotherModalComponent(props: Props) {
             first_name: firstName,
             last_name: lastName,
             email,
-            phone,
+            phone: toE164(phone),
             // Boarders have no pledge class or graduation year.
             pledge_class: isBoarder ? null : `${pcSeason} ${pcYear}`,
             graduation: isBoarder || !graduation ? null : Number(graduation),
@@ -195,7 +195,7 @@ export default function EditBrotherModalComponent(props: Props) {
             case "firstName": setFirstName(event.target.value); break;
             case "lastName": setLastName(event.target.value); break;
             case "email": setEmail(event.target.value); setEmailError(undefined); break;
-            case "phone": setPhone(formatNorthAmericanPhone(event.target.value)); break;
+            case "phone": setPhone(formatPhoneInput(event.target.value)); break;
             case "graduation": setGraduation(event.target.value); break;
             case "status": setStatus(event.target.value); setStatusError(undefined); break;
         }
@@ -224,7 +224,8 @@ const activeTenures = tenures.filter((t) => !t.end_date || dayjs(t.end_date).isA
                         error={Boolean(emailError)} helperText={emailError}
                         onChange={(e) => handleFieldChange(e, "email")} />
                     <TextField required fullWidth label="Phone" value={phone}
-                        onChange={(e) => handleFieldChange(e, "phone")} />
+                        onChange={(e) => handleFieldChange(e, "phone")}
+                        helperText="Include the + country code for numbers outside North America, e.g. +353 83 123 4567" />
 
                     {/* Status comes first: it decides whether the chapter fields apply. */}
                     <FormControl fullWidth required error={Boolean(statusError)}>

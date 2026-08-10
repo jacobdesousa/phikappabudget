@@ -20,7 +20,6 @@ import {
 } from "../../services/houseAccountService";
 
 interface Props {
-  year: number;
   existing?: IHouseAccountAdjustment;
   onClose: () => void;
   onSaved: () => void;
@@ -44,11 +43,11 @@ export default function AccountAdjustmentDialog(props: Props) {
     }
     setSubmitting(true);
     setError(null);
+    // school_year is derived from the date on the server.
     const payload: any = {
       occurred_on: occurredOn,
       amount: Number(amount),
       description: description || null,
-      school_year: props.year,
     };
     try {
       if (existing) await updateAccountAdjustment(existing.id, payload);

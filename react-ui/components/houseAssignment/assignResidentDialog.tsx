@@ -41,6 +41,10 @@ interface Props {
   bed: number;
   brothers: IBrother[];
   existing?: IHouseAssignment;
+  // Set when filling a mid-session vacancy: the free window, not the whole
+  // session. Ignored when editing an existing assignment.
+  defaultStartDate?: string;
+  defaultEndDate?: string;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -54,8 +58,12 @@ export default function AssignResidentDialog(props: Props) {
 
   const [brotherId, setBrotherId] = useState<number | null>(props.existing?.brother_id ?? null);
   const [occupancy, setOccupancy] = useState<HouseOccupancy>(props.existing?.occupancy ?? "standard");
-  const [startDate, setStartDate] = useState(props.existing?.start_date ?? sessionConfig?.start_date ?? "");
-  const [endDate, setEndDate] = useState(props.existing?.end_date ?? sessionConfig?.end_date ?? "");
+  const [startDate, setStartDate] = useState(
+    props.existing?.start_date ?? props.defaultStartDate ?? sessionConfig?.start_date ?? ""
+  );
+  const [endDate, setEndDate] = useState(
+    props.existing?.end_date ?? props.defaultEndDate ?? sessionConfig?.end_date ?? ""
+  );
   const [override, setOverride] = useState(
     props.existing?.amount_override != null ? String(props.existing.amount_override) : ""
   );
@@ -82,10 +90,17 @@ export default function AssignResidentDialog(props: Props) {
   // Rates and the rebate are both per 4-month term; winter is two terms.
   const terms = Math.max(Number(sessionConfig?.terms) || 1, 1);
 
+  const isOverride = override !== "";
+
   const preview = useMemo(() => {
     const termRate = rateFor(room, occupancy) ?? 0;
-    // An override is entered as a session figure, not a per-term one.
-    const base = override !== "" ? Number(override) : roundMoney(termRate * terms);
+    // An override is entered as a session figure and billed exactly as entered:
+    // neither discount applies on top of it. Mirrors totalOwedFor on the server.
+    if (isOverride) {
+      const base = Number(override);
+      return { termRate, base, rebate: 0, beds: 1, pct: 0, total: roundMoney(base) };
+    }
+    const base = roundMoney(termRate * terms);
     const perTerm = Number(sessionConfig?.member_rebate ?? 0);
     const beds = canDoubleRebate && doubleRebate ? room.capacity : 1;
     const rebate = memberDiscount ? roundMoney(perTerm * beds * terms) : 0;
@@ -99,7 +114,7 @@ export default function AssignResidentDialog(props: Props) {
       pct,
       total: roundMoney(pct ? afterRebate * (1 - pct / 100) : afterRebate),
     };
-  }, [override, room, occupancy, terms, memberDiscount, doubleRebate, canDoubleRebate, prepayDiscount, sessionConfig]);
+  }, [isOverride, override, room, occupancy, terms, memberDiscount, doubleRebate, canDoubleRebate, prepayDiscount, sessionConfig]);
 
   // A buy-out only means something in a room with more than one bed.
   const occupancyOptions: { value: HouseOccupancy; label: string; rate: number | null }[] = [
@@ -218,12 +233,17 @@ export default function AssignResidentDialog(props: Props) {
             />
           </Stack>
 
+          {/* Both are disabled under an override: the entered amount is billed
+              as-is, so a ticked box here would promise a deduction that the
+              server won't apply. */}
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
             <FormControlLabel
+              disabled={isOverride}
               control={<Checkbox checked={memberDiscount} onChange={(e) => setMemberDiscount(e.target.checked)} />}
               label={`Member rebate ($${formatMoney(sessionConfig?.member_rebate ?? 0)}/term)`}
             />
             <FormControlLabel
+              disabled={isOverride}
               control={<Checkbox checked={prepayDiscount} onChange={(e) => setPrepayDiscount(e.target.checked)} />}
               label={`Pre-payment discount (${Number(sessionConfig?.prepay_discount_pct ?? 0)}%)`}
             />
@@ -253,7 +273,7 @@ export default function AssignResidentDialog(props: Props) {
             onChange={(e) => setOverride(e.target.value)}
             inputProps={{ step: "0.01" }}
             InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-            helperText="Leave blank to charge the configured rate. Entered as a whole-session amount — use this for mid-session move-ins and move-outs."
+            helperText="Leave blank to charge the configured rate. Entered as a whole-session amount and billed exactly as entered — no rebate or pre-payment discount is applied on top. Use it for mid-session move-ins and move-outs."
             fullWidth
           />
           {override !== "" && (
@@ -268,14 +288,23 @@ export default function AssignResidentDialog(props: Props) {
           <TextField label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} fullWidth />
 
           <Typography variant="body2" color="text.secondary">
-            {override === "" && terms > 1
-              ? `$${formatMoney(preview.termRate)}/term × ${terms} terms = $${formatMoney(preview.base)}`
-              : `$${formatMoney(preview.base)}`}
-            {preview.rebate
-              ? ` − $${formatMoney(preview.rebate)} rebate${preview.beds > 1 ? ` (${preview.beds} beds)` : ""}`
-              : ""}
-            {preview.pct ? ` − ${preview.pct}% pre-payment` : ""} = <strong>${formatMoney(preview.total)}</strong> for
-            the session.
+            {isOverride ? (
+              <>
+                Agreed fee of <strong>${formatMoney(preview.total)}</strong> for the session, billed as
+                entered.
+              </>
+            ) : (
+              <>
+                {terms > 1
+                  ? `$${formatMoney(preview.termRate)}/term × ${terms} terms = $${formatMoney(preview.base)}`
+                  : `$${formatMoney(preview.base)}`}
+                {preview.rebate
+                  ? ` − $${formatMoney(preview.rebate)} rebate${preview.beds > 1 ? ` (${preview.beds} beds)` : ""}`
+                  : ""}
+                {preview.pct ? ` − ${preview.pct}% pre-payment` : ""} ={" "}
+                <strong>${formatMoney(preview.total)}</strong> for the session.
+              </>
+            )}
           </Typography>
         </Stack>
       </DialogContent>
