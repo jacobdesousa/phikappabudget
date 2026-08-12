@@ -19,26 +19,10 @@ import {
   Typography,
 } from "@mui/material";
 import LoginIcon from "@mui/icons-material/Login";
+import { APP_MODULES } from "../components/navigation/modules";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import LogoutIcon from "@mui/icons-material/Logout";
-import GroupsIcon from "@mui/icons-material/Groups";
-import PaymentsIcon from "@mui/icons-material/Payments";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
-import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
-import EventNoteIcon from "@mui/icons-material/EventNote";
-import BuildIcon from "@mui/icons-material/Build";
-import GavelIcon from "@mui/icons-material/Gavel";
-import ConstructionIcon from "@mui/icons-material/Construction";
-import CleaningServicesIcon from "@mui/icons-material/CleaningServices";
-import CelebrationIcon from "@mui/icons-material/Celebration";
-import MeetingRoomOutlinedIcon from "@mui/icons-material/MeetingRoomOutlined";
-import HomeWorkOutlinedIcon from "@mui/icons-material/HomeWorkOutlined";
-import ApartmentOutlinedIcon from "@mui/icons-material/ApartmentOutlined";
-import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
-import AssignmentLateIcon from "@mui/icons-material/AssignmentLate";
-import SettingsIcon from "@mui/icons-material/Settings";
 import { me } from "../services/authService";
 import { getAccessToken, redirectToLogin } from "../services/apiClient";
 import { logout } from "../services/authService";
@@ -52,31 +36,6 @@ type ModuleCard = {
   icon: React.ReactNode;
 };
 
-const MODULES: ModuleCard[] = [
-  { href: "/brothers", title: "Brothers", description: "Member roster, status, office, and contact details.", anyPermissions: ["brothers.read"], icon: <GroupsIcon /> },
-  { href: "/dues", title: "Dues", description: "Payments, balances, and who's behind by school year.", anyPermissions: ["dues.read"], icon: <PaymentsIcon /> },
-  { href: "/revenue", title: "Revenue", description: "Track income and payment stream breakdowns.", anyPermissions: ["revenue.read"], icon: <TrendingUpIcon /> },
-  { href: "/expenses", title: "Expenses", description: "Submissions, approvals, and reimbursements.", anyPermissions: ["expenses.read"], icon: <ReceiptLongIcon /> },
-  { href: "/budget", title: "Budget", description: "Budgeted vs actual spend by category across the year.", anyPermissions: ["budget.read"], icon: <AccountBalanceOutlinedIcon /> },
-  { href: "/meetings", title: "Meetings", description: "Minutes with attendance and officer reports.", anyPermissions: ["meetings.read"], icon: <EventNoteIcon /> },
-  { href: "/workdays", title: "Workdays", description: "Attendance that drives chapter bonus earnings.", anyPermissions: ["workdays.read"], icon: <BuildIcon /> },
-  { href: "/chapter-bonus", title: "Chapter Bonus", description: "Monthly deductions + workday earnings overview.", anyPermissions: ["chapterBonus.read"], icon: <GavelIcon /> },
-  { href: "/shifts/setup", title: "Setup Shifts", description: "Schedule and track chapter setup shifts.", anyPermissions: ["shifts.setup.read"], icon: <ConstructionIcon /> },
-  { href: "/shifts/cleanup", title: "Cleanup Shifts", description: "Schedule and track chapter cleanup shifts.", anyPermissions: ["shifts.cleanup.read"], icon: <CleaningServicesIcon /> },
-  { href: "/shifts/party", title: "Party Shifts", description: "Party timetable with duty slots and attendance.", anyPermissions: ["shifts.party.read"], icon: <CelebrationIcon /> },
-  { href: "/room-draw", title: "Room Draw", description: "Points standings per bylaws for room selection.", anyPermissions: ["roomDraw.read"], icon: <MeetingRoomOutlinedIcon /> },
-  { href: "/house", title: "House Residents", description: "Who lives in which bedroom, and for what dates.", anyPermissions: ["house.read"], icon: <HomeWorkOutlinedIcon /> },
-  { href: "/house-instalments", title: "Resident Instalments", description: "Room fees owed, paid, and outstanding per session.", anyPermissions: ["house.read"], icon: <ApartmentOutlinedIcon /> },
-  { href: "/house-account", title: "House Account", description: "Bank balance, disbursements to TSPHC and PKSAB.", anyPermissions: ["house.read"], icon: <AccountBalanceWalletOutlinedIcon /> },
-  { href: "/makeups", title: "Makeups", description: "All unresolved absences requiring makeup.", anyPermissions: [], icon: <AssignmentLateIcon /> },
-  {
-    href: "/config",
-    title: "Config",
-    description: "Manage dues config, categories, and bonus rules.",
-    anyPermissions: ["dues.config", "revenue.config", "chapterBonus.config", "expenses.write", "house.config"],
-    icon: <SettingsIcon />,
-  },
-];
 
 function hasAny(perms: string[] | undefined, keys: string[] | undefined) {
   if (!keys || keys.length === 0) return true;
@@ -126,7 +85,7 @@ export default function LandingPage() {
   }, []);
 
   const visibleModules = React.useMemo(() => {
-    return MODULES.filter((m) => hasAny(permissions ?? undefined, m.anyPermissions));
+    return APP_MODULES.filter((m) => hasAny(permissions ?? undefined, m.anyPermissions));
   }, [permissions]);
 
   return (
@@ -241,7 +200,7 @@ export default function LandingPage() {
                         {m.icon}
                       </Box>
                       <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
-                        {m.title}
+                        {m.label}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                         {m.description}

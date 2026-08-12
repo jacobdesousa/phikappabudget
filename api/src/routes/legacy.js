@@ -160,6 +160,13 @@ const {
   updateAdjustment,
   deleteAdjustment,
 } = require("../controllers/houseAccountController");
+const {
+  getSchedule,
+  getCurrent,
+  getChoreConfig,
+  saveChoreConfig,
+  seedChoreConfig,
+} = require("../controllers/choresController");
 const { requireAuth, requirePermission } = require("../middleware/auth");
 const { auditWrites } = require("../middleware/audit");
 const { pool } = require("../db/pool");
@@ -329,6 +336,13 @@ router.put("/budget/expense-allocations",  requirePermission("budget.write"), as
 router.put("/budget/revenue-allocations",  requirePermission("budget.write"), asyncHandler(batchUpsertRevenueAllocations));
 router.put("/budget/reconciliation",       requirePermission("budget.write"), asyncHandler(upsertReconciliation));
 router.put("/budget/dues-config",          requirePermission("budget.write"), asyncHandler(upsertBudgetDuesConfig));
+
+// House chores. The schedule is a stored grid edited on the config page.
+router.get("/chores/current",      requirePermission("chores.read"),   asyncHandler(getCurrent));
+router.get("/chores/schedule",     requirePermission("chores.read"),   asyncHandler(getSchedule));
+router.get("/chores/config",       requirePermission("chores.read"),   asyncHandler(getChoreConfig));
+router.put("/chores/config",       requirePermission("chores.config"), asyncHandler(saveChoreConfig));
+router.post("/chores/config/seed", requirePermission("chores.config"), asyncHandler(seedChoreConfig));
 
 // Chapter house. Literal paths are declared before any `/:id` route so they
 // aren't swallowed by the wildcard.

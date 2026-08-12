@@ -716,3 +716,109 @@ export interface IHouseAccount {
     disbursements: IHouseDisbursement[];
     adjustments: IHouseAccountAdjustment[];
 }
+
+// ── House chores ────────────────────────────────────────────────────────────
+// The schedule is a stored grid — one duty per bed per half-month, matching the
+// printed sheet — edited on the chores config page.
+
+export interface IChoreDuty {
+    duty_no: number;
+    name: string;
+    description: string | null;
+}
+
+// A row of the schedule: one bed. Read-only here — bedrooms and their capacity
+// are configured in House Config.
+export interface IChoreBed {
+    room_id: number;
+    room_code: string;
+    floor: number | null;
+    sort_order: number | null;
+    bed: number;
+    capacity: number;
+    bed_label: string;
+}
+
+// One filled cell of the schedule. There is a single schedule, repeated every
+// year. Cleared cells are absent, meaning that bed is off duty.
+export interface IChoreGridCell {
+    room_id: number;
+    bed: number;
+    // 0-23: September 1st-half through August 2nd-half.
+    period_index: number;
+    duty_no: number;
+}
+
+export interface IChoreSettings {
+    // First day of the second period of each month.
+    split_day: number;
+    manager_notes: string | null;
+}
+
+export interface IChoreCaptain {
+    captain_key: string;
+    name: string;
+    description: string | null;
+    brother_id: number | null;
+    sort_order: number | null;
+    first_name?: string | null;
+    last_name?: string | null;
+}
+
+export interface IChoreEntry {
+    room_id: number;
+    room_code: string;
+    // The bedroom's position in House Config.
+    sort_order: number | null;
+    bed: number;
+    bed_label: string;
+    duty_no: number;
+    duty_name: string | null;
+    duty_description: string | null;
+    brother_id: number | null;
+    first_name: string | null;
+    last_name: string | null;
+    is_vacant: boolean;
+}
+
+export interface IChorePeriod {
+    half: 0 | 1;
+    year: number;
+    month: number;
+    period_index: number;
+    start_date: string;
+    end_date: string;
+    label: string;
+    month_label: string;
+    school_year: number;
+    session_type: HouseSessionType;
+    entries: IChoreEntry[];
+}
+
+export interface IChoreCurrent {
+    today: string;
+    settings: IChoreSettings;
+    duties: IChoreDuty[];
+    current: IChorePeriod;
+    next: IChorePeriod;
+    captains: IChoreCaptain[];
+}
+
+export interface IChoreSchedule {
+    year: number;
+    from: string;
+    to: string;
+    settings: IChoreSettings;
+    duties: IChoreDuty[];
+    periods: IChorePeriod[];
+}
+
+export interface IChoreConfig {
+    settings: IChoreSettings;
+    duties: IChoreDuty[];
+    // The schedule's rows, derived from House Config.
+    beds: IChoreBed[];
+    grid: IChoreGridCell[];
+    captains: IChoreCaptain[];
+    is_configured: boolean;
+}

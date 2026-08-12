@@ -61,6 +61,10 @@ function pageTitle(pathname: string) {
       return "House Account";
     case "/house-config":
       return "House Config";
+    case "/chores":
+      return "Chores";
+    case "/chores-config":
+      return "Chores Config";
     case "/shifts/setup":
       return "Setup Shifts";
     case "/shifts/cleanup":

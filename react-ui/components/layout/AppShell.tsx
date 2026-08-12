@@ -19,62 +19,20 @@ import {
   Typography,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
-import GroupsIcon from "@mui/icons-material/Groups";
-import PaymentsIcon from "@mui/icons-material/Payments";
-import SettingsIcon from "@mui/icons-material/Settings";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
-import EventNoteIcon from "@mui/icons-material/EventNote";
-import GavelIcon from "@mui/icons-material/Gavel";
-import BuildIcon from "@mui/icons-material/Build";
-import CleaningServicesIcon from "@mui/icons-material/CleaningServices";
-import ConstructionIcon from "@mui/icons-material/Construction";
-import CelebrationIcon from "@mui/icons-material/Celebration";
-import AssignmentLateIcon from "@mui/icons-material/AssignmentLate";
-import MeetingRoomOutlinedIcon from "@mui/icons-material/MeetingRoomOutlined";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import LogoutIcon from "@mui/icons-material/Logout";
-import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
-import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
 import { useTheme } from "@mui/material/styles";
 import { useColorMode } from "../../theme/colorMode";
 import { logout } from "../../services/authService";
-import HomeWorkOutlinedIcon from "@mui/icons-material/HomeWorkOutlined";
-import ApartmentOutlinedIcon from "@mui/icons-material/ApartmentOutlined";
-import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
 import { useAuth } from "../../context/authContext";
+import { APP_MODULES } from "../navigation/modules";
 import { getNotifications } from "../../services/notificationsService";
 
 const drawerWidth = 260;
 
-const navItems = [
-  { href: "/brothers", label: "Brothers", icon: <GroupsIcon />, anyPermissions: ["brothers.read"] },
-  { href: "/dues", label: "Dues", icon: <PaymentsIcon />, anyPermissions: ["dues.read"] },
-  { href: "/revenue", label: "Revenue", icon: <TrendingUpIcon />, anyPermissions: ["revenue.read"] },
-  { href: "/expenses", label: "Expenses", icon: <ReceiptLongIcon />, anyPermissions: ["expenses.read"] },
-  { href: "/budget", label: "Budget", icon: <AccountBalanceOutlinedIcon />, anyPermissions: ["budget.read"] },
-  { href: "/meetings", label: "Meetings", icon: <EventNoteIcon />, anyPermissions: ["meetings.read"] },
-  { href: "/workdays", label: "Workdays", icon: <BuildIcon />, anyPermissions: ["workdays.read"] },
-  { href: "/chapter-bonus", label: "Chapter Bonus", icon: <GavelIcon />, anyPermissions: ["chapterBonus.read"] },
-  { href: "/shifts/setup", label: "Setup Shifts", icon: <ConstructionIcon />, anyPermissions: ["shifts.setup.read"] },
-  { href: "/shifts/cleanup", label: "Cleanup Shifts", icon: <CleaningServicesIcon />, anyPermissions: ["shifts.cleanup.read"] },
-  { href: "/shifts/party", label: "Party Shifts", icon: <CelebrationIcon />, anyPermissions: ["shifts.party.read"] },
-  { href: "/room-draw", label: "Room Draw", icon: <MeetingRoomOutlinedIcon />, anyPermissions: ["roomDraw.read"] },
-  { href: "/house", label: "House Residents", icon: <HomeWorkOutlinedIcon />, anyPermissions: ["house.read"] },
-  { href: "/house-instalments", label: "Resident Instalments", icon: <ApartmentOutlinedIcon />, anyPermissions: ["house.read"] },
-  { href: "/house-account", label: "House Account", icon: <AccountBalanceWalletOutlinedIcon />, anyPermissions: ["house.read"] },
-  { href: "/makeups", label: "Makeups", icon: <AssignmentLateIcon />, anyPermissions: [] },
-  { href: "/sessions", label: "Sessions", icon: <SecurityOutlinedIcon />, anyPermissions: ["admin.sessions"] },
-  {
-    href: "/config",
-    label: "Config",
-    icon: <SettingsIcon />,
-    anyPermissions: ["dues.config", "revenue.config", "chapterBonus.config", "expenses.write", "house.config"],
-  },
-];
 
 export function AppShell(props: { title: string; children: React.ReactNode }) {
   const router = useRouter();
@@ -97,7 +55,7 @@ export function AppShell(props: { title: string; children: React.ReactNode }) {
       <Toolbar sx={{ px: 2 }} />
       <Divider />
       <List sx={{ px: 1 }}>
-        {navItems.filter((i) => canAny(i.anyPermissions)).map((item) => {
+        {APP_MODULES.filter((i) => canAny(i.anyPermissions)).map((item) => {
           const active = router.pathname === item.href || router.pathname.startsWith(item.href + "/");
           return (
             <ListItemButton
@@ -255,6 +213,10 @@ export function AppShell(props: { title: string; children: React.ReactNode }) {
         component="main"
         sx={{
           flexGrow: 1,
+          // Without minWidth, a flex child grows to fit its widest content, so a
+          // wide table pushes the whole page sideways instead of scrolling
+          // inside its own container.
+          minWidth: 0,
           p: { xs: 2, md: 3 },
           mt: "64px",
         }}

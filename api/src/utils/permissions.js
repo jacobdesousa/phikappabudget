@@ -35,6 +35,9 @@ const ROLE_PERMISSIONS = {
     "house.read",
     "house.write",
     "house.config",
+    "chores.read",
+    "chores.write",
+    "chores.config",
   ],
   // Treasurer / finance chair: full access
   tau: [
@@ -68,6 +71,9 @@ const ROLE_PERMISSIONS = {
     "house.read",
     "house.write",
     "house.config",
+    "chores.read",
+    "chores.write",
+    "chores.config",
   ],
   // President: broad write access except financial disbursement by default
   alpha: [
@@ -89,15 +95,18 @@ const ROLE_PERMISSIONS = {
     "roomDraw.write",
     "house.read",
     "house.write",
+    "chores.read",
+    "chores.write",
+    "chores.config",
   ],
   // Finance officer (if used)
-  beta: ["revenue.read", "revenue.write", "dues.read", "expenses.read", "budget.read", "roomDraw.read", "roomDraw.write", "house.read"],
+  beta: ["revenue.read", "revenue.write", "dues.read", "expenses.read", "budget.read", "roomDraw.read", "roomDraw.write", "house.read", "chores.read"],
   // Secretary (Sigma): owns meeting minutes and votes
   sigma: ["meetings.read", "meetings.write"],
   // Psi: manages setup shifts
   psi: ["shifts.setup.read", "shifts.setup.write"],
-  // Gamma: manages cleanup shifts
-  gamma: ["shifts.cleanup.read", "shifts.cleanup.write"],
+  // Gamma (House Manager): manages cleanup shifts and the house chore rotation
+  gamma: ["shifts.cleanup.read", "shifts.cleanup.write", "chores.read", "chores.write", "chores.config"],
   // Zeta: also manages cleanup shifts
   zeta: ["shifts.cleanup.read", "shifts.cleanup.write"],
   // Theta: manages party shifts
@@ -118,6 +127,7 @@ const ROLE_PERMISSIONS = {
     "shifts.cleanup.read",
     "shifts.party.read",
     "roomDraw.read",
+    "chores.read",
   ],
 };
 

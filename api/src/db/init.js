@@ -1213,6 +1213,63 @@ async function setupTables() {
     );
   `);
 
+  // ── Chores ────────────────────────────────────────────────────────────────
+  // The schedule is a stored grid, one duty per bed per half-month, matching
+  // the printed sheet. Like the house fee schedule, the defaults are not seeded
+  // on boot — the config page lays them down (see utils/choreDefaults.js).
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS chore_duties (
+      id           SERIAL PRIMARY KEY,
+      duty_no      INTEGER NOT NULL UNIQUE,
+      name         TEXT NOT NULL,
+      description  TEXT
+    );
+  `);
+
+  // The schedule itself: which duty a bed has in a given half-month. One
+  // schedule, repeated every year — the house runs the same sheet annually, and
+  // editing it is meant to change what past periods say too.
+  //
+  // The beds are not listed here: they come from house_rooms and the capacity in
+  // house_room_rates, so House Config stays the one place bedrooms are set up.
+  // period_index runs 0-23, September 1st-half through August 2nd-half; a bed
+  // with no row for a period is off duty that period.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS chore_grid (
+      id            SERIAL PRIMARY KEY,
+      room_id       INTEGER NOT NULL REFERENCES house_rooms(id) ON DELETE CASCADE,
+      bed           INTEGER NOT NULL DEFAULT 1,
+      period_index  INTEGER NOT NULL CHECK (period_index BETWEEN 0 AND 23),
+      duty_no       INTEGER NOT NULL,
+      UNIQUE (room_id, bed, period_index)
+    );
+  `);
+
+  // Singleton. Only the calendar split and the Gamma's standing duties — the
+  // schedule lives in chore_grid.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS chore_config (
+      id             SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      -- First day of the second period of each month.
+      split_day      INTEGER NOT NULL DEFAULT 16,
+      manager_notes  TEXT
+    );
+  `);
+
+  // Standing appointments the Gamma recruits. Not part of the schedule, and
+  // like the schedule they are current-state, not a per-year history.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS chore_captains (
+      id           SERIAL PRIMARY KEY,
+      captain_key  TEXT NOT NULL UNIQUE,
+      name         TEXT NOT NULL,
+      description  TEXT,
+      brother_id   INTEGER REFERENCES brothers(id) ON DELETE SET NULL,
+      sort_order   INTEGER
+    );
+  `);
+
   // Seed the 15 physical bedrooms from the floor plans.
   {
     const rooms = [
