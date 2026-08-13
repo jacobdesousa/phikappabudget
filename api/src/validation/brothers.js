@@ -16,6 +16,8 @@ const brotherSchema = z.object({
   last_name: z.string().min(1),
   first_name: z.string().min(1),
   email: z.preprocess(blankToUndefined, z.string().email().optional()),
+  // A second address, common on the alumni records.
+  email_secondary: z.preprocess(blankToUndefined, z.string().email().optional()),
   // Normalised to E.164 so every write path — form, CSV import — stores one
   // canonical shape.
   phone: z.preprocess(
@@ -26,11 +28,38 @@ const brotherSchema = z.object({
     blankToUndefined,
     z
       .string()
-      .regex(/^(Fall|Spring) \d{4}$/, 'pledge_class must be "Fall YYYY" or "Spring YYYY"')
+      // Historic records often name only the year — the semester was not kept.
+      // Everything that reads a semester out of this treats a bare year as
+      // "unknown semester" (see utils/pledgeClass.js parsePledgeClass).
+      .regex(
+        /^((Fall|Spring) \d{4}|\d{4})$/,
+        'pledge_class must be "Fall YYYY", "Spring YYYY", or "YYYY"'
+      )
       .optional()
   ),
   graduation: z.preprocess(blankToUndefined, z.coerce.number().optional()),
   status: z.preprocess(blankToUndefined, z.string().optional()),
+
+  // Home address. Optional throughout — the roster mostly has none, and the
+  // alumni import it came from has gaps. No shape is enforced: these are
+  // international, and a rejected postal code would block a whole record.
+  address_line1: z.preprocess(blankToUndefined, z.string().max(200).optional()),
+  address_line2: z.preprocess(blankToUndefined, z.string().max(200).optional()),
+  city: z.preprocess(blankToUndefined, z.string().max(120).optional()),
+  province: z.preprocess(blankToUndefined, z.string().max(120).optional()),
+  postal_code: z.preprocess(blankToUndefined, z.string().max(20).optional()),
+  country: z.preprocess(blankToUndefined, z.string().max(120).optional()),
 });
 
-module.exports = { brotherSchema };
+// The optional contact columns, in the order the INSERT and UPDATE list them.
+const ADDRESS_FIELDS = [
+  "email_secondary",
+  "address_line1",
+  "address_line2",
+  "city",
+  "province",
+  "postal_code",
+  "country",
+];
+
+module.exports = { brotherSchema, ADDRESS_FIELDS };

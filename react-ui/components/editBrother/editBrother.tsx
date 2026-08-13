@@ -26,6 +26,7 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
 import { formatPhoneInput, toE164 } from "../../utils/phone";
 import { getOffices, type OfficeListItem } from "../../services/officesService";
+import BrotherAddressFields, { addressFromBrother, hasAddress } from "../brotherAddress/addressFields";
 import dayjs from "dayjs";
 
 interface Props {
@@ -48,10 +49,14 @@ export default function EditBrotherModalComponent(props: Props) {
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
     const [pledgeClass, setPledgeClass] = useState("");
-    const [pcSeason, setPcSeason] = useState<"Fall" | "Spring">("Fall");
+    // "" is a pledge class recorded as a bare year, which historic records
+    // often are. Without it, opening this dialog on such a brother and saving
+    // would silently rewrite "1974" to "Fall 1974".
+    const [pcSeason, setPcSeason] = useState<"Fall" | "Spring" | "">("Fall");
     const [pcYear, setPcYear] = useState(new Date().getFullYear());
     const [graduation, setGraduation] = useState(0);
     const [status, setStatus] = useState("");
+    const [address, setAddress] = useState(addressFromBrother(props.newBrother));
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | undefined>(undefined);
     const [emailError, setEmailError] = useState<string | undefined>(undefined);
@@ -76,14 +81,21 @@ export default function EditBrotherModalComponent(props: Props) {
         setEmail(props.newBrother.email);
         setPhone(formatPhoneInput(props.newBrother.phone));
         setPledgeClass(props.newBrother.pledge_class);
-        const parts = String(props.newBrother.pledge_class ?? "").trim().split(" ");
+        const raw = String(props.newBrother.pledge_class ?? "").trim();
+        const parts = raw.split(" ");
         if (parts.length === 2) {
             if (parts[0] === "Fall" || parts[0] === "Spring") setPcSeason(parts[0]);
             const yr = parseInt(parts[1], 10);
             if (!isNaN(yr)) setPcYear(yr);
+        } else if (/^\d{4}$/.test(raw)) {
+            // A historic record loaded by SQL migration, with no semester on
+            // file. Kept as it is rather than guessed at.
+            setPcSeason("");
+            setPcYear(parseInt(raw, 10));
         }
         setGraduation(props.newBrother.graduation);
         setStatus(props.newBrother.status);
+        setAddress(addressFromBrother(props.newBrother));
     }, [props.newBrother]);
 
     useEffect(() => {
@@ -131,9 +143,12 @@ export default function EditBrotherModalComponent(props: Props) {
             email,
             phone: toE164(phone),
             // Boarders have no pledge class or graduation year.
-            pledge_class: isBoarder ? null : `${pcSeason} ${pcYear}`,
+            pledge_class: isBoarder ? null : pcSeason ? `${pcSeason} ${pcYear}` : String(pcYear),
             graduation: isBoarder || !graduation ? null : Number(graduation),
             status,
+            // Sent whole every time: the update rewrites all six columns, so a
+            // cleared field has to arrive as a blank rather than be omitted.
+            ...address,
         };
 
         const result = await editBrother(updatedBrother as any, brotherId);
@@ -246,12 +261,16 @@ const activeTenures = tenures.filter((t) => !t.end_date || dayjs(t.end_date).isA
                             <FormControl sx={{ minWidth: 120 }}>
                                 <InputLabel id="pc-season-label">Season</InputLabel>
                                 <Select labelId="pc-season-label" label="Season" value={pcSeason}
-                                    onChange={(e) => setPcSeason(e.target.value as "Fall" | "Spring")}>
+                                    onChange={(e) => setPcSeason(e.target.value as "Fall" | "Spring" | "")}>
                                     <MenuItem value="Fall">Fall</MenuItem>
                                     <MenuItem value="Spring">Spring</MenuItem>
+                                    {/* Only offered to a record that already
+                                        has no semester, so saving does not
+                                        invent one — never as a new choice. */}
+                                    {pcSeason === "" ? <MenuItem value="">Year only</MenuItem> : null}
                                 </Select>
                             </FormControl>
-                            <TextField label="Year" type="number" value={pcYear}
+                            <TextField label="Pledge Class Year" type="number" value={pcYear}
                                 onChange={(e) => setPcYear(Number(e.target.value))}
                                 inputProps={{ min: 1900, max: 2100, step: 1 }}
                                 sx={{ flex: 1 }} />
@@ -262,6 +281,14 @@ const activeTenures = tenures.filter((t) => !t.end_date || dayjs(t.end_date).isA
                         <TextField required fullWidth label="Graduation" value={graduation}
                             onChange={(e) => handleFieldChange(e, "graduation")} />
                     )}
+
+                    {/* Open when there is already an address, so an edit does
+                        not bury it. */}
+                    <BrotherAddressFields
+                        value={address}
+                        onChange={setAddress}
+                        defaultExpanded={hasAddress(addressFromBrother(props.newBrother))}
+                    />
 
                     {!isBoarder && <Divider />}
 

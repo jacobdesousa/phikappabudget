@@ -79,6 +79,21 @@ async function setupTables() {
 
   // NOTE: Member types are represented via `brothers.status` (e.g. "Pledge") rather than a separate column.
 
+  // Home address. Every part is optional — most of the roster has none, and the
+  // alumni import that brought these in has gaps. Kept as loose columns rather
+  // than one free-text blob so mail-merges can address an envelope.
+  // See neon-brother-address.sql.
+  await addColumnIfMissing("brothers", "address_line1", "TEXT");
+  await addColumnIfMissing("brothers", "address_line2", "TEXT");
+  await addColumnIfMissing("brothers", "city", "TEXT");
+  // Province, state, county — whatever the country calls it.
+  await addColumnIfMissing("brothers", "province", "TEXT");
+  await addColumnIfMissing("brothers", "postal_code", "TEXT");
+  await addColumnIfMissing("brothers", "country", "TEXT");
+  // A second email address, common on the alumni records.
+  // See neon-brother-address.sql.
+  await addColumnIfMissing("brothers", "email_secondary", "TEXT");
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS dues (
       id NUMERIC,
@@ -1287,6 +1302,89 @@ async function setupTables() {
       );
     }
   }
+
+  // ── Alumni donations and bonds ────────────────────────────────────────────
+  // Alumni give money, and by convention their first dollars retire the bond
+  // they bought rather than counting as a gift. A donation row is therefore
+  // either 'bond' or 'general' — a cheque that straddles the bond line is
+  // written as two rows, so campaign totals never double-count bond money.
+
+  // Singleton, same shape as chore_config. Only the price a *new* bond opens
+  // at: existing bonds keep the price they were opened with.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS donation_config (
+      id          SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      bond_price  NUMERIC(10,2) NOT NULL DEFAULT 300.00
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS donation_campaigns (
+      id           SERIAL PRIMARY KEY,
+      name         TEXT NOT NULL UNIQUE,
+      description  TEXT,
+      starts_on    DATE,
+      ends_on      DATE,
+      goal_amount  NUMERIC(12,2),
+      is_active    BOOLEAN NOT NULL DEFAULT TRUE,
+      sort_order   INTEGER
+    );
+  `);
+
+  // One bond per brother. The price is a snapshot: raising the config price
+  // must not retroactively re-indebt everyone who already paid theirs off.
+  // Opened lazily by the first donation applied to it, and left editable for
+  // bonds bought years ago at an older price.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS alumni_bonds (
+      id          SERIAL PRIMARY KEY,
+      brother_id  INTEGER NOT NULL UNIQUE REFERENCES brothers(id) ON DELETE CASCADE,
+      bond_price  NUMERIC(10,2) NOT NULL,
+      opened_on   DATE,
+      -- The certificate number, which is issued once the bond is paid off and
+      -- often is not known at the time of the donation. Nullable and filled in
+      -- later; unique so the same certificate cannot be recorded twice.
+      bond_number TEXT,
+      notes       TEXT
+    );
+  `);
+
+  await addColumnIfMissing("alumni_bonds", "bond_number", "TEXT");
+  await createIndexIfMissing(
+    "idx_alumni_bonds_number",
+    `CREATE UNIQUE INDEX idx_alumni_bonds_number ON alumni_bonds (bond_number) WHERE bond_number IS NOT NULL;`
+  );
+
+  // The balance owing on a bond is derived (price less the 'bond' rows), never
+  // stored, so the ledger and the balance cannot drift apart.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS donations (
+      id           SERIAL PRIMARY KEY,
+      brother_id   INTEGER NOT NULL REFERENCES brothers(id) ON DELETE CASCADE,
+      donated_on   DATE NOT NULL,
+      amount       NUMERIC(10,2) NOT NULL CHECK (amount > 0),
+      kind         TEXT NOT NULL CHECK (kind IN ('bond','general')),
+      -- Only a general gift can belong to a campaign; bond money is a debt
+      -- being retired, not a contribution to a fundraising push.
+      campaign_id  INTEGER REFERENCES donation_campaigns(id) ON DELETE SET NULL,
+      school_year  INTEGER,
+      note         TEXT,
+      CONSTRAINT donations_bond_no_campaign CHECK (kind = 'general' OR campaign_id IS NULL)
+    );
+  `);
+
+  await createIndexIfMissing(
+    "idx_donations_brother",
+    `CREATE INDEX idx_donations_brother ON donations (brother_id);`
+  );
+  await createIndexIfMissing(
+    "idx_donations_campaign",
+    `CREATE INDEX idx_donations_campaign ON donations (campaign_id);`
+  );
+  await createIndexIfMissing(
+    "idx_donations_donated_on",
+    `CREATE INDEX idx_donations_donated_on ON donations (donated_on);`
+  );
 
   // Pinned revenue category for the PKSAB share of house disbursements.
   await pool.query(`

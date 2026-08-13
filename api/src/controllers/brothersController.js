@@ -1,5 +1,5 @@
 const { pool } = require("../db/pool");
-const { brotherSchema } = require("../validation/brothers");
+const { brotherSchema, ADDRESS_FIELDS } = require("../validation/brothers");
 const { idParamSchema } = require("../validation/common");
 const { currentSchoolYearStart } = require("../utils/schoolYear");
 const { duesCategoryForBrother } = require("../utils/pledgeClass");
@@ -37,7 +37,10 @@ async function createBrother(req, res) {
     await client.query("BEGIN");
 
     const insertBrother = await client.query(
-      "INSERT INTO brothers (last_name, first_name, email, phone, pledge_class, graduation, status) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *",
+      `INSERT INTO brothers
+         (last_name, first_name, email, phone, pledge_class, graduation, status,
+          email_secondary, address_line1, address_line2, city, province, postal_code, country)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
       [
         payload.last_name,
         payload.first_name,
@@ -46,6 +49,7 @@ async function createBrother(req, res) {
         payload.pledge_class ?? null,
         payload.graduation ?? null,
         payload.status ?? null,
+        ...ADDRESS_FIELDS.map((f) => payload[f] ?? null),
       ]
     );
     const brother = insertBrother.rows[0];
@@ -65,7 +69,12 @@ async function updateBrother(req, res) {
   const payload = brotherSchema.parse(req.body);
 
   const result = await pool.query(
-    "UPDATE brothers SET last_name = $1, first_name = $2, email = $3, phone = $4, pledge_class = $5, graduation = $6, status = $7 WHERE id = $8 RETURNING *",
+    `UPDATE brothers SET
+       last_name = $1, first_name = $2, email = $3, phone = $4, pledge_class = $5,
+       graduation = $6, status = $7,
+       email_secondary = $8, address_line1 = $9, address_line2 = $10, city = $11,
+       province = $12, postal_code = $13, country = $14
+     WHERE id = $15 RETURNING *`,
     [
       payload.last_name,
       payload.first_name,
@@ -74,6 +83,7 @@ async function updateBrother(req, res) {
       payload.pledge_class ?? null,
       payload.graduation ?? null,
       payload.status ?? null,
+      ...ADDRESS_FIELDS.map((f) => payload[f] ?? null),
       id,
     ]
   );

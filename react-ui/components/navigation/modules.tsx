@@ -16,6 +16,7 @@ import ApartmentOutlinedIcon from "@mui/icons-material/ApartmentOutlined";
 import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
 import AssignmentLateIcon from "@mui/icons-material/AssignmentLate";
 import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
+import VolunteerActivismOutlinedIcon from "@mui/icons-material/VolunteerActivismOutlined";
 import SettingsIcon from "@mui/icons-material/Settings";
 
 // The one list of modules in the app. The sidebar (pages router) and the home
@@ -146,6 +147,13 @@ export const APP_MODULES: AppModule[] = [
     icon: <CleaningServicesOutlinedIcon />,
   },
   {
+    href: "/donations",
+    label: "Donations",
+    description: "Alumni giving, bond payments, and campaign progress.",
+    anyPermissions: ["donations.read"],
+    icon: <VolunteerActivismOutlinedIcon />,
+  },
+  {
     href: "/makeups",
     label: "Makeups",
     description: "All unresolved absences requiring makeup.",
@@ -162,7 +170,7 @@ export const APP_MODULES: AppModule[] = [
   {
     href: "/config",
     label: "Config",
-    description: "Dues, revenue, expenses, house, chores, users, and permissions.",
+    description: "Dues, revenue, expenses, house, chores, donations, users, and permissions.",
     anyPermissions: [
       "dues.config",
       "revenue.config",
@@ -170,6 +178,7 @@ export const APP_MODULES: AppModule[] = [
       "expenses.write",
       "house.config",
       "chores.config",
+      "donations.config",
     ],
     icon: <SettingsIcon />,
   },

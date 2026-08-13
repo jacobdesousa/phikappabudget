@@ -38,6 +38,9 @@ const ROLE_PERMISSIONS = {
     "chores.read",
     "chores.write",
     "chores.config",
+    "donations.read",
+    "donations.write",
+    "donations.config",
   ],
   // Treasurer / finance chair: full access
   tau: [
@@ -74,6 +77,10 @@ const ROLE_PERMISSIONS = {
     "chores.read",
     "chores.write",
     "chores.config",
+    // Alumni giving is the treasurer's ledger.
+    "donations.read",
+    "donations.write",
+    "donations.config",
   ],
   // President: broad write access except financial disbursement by default
   alpha: [
@@ -98,6 +105,7 @@ const ROLE_PERMISSIONS = {
     "chores.read",
     "chores.write",
     "chores.config",
+    "donations.read",
   ],
   // Finance officer (if used)
   beta: ["revenue.read", "revenue.write", "dues.read", "expenses.read", "budget.read", "roomDraw.read", "roomDraw.write", "house.read", "chores.read"],

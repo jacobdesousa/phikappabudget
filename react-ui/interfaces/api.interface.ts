@@ -19,6 +19,27 @@ export interface IBrother {
     office?: string | null;
     status: string;
     current_offices?: IBrotherOffice[];
+    // A second email address, common on the alumni records.
+    email_secondary?: string | null;
+    // Home address. Optional throughout — most of the roster has none.
+    address_line1?: string | null;
+    address_line2?: string | null;
+    city?: string | null;
+    province?: string | null;
+    postal_code?: string | null;
+    country?: string | null;
+}
+
+// The address half of a brother record, as the form holds it: blanks, never
+// nulls, so the same object can be spread straight into a payload.
+export interface IBrotherAddress {
+    email_secondary: string;
+    address_line1: string;
+    address_line2: string;
+    city: string;
+    province: string;
+    postal_code: string;
+    country: string;
 }
 
 export interface IDues {
@@ -821,4 +842,108 @@ export interface IChoreConfig {
     grid: IChoreGridCell[];
     captains: IChoreCaptain[];
     is_configured: boolean;
+}
+
+// ── Alumni donations and bonds ──────────────────────────────────────────────
+// A donation row is either bond money or a general gift: a cheque that straddles
+// the bond line is stored as two rows, so campaign totals never include bond
+// money. See api/src/controllers/donationsController.js.
+export type DonationKind = "bond" | "general";
+
+export interface IDonation {
+    id: number;
+    brother_id: number;
+    donated_on: string;
+    amount: number | string;
+    kind: DonationKind;
+    campaign_id: number | null;
+    school_year: number | null;
+    note: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    campaign_name: string | null;
+}
+
+export interface IDonationCampaign {
+    // Absent on a campaign the config page has just added.
+    id?: number | null;
+    name: string;
+    description?: string | null;
+    starts_on?: string | null;
+    ends_on?: string | null;
+    goal_amount?: number | string | null;
+    is_active: boolean;
+    sort_order?: number | null;
+    // Read-only rollups over the donations pinned to the campaign.
+    raised?: number | string;
+    donation_count?: number;
+    donor_count?: number;
+    last_donation_on?: string | null;
+}
+
+export interface IDonationConfig {
+    // The price a *new* bond opens at. Existing bonds keep their own.
+    bond_price: number;
+    campaigns: IDonationCampaign[];
+}
+
+export interface IBondState {
+    brother_id: number;
+    has_bond: boolean;
+    bond_price: number;
+    bond_paid: number;
+    bond_outstanding: number;
+    opened_on: string | null;
+    // The certificate number, issued once the bond is paid off. Often not known
+    // when the donation is entered, so it is filled in later.
+    bond_number: string | null;
+    notes: string | null;
+}
+
+export interface IDonorSummary {
+    brother_id: number;
+    first_name: string | null;
+    last_name: string | null;
+    pledge_class: string | null;
+    status: string | null;
+    has_bond: boolean;
+    bond_price: number | null;
+    bond_opened_on: string | null;
+    bond_number: string | null;
+    bond_paid: number;
+    bond_outstanding: number | null;
+    lifetime_total: number;
+    donation_count: number;
+    last_donation_on: string | null;
+}
+
+export interface IDonationRollup {
+    raised: number;
+    donation_count: number;
+    donor_count: number;
+    last_donation_on: string | null;
+}
+
+export interface IDonationSummary {
+    bond_price: number;
+    totals: {
+        lifetime_total: number;
+        bond_total: number;
+        general_total: number;
+        donor_count: number;
+        bond_outstanding: number;
+    };
+    campaigns: IDonationCampaign[];
+    // The two rows the campaigns table carries above the campaigns: bond money
+    // (never belongs to a campaign) and gifts pinned to none. Between them and
+    // the campaigns, every donation is reachable.
+    bond_payments: IDonationRollup;
+    unattached: IDonationRollup;
+    brothers: IDonorSummary[];
+}
+
+export interface IDonationPage {
+    rows: IDonation[];
+    total: number;
+    total_amount: number;
 }

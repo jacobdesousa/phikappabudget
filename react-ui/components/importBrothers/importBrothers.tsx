@@ -21,7 +21,8 @@ import { toE164 } from "../../utils/phone";
 
 const EXPECTED_HEADERS = ["first_name", "last_name", "email", "phone", "pledge_class", "graduation", "status"] as const;
 
-const PLEDGE_CLASS_RE = /^(Fall|Spring) \d{4}$/;
+// A bare year is allowed: historic records often did not keep the semester.
+const PLEDGE_CLASS_RE = /^((Fall|Spring) \d{4}|\d{4})$/;
 
 function parseCsv(text: string): { rows: ImportBrotherRow[]; error: string | null; warnings: string[] } {
     const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim().split("\n");
@@ -42,7 +43,7 @@ function parseCsv(text: string): { rows: ImportBrotherRow[]; error: string | nul
         headers.forEach((h, idx) => { obj[h] = cells[idx] ?? ""; });
         const pledgeClass = obj.pledge_class || undefined;
         if (pledgeClass && !PLEDGE_CLASS_RE.test(pledgeClass)) {
-            warnings.push(`Row ${i}: pledge_class "${pledgeClass}" must be "Fall YYYY" or "Spring YYYY" — will fail import.`);
+            warnings.push(`Row ${i}: pledge_class "${pledgeClass}" must be "Fall YYYY", "Spring YYYY", or "YYYY" — will fail import.`);
         }
         rows.push({
             first_name: obj.first_name ?? "",

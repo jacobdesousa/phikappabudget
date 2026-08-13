@@ -18,6 +18,7 @@ import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettin
 import BusinessOutlinedIcon from "@mui/icons-material/BusinessOutlined";
 import HomeWorkOutlinedIcon from "@mui/icons-material/HomeWorkOutlined";
 import CleaningServicesOutlinedIcon from "@mui/icons-material/CleaningServicesOutlined";
+import VolunteerActivismOutlinedIcon from "@mui/icons-material/VolunteerActivismOutlined";
 import { useAuth } from "../context/authContext";
 
 const CARD_MIN_HEIGHT = 124;
@@ -54,6 +55,7 @@ export default function ConfigPage() {
   const isAdmin = can("admin.users");
   const canHouseConfig = can("house.config");
   const canChoresConfig = can("chores.config");
+  const canDonationsConfig = can("donations.config");
   return (
     <Stack spacing={2}>
       <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
@@ -119,6 +121,17 @@ export default function ConfigPage() {
                 title="Chores Config"
                 description="Duties, the bedroom rotation order, captains, and one-off adjustments."
                 icon={<CleaningServicesOutlinedIcon />}
+              />
+            </Grid>
+          ) : null}
+
+          {canDonationsConfig ? (
+            <Grid item xs={12} md={4} sx={{ display: "flex" }}>
+              <ConfigCard
+                href="/donations-config"
+                title="Donations Config"
+                description="The current alumni bond price, and the campaigns donations can be pinned to."
+                icon={<VolunteerActivismOutlinedIcon />}
               />
             </Grid>
           ) : null}

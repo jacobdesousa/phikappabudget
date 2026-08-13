@@ -167,6 +167,17 @@ const {
   saveChoreConfig,
   seedChoreConfig,
 } = require("../controllers/choresController");
+const {
+  listDonations,
+  getDonationSummary,
+  getBrotherBondState,
+  createDonation,
+  updateDonation,
+  deleteDonation,
+  updateBond,
+  getDonationConfig,
+  saveDonationConfig,
+} = require("../controllers/donationsController");
 const { requireAuth, requirePermission } = require("../middleware/auth");
 const { auditWrites } = require("../middleware/audit");
 const { pool } = require("../db/pool");
@@ -343,6 +354,17 @@ router.get("/chores/schedule",     requirePermission("chores.read"),   asyncHand
 router.get("/chores/config",       requirePermission("chores.read"),   asyncHandler(getChoreConfig));
 router.put("/chores/config",       requirePermission("chores.config"), asyncHandler(saveChoreConfig));
 router.post("/chores/config/seed", requirePermission("chores.config"), asyncHandler(seedChoreConfig));
+
+// Alumni donations and bonds. Literal paths first, before `/donations/:id`.
+router.get   ("/donations/summary",           requirePermission("donations.read"),   asyncHandler(getDonationSummary));
+router.get   ("/donations/config",            requirePermission("donations.read"),   asyncHandler(getDonationConfig));
+router.put   ("/donations/config",            requirePermission("donations.config"), asyncHandler(saveDonationConfig));
+router.get   ("/donations/bond/:brotherId",   requirePermission("donations.read"),   asyncHandler(getBrotherBondState));
+router.put   ("/donations/bond/:brotherId",   requirePermission("donations.write"),  asyncHandler(updateBond));
+router.get   ("/donations",                   requirePermission("donations.read"),   asyncHandler(listDonations));
+router.post  ("/donations",                   requirePermission("donations.write"),  asyncHandler(createDonation));
+router.put   ("/donations/:id",               requirePermission("donations.write"),  asyncHandler(updateDonation));
+router.delete("/donations/:id",               requirePermission("donations.write"),  asyncHandler(deleteDonation));
 
 // Chapter house. Literal paths are declared before any `/:id` route so they
 // aren't swallowed by the wildcard.

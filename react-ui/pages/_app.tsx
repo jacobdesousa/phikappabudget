@@ -65,6 +65,10 @@ function pageTitle(pathname: string) {
       return "Chores";
     case "/chores-config":
       return "Chores Config";
+    case "/donations":
+      return "Donations";
+    case "/donations-config":
+      return "Donations Config";
     case "/shifts/setup":
       return "Setup Shifts";
     case "/shifts/cleanup":

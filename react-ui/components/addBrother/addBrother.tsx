@@ -19,6 +19,7 @@ import BrotherOptionsSchema from "../../interfaces/brotherOptions.schema";
 import {addBrother} from "../../services/brotherService";
 import CloseIcon from "@mui/icons-material/Close";
 import { formatPhoneInput, toE164 } from "../../utils/phone";
+import BrotherAddressFields, { EMPTY_ADDRESS } from "../brotherAddress/addressFields";
 
 export default function AddBrotherModalComponent(props: any) {
 
@@ -26,9 +27,14 @@ export default function AddBrotherModalComponent(props: any) {
     const [lastName, setLastName] = useState("");
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
-    const [pledgeClass, setPledgeClass] = useState("");
+    // Season and year separately, same as the edit modal. Year-only pledge
+    // classes are not offered here: every new member has a semester. The
+    // historic year-only records are loaded by SQL migration.
+    const [pcSeason, setPcSeason] = useState<"Fall" | "Spring">("Fall");
+    const [pcYear, setPcYear] = useState(new Date().getFullYear());
     const [graduation, setGraduation] = useState("");
     const [status, setStatus] = useState("");
+    const [address, setAddress] = useState(EMPTY_ADDRESS);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | undefined>(undefined);
     const [emailError, setEmailError] = useState<string | undefined>(undefined);
@@ -58,9 +64,11 @@ export default function AddBrotherModalComponent(props: any) {
             email: email,
             phone: toE164(phone),
             // Boarders have no pledge class or graduation year.
-            pledge_class: isBoarder ? null : pledgeClass,
+            pledge_class: isBoarder ? null : `${pcSeason} ${pcYear}`,
             graduation: isBoarder || !graduation ? null : Number(graduation),
-            status: status
+            status: status,
+            // Blanks are absences: the API turns them back into NULL.
+            ...address,
         }
 
         const result = await addBrother(newBrother as any);
@@ -93,9 +101,6 @@ export default function AddBrotherModalComponent(props: any) {
             case "phone":
                 setPhone(formatPhoneInput(event.target.value))
                 break;
-            case "pledgeClass":
-                setPledgeClass(event.target.value)
-                break;
             case "graduation":
                 setGraduation(event.target.value)
                 break;
@@ -104,19 +109,6 @@ export default function AddBrotherModalComponent(props: any) {
                 setStatusError(undefined);
                 break;
         }
-    }
-
-    function generatePledgeClassOptions(): Array<string> {
-        const date = new Date();
-        let year = date.getFullYear() - 3;
-        let classes = new Array<string>;
-
-        for (let i = 0; i < 6; i++) {
-            classes.push("Fall " + year);
-            year += 1;
-            classes.push("Spring " + year);
-        }
-        return classes;
     }
 
     return (
@@ -183,20 +175,28 @@ export default function AddBrotherModalComponent(props: any) {
                     </FormControl>
 
                     {!isBoarder && (
-                        <FormControl fullWidth>
-                            <InputLabel id="pledge-class-label">Pledge Class</InputLabel>
-                            <Select
-                                labelId="pledge-class-label"
-                                required
-                                label="Pledge Class"
-                                value={pledgeClass}
-                                onChange={(event) => handleFieldChange(event, "pledgeClass")}
-                            >
-                                {generatePledgeClassOptions().map((pc) => (
-                                    <MenuItem key={pc} value={pc}>{pc}</MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
+                        <Stack direction="row" spacing={1}>
+                            <FormControl sx={{ minWidth: 120 }}>
+                                <InputLabel id="pc-season-label">Season</InputLabel>
+                                <Select
+                                    labelId="pc-season-label"
+                                    label="Season"
+                                    value={pcSeason}
+                                    onChange={(event) => setPcSeason(event.target.value as "Fall" | "Spring")}
+                                >
+                                    <MenuItem value="Fall">Fall</MenuItem>
+                                    <MenuItem value="Spring">Spring</MenuItem>
+                                </Select>
+                            </FormControl>
+                            <TextField
+                                label="Pledge Class Year"
+                                type="number"
+                                value={pcYear}
+                                onChange={(event) => setPcYear(Number(event.target.value))}
+                                inputProps={{ min: 1900, max: 2100, step: 1 }}
+                                sx={{ flex: 1 }}
+                            />
+                        </Stack>
                     )}
 
                     {!isBoarder && (
@@ -208,6 +208,10 @@ export default function AddBrotherModalComponent(props: any) {
                             onChange={(event) => handleFieldChange(event, "graduation")}
                         />
                     )}
+
+                    {/* Collapsed: optional, and six fields unfolded would
+                        dominate the dialog. */}
+                    <BrotherAddressFields value={address} onChange={setAddress} />
                 </Stack>
             </DialogContent>
             <DialogActions>
