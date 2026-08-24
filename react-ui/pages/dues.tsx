@@ -8,6 +8,7 @@ import DuesTable from "../components/duesTable/duesTable";
 import {getDuesConfig} from "../services/duesConfigService";
 import {schoolYearLabel, schoolYearStartForDate} from "../utils/schoolYear";
 import SchoolYearSelector from "../components/SchoolYearSelector";
+import { isActiveInYear } from "../utils/membership";
 import EditPaymentDialog from "../components/editPayment/editPayment";
 import ConfirmDeletePaymentDialog from "../components/confirmDeletePayment/confirmDeletePayment";
 import { useAuth } from "../context/authContext";
@@ -45,8 +46,10 @@ export default function DuesPage() {
 
             if (cancelled) return;
 
-            // Only show Active brothers on the dues list.
-            const active = allBrothers.filter(b => b.status === "Active");
+            // Everyone who was in the chapter that year — not just who is Active
+            // today. A brother marked alumni still owed (and likely paid) dues
+            // for the years he was here, so hiding him loses that history.
+            const active = allBrothers.filter(b => isActiveInYear(b, selectedYear));
             setBrothers(active);
 
             const activeIds = new Set(active.map(b => b.id));

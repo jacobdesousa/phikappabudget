@@ -39,8 +39,9 @@ async function createBrother(req, res) {
     const insertBrother = await client.query(
       `INSERT INTO brothers
          (last_name, first_name, email, phone, pledge_class, graduation, status,
+          alumni_date,
           email_secondary, address_line1, address_line2, city, province, postal_code, country)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
       [
         payload.last_name,
         payload.first_name,
@@ -49,6 +50,10 @@ async function createBrother(req, res) {
         payload.pledge_class ?? null,
         payload.graduation ?? null,
         payload.status ?? null,
+        // Only an explicit date on create. Someone entered straight in as an
+        // alumnus has no known departure date, and inventing today's would
+        // wrongly credit him with the current year's membership.
+        payload.alumni_date ?? null,
         ...ADDRESS_FIELDS.map((f) => payload[f] ?? null),
       ]
     );
@@ -68,13 +73,39 @@ async function updateBrother(req, res) {
   const { id } = idParamSchema.parse(req.params);
   const payload = brotherSchema.parse(req.body);
 
+  const existingRes = await pool.query(
+    "SELECT status, alumni_date FROM brothers WHERE id = $1",
+    [id]
+  );
+  const existing = existingRes.rows[0];
+  if (!existing) {
+    return res.status(404).json({ error: { message: "Brother not found" } });
+  }
+
+  // The status change IS the event, so stamp the date here rather than asking
+  // anyone to remember to enter it. Any move off Active ends membership —
+  // Alumnus, Chapter Eternal, Surrendered and the rest all count, so this keys
+  // off leaving 'Active' rather than naming one destination status.
+  //
+  // An explicit date always wins, so a back-dated correction sticks. An
+  // existing date is kept rather than refreshed, so editing an alumnus's phone
+  // number doesn't move his departure to today. Returning to Active clears it —
+  // otherwise a brother graduated by mistake would keep a date he never had.
+  const leftActive = payload.status !== "Active";
+  const alumniDate =
+    payload.alumni_date !== undefined
+      ? payload.alumni_date
+      : leftActive
+        ? (existing.alumni_date ?? new Date())
+        : null;
+
   const result = await pool.query(
     `UPDATE brothers SET
        last_name = $1, first_name = $2, email = $3, phone = $4, pledge_class = $5,
-       graduation = $6, status = $7,
-       email_secondary = $8, address_line1 = $9, address_line2 = $10, city = $11,
-       province = $12, postal_code = $13, country = $14
-     WHERE id = $15 RETURNING *`,
+       graduation = $6, status = $7, alumni_date = $8,
+       email_secondary = $9, address_line1 = $10, address_line2 = $11, city = $12,
+       province = $13, postal_code = $14, country = $15
+     WHERE id = $16 RETURNING *`,
     [
       payload.last_name,
       payload.first_name,
@@ -83,6 +114,7 @@ async function updateBrother(req, res) {
       payload.pledge_class ?? null,
       payload.graduation ?? null,
       payload.status ?? null,
+      alumniDate,
       ...ADDRESS_FIELDS.map((f) => payload[f] ?? null),
       id,
     ]

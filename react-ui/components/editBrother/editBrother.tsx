@@ -56,6 +56,10 @@ export default function EditBrotherModalComponent(props: Props) {
     const [pcYear, setPcYear] = useState(new Date().getFullYear());
     const [graduation, setGraduation] = useState(0);
     const [status, setStatus] = useState("");
+    // Normally stamped by the server on the status change; editable here so a
+    // wrong date — including one the graduation-year backfill guessed — can be
+    // corrected without touching the database.
+    const [alumniDate, setAlumniDate] = useState("");
     const [address, setAddress] = useState(addressFromBrother(props.newBrother));
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | undefined>(undefined);
@@ -95,6 +99,11 @@ export default function EditBrotherModalComponent(props: Props) {
         }
         setGraduation(props.newBrother.graduation);
         setStatus(props.newBrother.status);
+        setAlumniDate(
+            props.newBrother.alumni_date
+                ? String(props.newBrother.alumni_date).slice(0, 10)
+                : ""
+        );
         setAddress(addressFromBrother(props.newBrother));
     }, [props.newBrother]);
 
@@ -146,6 +155,9 @@ export default function EditBrotherModalComponent(props: Props) {
             pledge_class: isBoarder ? null : pcSeason ? `${pcSeason} ${pcYear}` : String(pcYear),
             graduation: isBoarder || !graduation ? null : Number(graduation),
             status,
+            // Send only when set; an empty string would clear a server-stamped
+            // date, and omitting it lets the server keep or stamp its own.
+            ...(alumniDate ? { alumni_date: alumniDate } : {}),
             // Sent whole every time: the update rewrites all six columns, so a
             // cleared field has to arrive as a blank rather than be omitted.
             ...address,
@@ -280,6 +292,21 @@ const activeTenures = tenures.filter((t) => !t.end_date || dayjs(t.end_date).isA
                     {!isBoarder && (
                         <TextField required fullWidth label="Graduation" value={graduation}
                             onChange={(e) => handleFieldChange(e, "graduation")} />
+                    )}
+
+                    {/* Only meaningful once membership has ended. Drives which
+                        school years this brother counts toward on the budget
+                        and dues pages. */}
+                    {status && status !== "Active" && status !== "Pledge" && !isBoarder && (
+                        <TextField
+                            fullWidth
+                            type="date"
+                            label="Left the chapter"
+                            value={alumniDate}
+                            onChange={(e) => setAlumniDate(e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            helperText="Counts toward every school year up to this date. Set automatically when the status changes."
+                        />
                     )}
 
                     {/* Open when there is already an address, so an edit does

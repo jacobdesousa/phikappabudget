@@ -88,12 +88,16 @@ export default function BudgetPrintPage() {
   if (error) return <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>;
   if (!summary) return null;
 
-  const { expense_rows, revenue_rows, reconciliation, totals, outstanding_disbursements, dues_config } = summary;
+  const { expense_rows, revenue_rows, reconciliation, totals, outstanding_disbursements, dues_config, house_rebate } = summary;
   const yearLabel = schoolYearLabel(summary.year);
   const printedOn = dayjs().format("MMMM D, YYYY");
 
-  const pinOrder = (r: typeof revenue_rows[0]) => (r.is_dues ? 0 : r.is_chapter_bonus ? 1 : 2);
+  const pinOrder = (r: typeof revenue_rows[0]) =>
+    r.is_dues ? 0 : r.is_chapter_bonus ? 1 : r.is_house_rebate ? 2 : r.is_carryover ? 3 : 4;
   const sortedRevenue = [...revenue_rows].sort((a, b) => pinOrder(a) - pinOrder(b));
+  const sortedExpenses = [...expense_rows].sort(
+    (a, b) => Number(!!b.is_carryover) - Number(!!a.is_carryover)
+  );
 
   return (
     <>
@@ -161,7 +165,9 @@ export default function BudgetPrintPage() {
                     <Box component="tr">
                       <Box component="td" style={td}>
                         {r.category_name}
-                        {(r.is_dues || r.is_chapter_bonus) && <span style={{ fontSize: 9, color: "#aaa", marginLeft: 3 }}>✦</span>}
+                        {(r.is_dues || r.is_chapter_bonus || r.is_house_rebate || r.is_carryover) && (
+                          <span style={{ fontSize: 9, color: "#aaa", marginLeft: 3 }}>✦</span>
+                        )}
                       </Box>
                       <Box component="td" style={tdR}>${formatMoney(r.budgeted_amount)}</Box>
                       <Box component="td" style={tdR}>${formatMoney(r.actual_amount)}</Box>
@@ -178,6 +184,13 @@ export default function BudgetPrintPage() {
                           <Box component="td" style={tdSubR}>${formatMoney(dues_config.estimated_pledges * dues_config.dues_rate_pledge)}</Box>
                           <Box component="td" style={{ ...tdSubR, color: "#ccc" }}>—</Box>
                         </Box>
+                        <Box component="tr">
+                          <Box component="td" style={tdSub}>
+                            Collected ({dues_config.payments_count} payment{dues_config.payments_count === 1 ? "" : "s"})
+                          </Box>
+                          <Box component="td" style={{ ...tdSubR, color: "#ccc" }}>—</Box>
+                          <Box component="td" style={tdSubR}>${formatMoney(dues_config.payments_total)}</Box>
+                        </Box>
                       </>
                     )}
                     {r.is_chapter_bonus && (
@@ -186,6 +199,27 @@ export default function BudgetPrintPage() {
                         <Box component="td" style={{ ...tdSubR, color: "#ccc" }}>—</Box>
                         <Box component="td" style={{ ...tdSubR, color: "#ccc" }}>—</Box>
                       </Box>
+                    )}
+                    {r.is_house_rebate && (
+                      <>
+                        {house_rebate.sessions.map((sess) => (
+                          <Box component="tr" key={sess.session_type}>
+                            <Box component="td" style={tdSub}>
+                              {sess.session_type.charAt(0).toUpperCase() + sess.session_type.slice(1)} fees ({sess.assignments} assignment{sess.assignments === 1 ? "" : "s"})
+                            </Box>
+                            <Box component="td" style={tdSubR}>${formatMoney(sess.fees_total)}</Box>
+                            <Box component="td" style={{ ...tdSubR, color: "#ccc" }}>—</Box>
+                          </Box>
+                        ))}
+                        <Box component="tr">
+                          <Box component="td" style={tdSub}>
+                            Total residence fees ${formatMoney(house_rebate.fees_total)} × {house_rebate.pct}%
+                            {house_rebate.payee ? ` (${house_rebate.payee})` : ""}
+                          </Box>
+                          <Box component="td" style={tdSubR}>${formatMoney(house_rebate.budgeted)}</Box>
+                          <Box component="td" style={{ ...tdSubR, color: "#ccc" }}>—</Box>
+                        </Box>
+                      </>
                     )}
                   </React.Fragment>
                 ))}
@@ -214,9 +248,12 @@ export default function BudgetPrintPage() {
                 </Box>
               </Box>
               <Box component="tbody">
-                {expense_rows.map((r) => (
+                {sortedExpenses.map((r) => (
                   <Box component="tr" key={r.category_id}>
-                    <Box component="td" style={td}>{r.category_name}</Box>
+                    <Box component="td" style={td}>
+                      {r.category_name}
+                      {r.is_carryover && <span style={{ fontSize: 9, color: "#aaa", marginLeft: 3 }}>✦</span>}
+                    </Box>
                     <Box component="td" style={{ ...tdR, color: "#aaa" }}>${formatMoney(r.prior_year_actual)}</Box>
                     <Box component="td" style={tdR}>${formatMoney(r.budgeted_amount)}</Box>
                     <Box component="td" style={tdR}>${formatMoney(r.actual_amount)}</Box>

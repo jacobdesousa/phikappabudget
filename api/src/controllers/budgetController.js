@@ -2,6 +2,7 @@ const { pool } = require("../db/pool");
 const { currentSchoolYearStart } = require("../utils/schoolYear");
 const { roundMoney } = require("../utils/money");
 const { totalOwedFor } = require("../utils/houseFees");
+const { activeInYearSql } = require("../utils/membership");
 const z = require("zod");
 
 const allocationRowSchema = z.object({
@@ -55,26 +56,53 @@ async function houseRebateBudgeted(year) {
     ratesRes.rows.map((r) => [`${r.session_type}:${r.room_id}`, r])
   );
 
-  const fees_total = roundMoney(
-    assignmentsRes.rows.reduce(
-      (sum, a) =>
-        sum +
-        totalOwedFor(
-          a,
-          sessionByType.get(a.session_type),
-          rateByKey.get(`${a.session_type}:${a.room_id}`)
-        ),
-      0
-    )
-  );
+  // Per-session subtotals so the UI can show where the number comes from.
+  const bySession = new Map();
+  for (const a of assignmentsRes.rows) {
+    const owed = totalOwedFor(
+      a,
+      sessionByType.get(a.session_type),
+      rateByKey.get(`${a.session_type}:${a.room_id}`)
+    );
+    const bucket = bySession.get(a.session_type) ?? { assignments: 0, fees_total: 0 };
+    bucket.assignments += 1;
+    bucket.fees_total += owed;
+    bySession.set(a.session_type, bucket);
+  }
+
+  const sessions = [...bySession.entries()]
+    .map(([session_type, b]) => ({
+      session_type,
+      assignments: b.assignments,
+      fees_total: roundMoney(b.fees_total),
+    }))
+    .sort((a, b) => a.session_type.localeCompare(b.session_type));
+
+  const fees_total = roundMoney(sessions.reduce((sum, s) => sum + s.fees_total, 0));
 
   const pct = Number(payeeRes.rows[0]?.pct ?? 0);
   return {
     fees_total,
     pct,
     payee: payeeRes.rows[0]?.payee ?? null,
+    sessions,
     budgeted: roundMoney(fees_total * (pct / 100)),
   };
+}
+
+// Cumulative cash left over from every prior school year: all revenue actuals
+// minus all expense actuals booked before `year`. Because it sums everything
+// that came before, it already contains the year-before's own carry-over, so
+// the chain stays consistent no matter how many years are in the books.
+async function priorYearCarryover(year) {
+  const { rows } = await pool.query(
+    `SELECT
+       COALESCE((SELECT SUM(amount) FROM revenue WHERE school_year < $1), 0) AS revenue,
+       COALESCE((SELECT SUM(amount) FROM expenses
+                 WHERE school_year < $1 AND status IN ('approved', 'paid')), 0) AS expense`,
+    [year]
+  );
+  return roundMoney(Number(rows[0].revenue) - Number(rows[0].expense));
 }
 
 async function getBudgetSummary(req, res) {
@@ -119,6 +147,9 @@ async function getBudgetSummary(req, res) {
     prior_year_actual: roundMoney(Number(r.prior_year_actual)),
     remaining: roundMoney(Number(r.budgeted_amount) - Number(r.actual_amount)),
   }));
+
+  // Synthetic revenue rows that don't come from revenue_categories.
+  const revenue_rows_extra = [];
 
   // Revenue rows (from revenue table)
   const revenueCatRes = await pool.query(
@@ -182,8 +213,8 @@ async function getBudgetSummary(req, res) {
   // Count actives who are "regular" payers: exclude neophytes (Fall {year} and Spring {year+1})
   // matching the same logic as duesCategoryForBrother in pledgeClass.js
   const activeCountRes = await pool.query(
-    `SELECT COUNT(*)::int AS count FROM brothers
-     WHERE status = 'Active'
+    `SELECT COUNT(*)::int AS count FROM brothers b
+     WHERE ${activeInYearSql("b", "$1")}
        AND pledge_class NOT IN ('Fall ' || $1::int::text, 'Spring ' || ($1::int + 1)::text)`,
     [year]
   );
@@ -214,6 +245,24 @@ async function getBudgetSummary(req, res) {
     dues_config.estimated_pledges * dues_config.dues_rate_pledge
   );
 
+  // Dues money is collected on the dues page, which writes to dues_payments —
+  // a separate ledger from `revenue`. Summing it here is what makes the Dues
+  // actual reflect what's actually been collected, the same way the budgeted
+  // figure is derived live rather than stored as an allocation.
+  const duesPaidRes = await pool.query(
+    `SELECT COUNT(*)::int AS count, COALESCE(SUM(amount), 0) AS total
+     FROM dues_payments WHERE dues_year = $1`,
+    [year]
+  );
+  dues_config.payments_count = Number(duesPaidRes.rows[0]?.count ?? 0);
+  dues_config.payments_total = roundMoney(Number(duesPaidRes.rows[0]?.total ?? 0));
+
+  const duesPaidPrevRes = await pool.query(
+    `SELECT COALESCE(SUM(amount), 0) AS total FROM dues_payments WHERE dues_year = $1`,
+    [prevYear]
+  );
+  const dues_paid_prior = roundMoney(Number(duesPaidPrevRes.rows[0]?.total ?? 0));
+
   // Chapter bonus: 8 bonus months per year × monthly rate (e.g. 8 × $500 = $4,000)
   const chapter_bonus_budgeted = roundMoney(8 * dues_config.chapter_bonus_monthly_rate);
 
@@ -222,6 +271,38 @@ async function getBudgetSummary(req, res) {
   // disbursement is received, same as Chapter Bonus.
   const house_rebate = await houseRebateBudgeted(year);
   const house_rebate_budgeted = house_rebate.budgeted;
+
+  // Prior-year surplus/deficit. The bank account doesn't reset in September, so
+  // last year's leftover cash is carried in as a fixed line — positive lands in
+  // revenue, negative in expenses — and counts as both budgeted and actual,
+  // because it is money already in (or already out of) the account.
+  const carryover = await priorYearCarryover(year);
+  const carryover_prior = await priorYearCarryover(prevYear);
+  const CARRYOVER_ID = -1;
+  if (carryover > 0) {
+    revenue_rows_extra.push({
+      category_id: CARRYOVER_ID,
+      category_name: "Prior Year Surplus",
+      budgeted_amount: carryover,
+      actual_amount: carryover,
+      prior_year_actual: Math.max(0, carryover_prior),
+      entries: [],
+      is_dues: false,
+      is_chapter_bonus: false,
+      is_house_rebate: false,
+      is_carryover: true,
+    });
+  } else if (carryover < 0) {
+    expense_rows.push({
+      category_id: CARRYOVER_ID,
+      category_name: "Prior Year Deficit",
+      budgeted_amount: Math.abs(carryover),
+      actual_amount: Math.abs(carryover),
+      prior_year_actual: Math.abs(Math.min(0, carryover_prior)),
+      remaining: 0,
+      is_carryover: true,
+    });
+  }
 
   // ── Build revenue rows, overriding Dues budgeted ───────────────────────────
   const revenue_rows = revenueCatRes.rows.map((r) => {
@@ -237,18 +318,30 @@ async function getBudgetSummary(req, res) {
       ? house_rebate_budgeted
       : roundMoney(Number(r.budgeted_amount));
 
+    // Dues collections come from dues_payments. Any hand-entered revenue row
+    // filed under Dues is added on top rather than replaced, so a manual entry
+    // is never silently dropped from the totals.
+    const actual_amount = isDues
+      ? roundMoney(Number(r.actual_amount) + dues_config.payments_total)
+      : roundMoney(Number(r.actual_amount));
+    const prior_year_actual = isDues
+      ? roundMoney(Number(r.prior_year_actual) + dues_paid_prior)
+      : roundMoney(Number(r.prior_year_actual));
+
     return {
       category_id: r.category_id,
       category_name: r.category_name,
       budgeted_amount,
-      actual_amount: roundMoney(Number(r.actual_amount)),
-      prior_year_actual: roundMoney(Number(r.prior_year_actual)),
+      actual_amount,
+      prior_year_actual,
       entries: entriesByCategory[r.category_id] ?? [],
       is_dues: isDues,
       is_chapter_bonus: isChapterBonus,
       is_house_rebate: isHouseRebate,
+      is_carryover: false,
     };
   });
+  revenue_rows.push(...revenue_rows_extra);
 
   // Reconciliation
   const reconcRes = await pool.query(
@@ -296,6 +389,7 @@ async function getBudgetSummary(req, res) {
     revenue_rows,
     dues_config,
     house_rebate,
+    carryover,
     reconciliation,
     outstanding_disbursements,
     totals: {

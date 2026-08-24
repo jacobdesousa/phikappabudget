@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import SchoolYearSelector from "../components/SchoolYearSelector";
+import SchoolYearFilingSelect from "../components/SchoolYearFilingSelect";
 import { getRevenueCategories } from "../services/revenueCategoryService";
 import { IRevenue, IRevenueCategory, IRevenueSummary } from "../interfaces/api.interface";
 import {
@@ -60,6 +61,9 @@ export default function RevenuePage() {
     const [newEtransfer, setNewEtransfer] = useState<string>("0");
     const [newDate, setNewDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
     const [newCategoryId, setNewCategoryId] = useState<number | "">("");
+    // Defaults to the year on screen, not the one the date implies — you are
+    // filing against the year you are looking at.
+    const [newSchoolYear, setNewSchoolYear] = useState(schoolYearStartForDate(new Date()));
 
     const [error, setError] = useState<string | undefined>(undefined);
 
@@ -101,6 +105,10 @@ export default function RevenuePage() {
             });
     }, [refresh, selectedYear]);
 
+    useEffect(() => {
+        if (!addDialogOpen) setNewSchoolYear(selectedYear);
+    }, [selectedYear, addDialogOpen]);
+
     async function handleCreateRevenue() {
         setError(undefined);
         const cash = Number(newCash);
@@ -119,6 +127,7 @@ export default function RevenuePage() {
             square_amount: square,
             etransfer_amount: etransfer,
             amount: newTotal,
+            school_year: newSchoolYear,
         });
 
         if (!res.ok) {
@@ -323,6 +332,11 @@ export default function RevenuePage() {
                                 required
                             />
                         </Stack>
+                        <SchoolYearFilingSelect
+                            value={newSchoolYear}
+                            onChange={setNewSchoolYear}
+                            date={newDate}
+                        />
                             <TextField
                             label="Cash"
                             type="number"

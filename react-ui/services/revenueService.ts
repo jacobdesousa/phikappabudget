@@ -27,7 +27,14 @@ export async function updateRevenue(
   update: Partial<
     Pick<
       IRevenue,
-      "date" | "description" | "category_id" | "cash_amount" | "square_amount" | "etransfer_amount" | "amount"
+      | "date"
+      | "description"
+      | "category_id"
+      | "cash_amount"
+      | "square_amount"
+      | "etransfer_amount"
+      | "amount"
+      | "school_year"
     >
   >
 ) {

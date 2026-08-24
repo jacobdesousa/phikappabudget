@@ -66,7 +66,7 @@ export async function deleteDisbursement(id: number): Promise<void> {
 // that share has already been posted.
 export async function postDisbursementRevenue(
   id: number,
-  payload: { payee?: string; date?: string; description?: string } = {}
+  payload: { payee?: string; date?: string; school_year?: number; description?: string } = {}
 ): Promise<IHouseDisbursement> {
   try {
     const res = await apiClient.post(`/house/disbursements/${id}/post-revenue`, payload);

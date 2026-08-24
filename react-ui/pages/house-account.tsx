@@ -8,8 +8,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
   IconButton,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   Table,
   TableBody,
@@ -42,7 +46,7 @@ import {
 } from "../interfaces/api.interface";
 import DisbursementDialog from "../components/houseAccount/disbursementDialog";
 import AccountAdjustmentDialog from "../components/houseAccount/accountAdjustmentDialog";
-import { schoolYearLabel } from "../utils/schoolYear";
+import { schoolYearLabel, schoolYearStartForDate } from "../utils/schoolYear";
 import { sessionLabel } from "../utils/house";
 import { formatMoney } from "../utils/money";
 
@@ -50,9 +54,29 @@ const CELL_SX = { py: 0.75 };
 const HEAD_SX = { py: 1, fontWeight: 700, whiteSpace: "nowrap" as const };
 const NUM_SX = { ...CELL_SX, textAlign: "right" as const, whiteSpace: "nowrap" as const };
 
+// The years worth offering: the disbursement's own school year, the one the
+// payout date implies, and a year either side of both.
+function postYearOptions(d: IHouseDisbursement) {
+  const anchors = [d.school_year, derivedPostYear(d)];
+  const years = new Set<number>();
+  for (const a of anchors) {
+    for (let y = a - 1; y <= a + 1; y += 1) years.add(y);
+  }
+  return Array.from(years).sort((a, b) => a - b);
+}
+
+// The year the API would pick on its own, from the disbursement's payout date.
+function derivedPostYear(d: IHouseDisbursement) {
+  return d.disbursed_on
+    ? schoolYearStartForDate(new Date(d.disbursed_on))
+    : schoolYearStartForDate(new Date());
+}
+
 export default function HouseAccountPage() {
   const { can } = useAuth();
   const canWrite = can("house.write");
+  const [posting, setPosting] = useState<IHouseDisbursement | null>(null);
+  const [postYear, setPostYear] = useState<number>(() => schoolYearStartForDate(new Date()));
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -143,10 +167,21 @@ export default function HouseAccountPage() {
     return d.shares.find((s) => s.payee === internalPayee && s.revenue_id === null) ?? null;
   }
 
-  async function handlePost(d: IHouseDisbursement) {
+  // Which school year the revenue lands in used to be derived silently from the
+  // disbursement date, which puts a summer payout in the year that just ended.
+  // The dialog pre-selects that same derived year but lets it be overridden.
+  function openPost(d: IHouseDisbursement) {
+    setActionError(null);
+    setPostYear(derivedPostYear(d));
+    setPosting(d);
+  }
+
+  async function handlePost() {
+    if (!posting) return;
     setActionError(null);
     try {
-      await postDisbursementRevenue(d.id);
+      await postDisbursementRevenue(posting.id, { school_year: postYear });
+      setPosting(null);
       await load();
     } catch (e: any) {
       setActionError(e?.message ?? "Could not post the share to revenue.");
@@ -210,6 +245,46 @@ export default function HouseAccountPage() {
             await load();
           }}
         />
+      ) : null}
+
+      {canWrite && posting ? (
+        <Dialog open fullWidth maxWidth="xs" onClose={() => setPosting(null)}>
+          <DialogTitle>Post {internalPayee} share to revenue</DialogTitle>
+          <DialogContent dividers>
+            {actionError ? (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {actionError}
+              </Alert>
+            ) : null}
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              ${formatMoney(Number(internalShare(posting)?.amount ?? 0))} from the disbursement of{" "}
+              {posting.disbursed_on} will be recorded as House Fee Rebate revenue.
+            </Typography>
+            <FormControl fullWidth size="small">
+              <InputLabel id="post-year-label">Counts toward school year</InputLabel>
+              <Select
+                labelId="post-year-label"
+                label="Counts toward school year"
+                value={postYear}
+                onChange={(e) => setPostYear(Number(e.target.value))}
+              >
+                {postYearOptions(posting).map((y) => (
+                  <MenuItem key={y} value={y}>
+                    {schoolYearLabel(y)}
+                    {y === derivedPostYear(posting) ? " — from the payout date" : ""}
+                    {y === posting.school_year ? " — the disbursement's year" : ""}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setPosting(null)}>Cancel</Button>
+            <Button variant="contained" onClick={handlePost}>
+              Post to revenue
+            </Button>
+          </DialogActions>
+        </Dialog>
       ) : null}
 
       {canWrite && deleting ? (
@@ -417,7 +492,7 @@ export default function HouseAccountPage() {
                                   <Tooltip
                                     title={`Post the ${internalPayee} share to revenue`}
                                   >
-                                    <IconButton size="small" onClick={() => handlePost(d)}>
+                                    <IconButton size="small" onClick={() => openPost(d)}>
                                       <PostAddOutlinedIcon fontSize="small" />
                                     </IconButton>
                                   </Tooltip>

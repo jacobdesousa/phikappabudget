@@ -182,6 +182,10 @@ const transactionQuerySchema = z.object({
 const postRevenueSchema = z.object({
   payee: z.string().max(50).optional(),
   date: optionalDate,
+  // Which school year the revenue counts toward. Defaults to the year derived
+  // from the posting date, but the treasurer can override it — a disbursement
+  // paid out in the summer often belongs to the year that just ended.
+  school_year: z.coerce.number().int().min(1900).max(2200).optional(),
   description: z.string().max(500).optional(),
 });
 

@@ -9,6 +9,10 @@ const revenueCreateSchema = z
   date: z.union([z.string(), z.date()]),
   description: z.string().min(1),
   category_id: z.coerce.number().int().positive(),
+  // Which school year the entry counts toward. The date alone can't say: money
+  // received in August belongs to the year that just ended by the Sept 1 rule,
+  // but may well have been collected for the year about to start.
+  school_year: z.coerce.number().int().min(1900).max(2200).optional(),
   cash_amount: z.coerce.number().optional().default(0),
   square_amount: z.coerce.number().optional().default(0),
   etransfer_amount: z.coerce.number().optional().default(0),
@@ -33,6 +37,7 @@ const revenueCreateSchema = z
     date: v.date,
     description: v.description,
     category_id: v.category_id,
+    school_year: v.school_year,
     cash_amount: Number(nextCash),
     square_amount: Number(square),
     etransfer_amount: Number(etransfer),
@@ -45,6 +50,7 @@ const revenueUpdateSchema = z
     date: z.union([z.string(), z.date()]).optional(),
     description: z.string().min(1).optional(),
     category_id: z.coerce.number().int().positive().optional(),
+    school_year: z.coerce.number().int().min(1900).max(2200).optional(),
     cash_amount: z.coerce.number().optional(),
     square_amount: z.coerce.number().optional(),
     etransfer_amount: z.coerce.number().optional(),

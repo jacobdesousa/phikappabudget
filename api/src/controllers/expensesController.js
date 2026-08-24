@@ -12,6 +12,23 @@ const { roundMoney } = require("../utils/money");
 const { uploadToS3, streamFromS3 } = require("../utils/s3");
 const { useS3, makeFilename } = require("../middleware/upload");
 
+const MISC_CATEGORY_NAME = "Misc";
+
+// The catch-all every orphaned entry lands in. Created on demand so a database
+// that predates the seed still gets one.
+async function ensureMiscCategoryId(client) {
+  const q = client ?? pool;
+  const found = await q.query("SELECT id FROM expense_categories WHERE name = $1", [
+    MISC_CATEGORY_NAME,
+  ]);
+  if (found.rows[0]) return found.rows[0].id;
+  const created = await q.query(
+    "INSERT INTO expense_categories (name) VALUES ($1) RETURNING id",
+    [MISC_CATEGORY_NAME]
+  );
+  return created.rows[0].id;
+}
+
 async function listExpenseCategories(req, res) {
   const { rows } = await pool.query("SELECT * FROM expense_categories ORDER BY name ASC");
   return res.status(200).json(rows);
@@ -39,21 +56,40 @@ async function updateExpenseCategory(req, res) {
   return res.status(200).json(result.rows[0]);
 }
 
+// Deleting a category never deletes money. Any entries still pointing at it are
+// moved to the Misc catch-all first, so the totals on the budget page are
+// unchanged by the delete.
 async function deleteExpenseCategory(req, res) {
   const { id } = idParamSchema.parse(req.params);
-  const usedRes = await pool.query("SELECT COUNT(*)::int AS c FROM expenses WHERE category_id = $1", [
-    id,
-  ]);
-  if ((usedRes.rows[0]?.c ?? 0) > 0) {
-    return res.status(409).json({
-      error: { message: "Category is in use by expense entries. Reassign entries before deleting." },
-    });
-  }
-  const result = await pool.query("DELETE FROM expense_categories WHERE id = $1", [id]);
-  if (result.rowCount === 0) {
+
+  const existingRes = await pool.query("SELECT name FROM expense_categories WHERE id = $1", [id]);
+  const existing = existingRes.rows[0];
+  if (!existing) {
     return res.status(404).json({ error: { message: "Category not found" } });
   }
-  return res.status(204).send();
+  if (existing.name === MISC_CATEGORY_NAME) {
+    return res.status(409).json({
+      error: { message: `"${MISC_CATEGORY_NAME}" is the fallback category and can't be deleted.` },
+    });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const miscId = await ensureMiscCategoryId(client);
+    const moved = await client.query(
+      "UPDATE expenses SET category_id = $1 WHERE category_id = $2",
+      [miscId, id]
+    );
+    await client.query("DELETE FROM expense_categories WHERE id = $1", [id]);
+    await client.query("COMMIT");
+    return res.status(200).json({ reassigned: moved.rowCount, reassigned_to: MISC_CATEGORY_NAME });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 async function listExpenses(req, res) {

@@ -18,6 +18,9 @@ export interface IBrother {
     graduation: number;
     office?: string | null;
     status: string;
+    // When the brother went alumni. Stamped by the server on the status change;
+    // null for anyone still active, and for alumni whose history predates it.
+    alumni_date?: string | null;
     current_offices?: IBrotherOffice[];
     // A second email address, common on the alumni records.
     email_secondary?: string | null;
@@ -391,6 +394,7 @@ export interface IBudgetExpenseRow {
     budgeted_amount: number;
     actual_amount: number;
     remaining: number;
+    is_carryover?: boolean;
 }
 
 export interface IBudgetRevenueEntry {
@@ -412,6 +416,22 @@ export interface IBudgetRevenueRow {
     entries: IBudgetRevenueEntry[];
     is_dues?: boolean;
     is_chapter_bonus?: boolean;
+    is_house_rebate?: boolean;
+    is_carryover?: boolean;
+}
+
+export interface IBudgetHouseRebateSession {
+    session_type: string;
+    assignments: number;
+    fees_total: number;
+}
+
+export interface IBudgetHouseRebate {
+    fees_total: number;
+    pct: number;
+    payee: string | null;
+    sessions: IBudgetHouseRebateSession[];
+    budgeted: number;
 }
 
 export interface IBudgetDuesConfig {
@@ -420,6 +440,8 @@ export interface IBudgetDuesConfig {
     dues_rate_pledge: number;
     estimated_pledges: number;
     chapter_bonus_monthly_rate: number;
+    payments_count: number;
+    payments_total: number;
 }
 
 export interface IBudgetReconciliation {
@@ -434,6 +456,8 @@ export interface IBudgetSummary {
     expense_rows: IBudgetExpenseRow[];
     revenue_rows: IBudgetRevenueRow[];
     dues_config: IBudgetDuesConfig;
+    house_rebate: IBudgetHouseRebate;
+    carryover: number;
     reconciliation: IBudgetReconciliation;
     outstanding_disbursements: { count: number; total: number };
     totals: {

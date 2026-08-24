@@ -679,7 +679,7 @@ async function postDisbursementRevenue(req, res) {
           amount, school_year)
        VALUES ($1,$2,$3,0,0,$4,$4,$5)
        RETURNING id`,
-      [date, description, categoryId, amount, schoolYearStartForDate(date)]
+      [date, description, categoryId, amount, payload.school_year ?? schoolYearStartForDate(date)]
     );
     // Guarded on revenue_id so two concurrent posts can't both win.
     const linked = await client.query(

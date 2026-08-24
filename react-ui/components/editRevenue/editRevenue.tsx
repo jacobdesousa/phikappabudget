@@ -18,6 +18,8 @@ import {
 import { IRevenue, IRevenueCategory } from "../../interfaces/api.interface";
 import { updateRevenue } from "../../services/revenueService";
 import { formatMoney, normalizeMoneyInput } from "../../utils/money";
+import SchoolYearFilingSelect from "../SchoolYearFilingSelect";
+import { schoolYearStartForDate } from "../../utils/schoolYear";
 
 interface Props {
   revenue: IRevenue;
@@ -30,6 +32,11 @@ export default function EditRevenueDialog(props: Props) {
   const [description, setDescription] = useState(props.revenue.description ?? "");
   const [date, setDate] = useState<string>(() => new Date(props.revenue.date).toISOString().slice(0, 10));
   const [categoryId, setCategoryId] = useState<number | "">(props.revenue.category_id ?? "");
+  // Whatever the entry is filed under today, not a fresh derivation — editing
+  // an unrelated field must not silently re-file it.
+  const [schoolYear, setSchoolYear] = useState<number>(
+    props.revenue.school_year ?? schoolYearStartForDate(props.revenue.date)
+  );
 
   const [cash, setCash] = useState<string>(String(props.revenue.cash_amount ?? 0));
   const [square, setSquare] = useState<string>(String(props.revenue.square_amount ?? 0));
@@ -66,6 +73,7 @@ export default function EditRevenueDialog(props: Props) {
       square_amount: s,
       etransfer_amount: e,
       amount: total,
+      school_year: schoolYear,
     });
     setSubmitting(false);
 
@@ -117,6 +125,8 @@ export default function EditRevenueDialog(props: Props) {
               required
             />
           </Stack>
+
+          <SchoolYearFilingSelect value={schoolYear} onChange={setSchoolYear} date={date} />
 
           <Typography variant="subtitle2" color="text.secondary">
             Payment streams

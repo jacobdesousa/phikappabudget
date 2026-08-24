@@ -1,8 +1,10 @@
 import Button from '@mui/material/Button';
-import {Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Typography} from "@mui/material";
+import {useState} from "react";
+import {Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Stack, TextField, Typography} from "@mui/material";
 import {editBrother} from "../../services/brotherService";
 import {IBrother} from "../../interfaces/api.interface";
 import CloseIcon from "@mui/icons-material/Close";
+import {schoolYearLabel, schoolYearStartForDate} from "../../utils/schoolYear";
 
 interface Props {
     graduatingBrother: IBrother;
@@ -11,17 +13,25 @@ interface Props {
 
 export default function GraduateBrotherModalComponent(props: Props) {
 
+    // The date decides which school years this brother still counts toward on
+    // the budget and dues pages, so it is captured here rather than defaulted
+    // silently — graduating in the summer is common, and that lands in the year
+    // that just ended, not the one about to start.
+    const [leftOn, setLeftOn] = useState(() => new Date().toISOString().slice(0, 10));
+
     function handleCancel() {
         props.onClose();
     }
 
     function handleGraduate() {
-        props.graduatingBrother.status = "Alumnus";
-
-        editBrother(props.graduatingBrother, props.graduatingBrother.id!);
+        editBrother(
+            {...props.graduatingBrother, status: "Alumnus", alumni_date: leftOn},
+            props.graduatingBrother.id!
+        );
         handleCancel();
     }
 
+    const lastYear = leftOn ? schoolYearStartForDate(leftOn) : null;
 
     return (
         <Dialog open onClose={handleCancel} fullWidth maxWidth="sm">
@@ -32,9 +42,24 @@ export default function GraduateBrotherModalComponent(props: Props) {
                 </IconButton>
             </DialogTitle>
             <DialogContent dividers>
-                <Typography>
-                    Are you sure you want to graduate Br. <b>{props.graduatingBrother.first_name} {props.graduatingBrother.last_name}</b>?
-                </Typography>
+                <Stack spacing={2}>
+                    <Typography>
+                        Are you sure you want to graduate Br. <b>{props.graduatingBrother.first_name} {props.graduatingBrother.last_name}</b>?
+                    </Typography>
+                    <TextField
+                        fullWidth
+                        type="date"
+                        label="Left the chapter"
+                        value={leftOn}
+                        onChange={(e) => setLeftOn(e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                        {lastYear === null
+                            ? "Without a date he is dropped from every past year's dues and budget figures."
+                            : `He stays counted in the budget and dues pages through ${schoolYearLabel(lastYear)}, and is dropped from years after that.`}
+                    </Typography>
+                </Stack>
             </DialogContent>
             <DialogActions>
                 <Button variant="outlined" onClick={handleCancel}>Cancel</Button>

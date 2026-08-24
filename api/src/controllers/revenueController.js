@@ -8,6 +8,24 @@ const { currentSchoolYearStart, schoolYearStartForDate } = require("../utils/sch
 const { duesCategoryForBrother } = require("../utils/pledgeClass");
 const { idParamSchema } = require("../validation/common");
 const { roundMoney } = require("../utils/money");
+const { activeInYearSql } = require("../utils/membership");
+
+const MISC_CATEGORY_NAME = "Misc";
+
+// The catch-all every orphaned entry lands in. Created on demand so a database
+// that predates the seed still gets one.
+async function ensureMiscCategoryId(client) {
+  const q = client ?? pool;
+  const found = await q.query("SELECT id FROM revenue_categories WHERE name = $1", [
+    MISC_CATEGORY_NAME,
+  ]);
+  if (found.rows[0]) return found.rows[0].id;
+  const created = await q.query(
+    "INSERT INTO revenue_categories (name) VALUES ($1) RETURNING id",
+    [MISC_CATEGORY_NAME]
+  );
+  return created.rows[0].id;
+}
 
 async function listRevenueCategories(req, res) {
   const { rows } = await pool.query("SELECT * FROM revenue_categories");
@@ -36,21 +54,40 @@ async function updateRevenueCategory(req, res) {
   return res.status(200).json(result.rows[0]);
 }
 
+// Deleting a category never deletes money. Any entries still pointing at it are
+// moved to the Misc catch-all first, so the totals on the budget page are
+// unchanged by the delete.
 async function deleteRevenueCategory(req, res) {
   const { id } = idParamSchema.parse(req.params);
-  const usedRes = await pool.query("SELECT COUNT(*)::int AS c FROM revenue WHERE category_id = $1", [
-    id,
-  ]);
-  if ((usedRes.rows[0]?.c ?? 0) > 0) {
-    return res.status(409).json({
-      error: { message: "Category is in use by revenue entries. Reassign entries before deleting." },
-    });
-  }
-  const result = await pool.query("DELETE FROM revenue_categories WHERE id = $1", [id]);
-  if (result.rowCount === 0) {
+
+  const existingRes = await pool.query("SELECT name FROM revenue_categories WHERE id = $1", [id]);
+  const existing = existingRes.rows[0];
+  if (!existing) {
     return res.status(404).json({ error: { message: "Category not found" } });
   }
-  return res.status(204).send();
+  if (existing.name === MISC_CATEGORY_NAME) {
+    return res.status(409).json({
+      error: { message: `"${MISC_CATEGORY_NAME}" is the fallback category and can't be deleted.` },
+    });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const miscId = await ensureMiscCategoryId(client);
+    const moved = await client.query(
+      "UPDATE revenue SET category_id = $1 WHERE category_id = $2",
+      [miscId, id]
+    );
+    await client.query("DELETE FROM revenue_categories WHERE id = $1", [id]);
+    await client.query("COMMIT");
+    return res.status(200).json({ reassigned: moved.rowCount, reassigned_to: MISC_CATEGORY_NAME });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 async function listRevenue(req, res) {
@@ -74,7 +111,9 @@ async function listRevenue(req, res) {
 
 async function createRevenue(req, res) {
   const payload = revenueCreateSchema.parse(req.body);
-  const schoolYear = schoolYearStartForDate(payload.date);
+  // The client sends the year it is filing against; the date-derived value is
+  // only the fallback for callers that don't.
+  const schoolYear = payload.school_year ?? schoolYearStartForDate(payload.date);
   const cash = roundMoney(payload.cash_amount);
   const square = roundMoney(payload.square_amount);
   const etransfer = roundMoney(payload.etransfer_amount);
@@ -145,7 +184,17 @@ async function updateRevenue(req, res) {
   const square = roundMoney(nextSquare);
   const etransfer = roundMoney(nextEtransfer);
   const total = roundMoney(cash + square + etransfer);
-  const schoolYear = schoolYearStartForDate(nextDate);
+
+  // An explicit school_year wins. Failing that, a caller that sends a new date
+  // gets the entry re-filed from it — the intuitive way to correct one. An edit
+  // that touches neither keeps the filing as-is, so an unrelated change can't
+  // quietly undo a deliberate override by re-deriving from the date.
+  const schoolYear =
+    patch.school_year !== undefined
+      ? patch.school_year
+      : patch.date !== undefined || existing.school_year === null
+        ? schoolYearStartForDate(nextDate)
+        : Number(existing.school_year);
 
   const updatedRes = await pool.query(
     `
@@ -201,14 +250,16 @@ async function revenueSummary(req, res) {
   );
   const manualTotal = Number(manualRes.rows[0]?.total ?? 0);
 
-  // Dues revenue (payments) for Active brothers, split by dues category.
+  // Dues revenue (payments), split by dues category. Scoped to brothers who
+  // were in the chapter that year, not to who is Active today — otherwise
+  // graduating someone erased dues they had already paid.
   const duesRowsRes = await pool.query(
     `
       SELECT p.amount, b.pledge_class
       FROM dues_payments p
       JOIN brothers b ON b.id = p.brother_id
       WHERE p.dues_year = $1
-        AND b.status = 'Active'
+        AND ${activeInYearSql("b", "$1")}
     `,
     [year]
   );

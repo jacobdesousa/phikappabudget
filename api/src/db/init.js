@@ -94,6 +94,42 @@ async function setupTables() {
   // See neon-brother-address.sql.
   await addColumnIfMissing("brothers", "email_secondary", "TEXT");
 
+  // When a brother went alumni, so history stays answerable after the fact.
+  // `status` is current state: once it flips to Alumni it can no longer say who
+  // was active in a past year, which retroactively shrank the budget's dues
+  // count and hid brothers who had already paid. A brother counts as active in
+  // any school year he was present for part of.
+  // See neon-brother-alumni-year.sql.
+  await addColumnIfMissing("brothers", "alumni_date", "DATE");
+
+  // Seed from `graduation` for existing departed brothers: a graduation year of
+  // 2026 means the last active school year was 2025-26, so date it to that
+  // spring. It is an expected year rather than a recorded event, but it is the
+  // only per-brother signal about past years and it beats reconstructing the
+  // roster by hand.
+  //
+  // Capped at today because `graduation` is a forecast: someone who left early
+  // is already departed while his expected graduation is still years away, and
+  // an uncapped seed would count him as an active dues payer for every year up
+  // to it. Whatever the real date was, it was not in the future.
+  //
+  // Blanks only, so a corrected value survives a later boot.
+  await pool.query(`
+    UPDATE brothers
+    SET alumni_date = LEAST(make_date(graduation::int, 5, 1), CURRENT_DATE)
+    WHERE alumni_date IS NULL
+      AND status <> 'Active'
+      AND graduation IS NOT NULL
+      AND graduation BETWEEN 1900 AND 2200;
+  `);
+
+  // Repair rows the first cut of the seed above dated into the future.
+  await pool.query(`
+    UPDATE brothers
+    SET alumni_date = CURRENT_DATE
+    WHERE alumni_date > CURRENT_DATE;
+  `);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS dues (
       id NUMERIC,
@@ -1391,6 +1427,19 @@ async function setupTables() {
     INSERT INTO revenue_categories (name)
     SELECT 'House Fee Rebate'
     WHERE NOT EXISTS (SELECT 1 FROM revenue_categories WHERE name = 'House Fee Rebate');
+  `);
+
+  // Catch-all categories. Deleting any other category reassigns its entries
+  // here rather than removing the money, so these must always exist.
+  await pool.query(`
+    INSERT INTO revenue_categories (name)
+    SELECT 'Misc'
+    WHERE NOT EXISTS (SELECT 1 FROM revenue_categories WHERE name = 'Misc');
+  `);
+  await pool.query(`
+    INSERT INTO expense_categories (name)
+    SELECT 'Misc'
+    WHERE NOT EXISTS (SELECT 1 FROM expense_categories WHERE name = 'Misc');
   `);
 
   // Optional bootstrap admin for first-time setup (creates user if none exist).

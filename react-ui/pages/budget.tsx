@@ -31,6 +31,7 @@ import { useRouter } from "next/router";
 import {
   IBudgetDuesConfig,
   IBudgetExpenseRow,
+  IBudgetHouseRebate,
   IBudgetReconciliation,
   IBudgetRevenueRow,
   IBudgetSummary,
@@ -195,32 +196,60 @@ function ChapterBonusBudgetedCell({
       </Tooltip>
     );
   }
+  // The editor replaces the whole cell, so it has to fit the Budgeted column on
+  // its own — the units live in the adornments rather than a separate label.
   return (
-    <TableCell sx={{ py: "1px", px: "4px" }}>
-      <Stack direction="row" alignItems="center" gap={0.5}>
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.6rem", whiteSpace: "nowrap" }}>$/mo:</Typography>
-        <TextField
-          autoFocus
-          size="small"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={() => { onSaveRate(parseFloat(draft) || 0); setEditing(false); }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-            if (e.key === "Escape") setEditing(false);
-          }}
-          inputProps={{ style: { fontSize: "0.65rem", padding: "1px 3px", textAlign: "right", width: 55 } }}
-          InputProps={{ startAdornment: <InputAdornment position="start" sx={{ fontSize: "0.6rem" }}>$</InputAdornment> }}
-          variant="outlined"
-        />
-      </Stack>
+    <TableCell sx={{ py: "1px", px: "2px" }}>
+      <TextField
+        autoFocus
+        fullWidth
+        size="small"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => { onSaveRate(parseFloat(draft) || 0); setEditing(false); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          if (e.key === "Escape") setEditing(false);
+        }}
+        inputProps={{
+          style: { fontSize: "0.65rem", padding: "2px 0", textAlign: "right", minWidth: 0 },
+          title: "Chapter Bonus rate per month",
+        }}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start" sx={{ mr: 0, "& p": { fontSize: "0.6rem" } }}>$</InputAdornment>
+          ),
+          endAdornment: (
+            <InputAdornment position="end" sx={{ ml: "1px", "& p": { fontSize: "0.6rem" } }}>/mo</InputAdornment>
+          ),
+        }}
+        variant="outlined"
+        sx={{ "& .MuiOutlinedInput-root": { pl: "4px", pr: "4px" } }}
+      />
     </TableCell>
+  );
+}
+
+// The House Fee Rebate is derived from the house tables, so its Budgeted cell is
+// read-only — the breakdown behind the number lives in the expand row.
+function HouseRebateBudgetedCell({ rebate }: { rebate: IBudgetHouseRebate }) {
+  return (
+    <Tooltip
+      title={`$${formatMoney(rebate.fees_total)} of residence fees × ${rebate.pct}%${
+        rebate.payee ? ` (${rebate.payee})` : ""
+      } — expand the row for the breakdown`}
+    >
+      <TableCell align="right" sx={{ ...CELL_SX, fontStyle: "italic" }}>
+        ${formatMoney(rebate.budgeted)}
+      </TableCell>
+    </Tooltip>
   );
 }
 
 function RevenueSection({
   rows,
   duesConfig,
+  houseRebate,
   estimatedPledges,
   onSavePledges,
   canWrite,
@@ -230,6 +259,7 @@ function RevenueSection({
 }: {
   rows: IBudgetRevenueRow[];
   duesConfig: IBudgetDuesConfig;
+  houseRebate: IBudgetHouseRebate;
   estimatedPledges: number;
   onSavePledges: (n: number) => void;
   canWrite: boolean;
@@ -240,8 +270,10 @@ function RevenueSection({
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const toggle = (id: number) => setExpanded((p) => ({ ...p, [id]: !p[id] }));
 
-  // Pin Dues first, Chapter Bonus second, then alphabetical
-  const pinOrder = (r: IBudgetRevenueRow) => (r.is_dues ? 0 : r.is_chapter_bonus ? 1 : 2);
+  // Pin the derived categories to the top — Dues, Chapter Bonus, House Fee
+  // Rebate, then the carry-over — and leave the rest alphabetical.
+  const pinOrder = (r: IBudgetRevenueRow) =>
+    r.is_dues ? 0 : r.is_chapter_bonus ? 1 : r.is_house_rebate ? 2 : r.is_carryover ? 3 : 4;
   const sorted = [...rows].sort((a, b) => pinOrder(a) - pinOrder(b));
 
   return (
@@ -251,7 +283,7 @@ function RevenueSection({
           <TableRow sx={{ bgcolor: "action.hover" }}>
             <TableCell sx={{ ...HEAD_SX, width: 24 }} />
             <TableCell sx={HEAD_SX}>Revenue Category</TableCell>
-            <TableCell align="right" sx={{ ...HEAD_SX, width: 80 }}>Budgeted</TableCell>
+            <TableCell align="right" sx={{ ...HEAD_SX, width: 96 }}>Budgeted</TableCell>
             <TableCell align="right" sx={{ ...HEAD_SX, width: 72 }}>Actual</TableCell>
           </TableRow>
         </TableHead>
@@ -259,10 +291,13 @@ function RevenueSection({
           {sorted.map((r) => {
             const showExpand = r.is_dues
               ? duesConfig.active_count > 0 || duesConfig.estimated_pledges > 0
+              : r.is_house_rebate
+              ? houseRebate.sessions.length > 0 || r.entries.length > 0
               : r.entries.length > 0;
+            const pinned = r.is_dues || r.is_chapter_bonus || r.is_house_rebate || r.is_carryover;
             return (
               <>
-                <TableRow key={r.category_id} hover sx={(r.is_dues || r.is_chapter_bonus) ? { bgcolor: "action.selected" } : undefined}>
+                <TableRow key={r.category_id} hover sx={pinned ? { bgcolor: "action.selected" } : undefined}>
                   <TableCell sx={{ ...CELL_SX, width: 24, p: 0 }}>
                     {showExpand && (
                       <IconButton size="small" onClick={() => toggle(r.category_id)} sx={{ p: "2px" }}>
@@ -287,6 +322,16 @@ function RevenueSection({
                           <AutoAwesomeIcon sx={{ fontSize: 11, color: "text.disabled" }} />
                         </Tooltip>
                       )}
+                      {r.is_house_rebate && (
+                        <Tooltip title="Auto-calculated: total residence fees × the chapter's disbursement percentage">
+                          <AutoAwesomeIcon sx={{ fontSize: 11, color: "text.disabled" }} />
+                        </Tooltip>
+                      )}
+                      {r.is_carryover && (
+                        <Tooltip title="Cash left in the bank at the end of last school year — carried forward so the account balance stays continuous">
+                          <AutoAwesomeIcon sx={{ fontSize: 11, color: "text.disabled" }} />
+                        </Tooltip>
+                      )}
                       {!r.is_dues && r.entries.length > 0 && (
                         <Chip label={r.entries.length} size="small" sx={{ ml: 0.5, height: 14, fontSize: "0.6rem" }} />
                       )}
@@ -300,6 +345,10 @@ function RevenueSection({
                       canWrite={canWrite}
                       onSaveRate={onSaveCbRate}
                     />
+                  ) : r.is_house_rebate ? (
+                    <HouseRebateBudgetedCell rebate={houseRebate} />
+                  ) : r.is_carryover ? (
+                    <MoneyCell value={r.budgeted_amount} sx={{ fontStyle: "italic" }} />
                   ) : (
                     <InlineBudgetCell
                       value={r.budgeted_amount}
@@ -321,7 +370,7 @@ function RevenueSection({
                               <TableCell sx={{ ...CELL_SX, color: "text.secondary" }}>
                                 Actives ({duesConfig.active_count} × ${formatMoney(duesConfig.dues_rate_active)})
                               </TableCell>
-                              <TableCell align="right" sx={{ ...CELL_SX, width: 80, color: "text.secondary" }}>
+                              <TableCell align="right" sx={{ ...CELL_SX, width: 96, color: "text.secondary" }}>
                                 ${formatMoney(duesConfig.active_count * duesConfig.dues_rate_active)}
                               </TableCell>
                               <TableCell sx={{ ...CELL_SX, width: 72 }} />
@@ -346,8 +395,70 @@ function RevenueSection({
                                   <span>× ${formatMoney(duesConfig.dues_rate_pledge)})</span>
                                 </Stack>
                               </TableCell>
-                              <TableCell align="right" sx={{ ...CELL_SX, width: 80, color: "text.secondary" }}>
+                              <TableCell align="right" sx={{ ...CELL_SX, width: 96, color: "text.secondary" }}>
                                 ${formatMoney(estimatedPledges * duesConfig.dues_rate_pledge)}
+                              </TableCell>
+                              <TableCell sx={{ ...CELL_SX, width: 72 }} />
+                            </TableRow>
+                            <TableRow>
+                              <TableCell sx={{ ...CELL_SX, width: 24 }} />
+                              <TableCell sx={{ ...CELL_SX, color: "text.secondary", borderTop: "1px solid", borderColor: "divider" }}>
+                                Collected ({duesConfig.payments_count} payment
+                                {duesConfig.payments_count === 1 ? "" : "s"} on the dues page)
+                              </TableCell>
+                              <TableCell sx={{ ...CELL_SX, width: 96, borderTop: "1px solid", borderColor: "divider" }} />
+                              <TableCell align="right" sx={{ ...CELL_SX, width: 72, color: "text.secondary", borderTop: "1px solid", borderColor: "divider" }}>
+                                ${formatMoney(duesConfig.payments_total)}
+                              </TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </Collapse>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {/* House Fee Rebate breakdown sub-rows */}
+                {r.is_house_rebate && houseRebate.sessions.length > 0 && (
+                  <TableRow key={`${r.category_id}-rebate-breakdown`}>
+                    <TableCell colSpan={4} sx={{ p: 0, border: 0 }}>
+                      <Collapse in={!!expanded[r.category_id]} timeout="auto" unmountOnExit>
+                        <Table size="small" sx={{ bgcolor: "action.hover", tableLayout: "fixed" }}>
+                          <TableBody>
+                            {houseRebate.sessions.map((sess) => (
+                              <TableRow key={sess.session_type}>
+                                <TableCell sx={{ ...CELL_SX, width: 24 }} />
+                                <TableCell sx={{ ...CELL_SX, color: "text.secondary" }}>
+                                  {sess.session_type.charAt(0).toUpperCase() + sess.session_type.slice(1)} fees
+                                  {" "}({sess.assignments} assignment{sess.assignments === 1 ? "" : "s"})
+                                </TableCell>
+                                <TableCell align="right" sx={{ ...CELL_SX, width: 96, color: "text.secondary" }}>
+                                  ${formatMoney(sess.fees_total)}
+                                </TableCell>
+                                <TableCell sx={{ ...CELL_SX, width: 72 }} />
+                              </TableRow>
+                            ))}
+                            <TableRow>
+                              <TableCell sx={{ ...CELL_SX, width: 24 }} />
+                              <TableCell sx={{ ...CELL_SX, color: "text.secondary", fontWeight: 700 }}>
+                                Total residence fees
+                              </TableCell>
+                              <TableCell
+                                align="right"
+                                sx={{ ...CELL_SX, width: 96, color: "text.secondary", fontWeight: 700,
+                                      borderTop: "1px solid", borderColor: "divider" }}
+                              >
+                                ${formatMoney(houseRebate.fees_total)}
+                              </TableCell>
+                              <TableCell sx={{ ...CELL_SX, width: 72 }} />
+                            </TableRow>
+                            <TableRow>
+                              <TableCell sx={{ ...CELL_SX, width: 24 }} />
+                              <TableCell sx={{ ...CELL_SX, color: "text.secondary" }}>
+                                × {houseRebate.pct}% chapter share
+                                {houseRebate.payee ? ` (${houseRebate.payee})` : ""}
+                              </TableCell>
+                              <TableCell align="right" sx={{ ...CELL_SX, width: 96, color: "text.secondary", fontWeight: 700 }}>
+                                ${formatMoney(houseRebate.budgeted)}
                               </TableCell>
                               <TableCell sx={{ ...CELL_SX, width: 72 }} />
                             </TableRow>
@@ -387,7 +498,7 @@ function RevenueSection({
           <TableRow>
             <TableCell sx={{ ...TOTAL_SX, width: 24 }} />
             <TableCell sx={TOTAL_SX}>TOTAL</TableCell>
-            <TableCell align="right" sx={{ ...TOTAL_SX, width: 80 }}>${formatMoney(totals.budgeted)}</TableCell>
+            <TableCell align="right" sx={{ ...TOTAL_SX, width: 96 }}>${formatMoney(totals.budgeted)}</TableCell>
             <TableCell align="right" sx={{ ...TOTAL_SX, width: 72 }}>${formatMoney(totals.actual)}</TableCell>
           </TableRow>
         </TableBody>
@@ -407,6 +518,9 @@ function ExpenseSection({
   onSaveBudget: (categoryId: number, amount: number) => void;
   totals: { budgeted: number; actual: number; remaining: number };
 }) {
+  // The prior-year carry-over pins to the top, the same way the derived
+  // categories do on the revenue side.
+  const sorted = [...rows].sort((a, b) => Number(!!b.is_carryover) - Number(!!a.is_carryover));
   return (
     <Paper variant="outlined" sx={{ overflow: "hidden" }}>
       <Table size="small" sx={{ tableLayout: "fixed" }}>
@@ -420,15 +534,28 @@ function ExpenseSection({
           </TableRow>
         </TableHead>
         <TableBody>
-          {rows.map((r) => (
-            <TableRow key={r.category_id} hover>
-              <TableCell sx={CELL_SX}>{r.category_name}</TableCell>
+          {sorted.map((r) => (
+            <TableRow key={r.category_id} hover sx={r.is_carryover ? { bgcolor: "action.selected" } : undefined}>
+              <TableCell sx={CELL_SX}>
+                <Stack direction="row" alignItems="center" gap={0.5}>
+                  <span>{r.category_name}</span>
+                  {r.is_carryover && (
+                    <Tooltip title="Overspend carried in from last school year — the bank account doesn't reset in September, so it stays on the books">
+                      <AutoAwesomeIcon sx={{ fontSize: 11, color: "text.disabled" }} />
+                    </Tooltip>
+                  )}
+                </Stack>
+              </TableCell>
               <MoneyCell value={r.prior_year_actual} sx={{ color: "text.secondary" }} />
-              <InlineBudgetCell
-                value={r.budgeted_amount}
-                canWrite={canWrite}
-                onSave={(v) => onSaveBudget(r.category_id, v)}
-              />
+              {r.is_carryover ? (
+                <MoneyCell value={r.budgeted_amount} sx={{ fontStyle: "italic" }} />
+              ) : (
+                <InlineBudgetCell
+                  value={r.budgeted_amount}
+                  canWrite={canWrite}
+                  onSave={(v) => onSaveBudget(r.category_id, v)}
+                />
+              )}
               <MoneyCell value={r.actual_amount} />
               <TableCell
                 align="right"
@@ -773,6 +900,7 @@ export default function BudgetPage() {
                 <RevenueSection
                   rows={summary.revenue_rows}
                   duesConfig={summary.dues_config}
+                  houseRebate={summary.house_rebate}
                   estimatedPledges={estimatedPledges}
                   onSavePledges={handleSavePledges}
                   canWrite={canWrite}

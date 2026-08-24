@@ -39,6 +39,10 @@ const brotherSchema = z.object({
   ),
   graduation: z.preprocess(blankToUndefined, z.coerce.number().optional()),
   status: z.preprocess(blankToUndefined, z.string().optional()),
+  // When the brother went alumni. Normally stamped by the server on the status
+  // change rather than typed, but accepted here so a wrong date can be
+  // corrected and so an import can carry real history in.
+  alumni_date: z.preprocess(blankToUndefined, z.union([z.string(), z.date()]).optional()),
 
   // Home address. Optional throughout — the roster mostly has none, and the
   // alumni import it came from has gaps. No shape is enforced: these are

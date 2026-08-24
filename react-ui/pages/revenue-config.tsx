@@ -239,7 +239,8 @@ export default function RevenueConfigPage() {
             Are you sure you want to delete <b>{deleting?.name}</b>?
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            You can’t delete categories that are already used by revenue entries.
+            Any revenue entries still filed under it move to <b>Misc</b> — nothing is deleted,
+            and the budget totals stay the same.
           </Typography>
         </DialogContent>
         <DialogActions>
