@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   Checkbox,
   CircularProgress,
   Divider,
@@ -14,7 +12,6 @@ import {
   DialogTitle,
   FormControl,
   FormControlLabel,
-  Grid,
   InputAdornment,
   InputLabel,
   MenuItem,
@@ -38,7 +35,10 @@ import { getAllBrothers } from "../services/brotherService";
 import { schoolYearStartForDate } from "../utils/schoolYear";
 import SchoolYearSelector from "../components/SchoolYearSelector";
 import ConfirmDeleteExpenseDialog from "../components/confirmDeleteExpense/confirmDeleteExpense";
-import { formatMoney, normalizeMoneyInput, roundMoney } from "../utils/money";
+import ExpenseTable from "../components/expenseTable/expenseTable";
+import SearchIcon from "@mui/icons-material/Search";
+import ClearIcon from "@mui/icons-material/Clear";
+import { formatMoney, normalizeMoneyInput, roundMoney, sanitizeMoneyInput } from "../utils/money";
 import { openAuthenticatedFile } from "../utils/openFile";
 import { approveExpense, disburseExpenses, rejectExpense } from "../services/expenseWorkflowService";
 
@@ -73,7 +73,12 @@ export default function ExpensesPage() {
   const [selectedDisburseIds, setSelectedDisburseIds] = useState<Record<number, boolean>>({});
 
   const [newDescription, setNewDescription] = useState("");
-  const [newAmount, setNewAmount] = useState<string>("0");
+  const [newAmount, setNewAmount] = useState<string>("0.00");
+  // The edit and review dialogs keep `amount` as a number on the expense
+  // object, which can't hold "12." while it is being typed. These mirror the
+  // field as text; the number is written back on each keystroke.
+  const [editAmountText, setEditAmountText] = useState<string>("");
+  const [reviewAmountText, setReviewAmountText] = useState<string>("");
   const [newDate, setNewDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [newCategoryId, setNewCategoryId] = useState<number | "">("");
   const [newBrotherId, setNewBrotherId] = useState<number | "">("");
@@ -98,6 +103,25 @@ export default function ExpensesPage() {
       ),
     [expenses]
   );
+
+  // Stable identities so the memoised ExpenseTable is not re-rendered by every
+  // keystroke in the Add/Edit dialogs, which share this component's state.
+  const handleEditExpense = useCallback((e: IExpense) => setEditing(e), []);
+  const handleDeleteExpense = useCallback((e: IExpense) => setDeleting(e), []);
+  const handleOpenReceipt = useCallback(
+    (e: IExpense) => openAuthenticatedFile(`${apiBase}${e.receipt_url}`),
+    []
+  );
+
+  useEffect(() => {
+    setEditAmountText(editing ? normalizeMoneyInput(String(editing.amount ?? 0)) : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing?.id]);
+
+  useEffect(() => {
+    setReviewAmountText(reviewing ? normalizeMoneyInput(String(reviewing.amount ?? 0)) : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewing?.id]);
 
   const totalExpensesApproved = useMemo(
     () => approvedExpenses.reduce((acc, e) => acc + Number(e.amount ?? 0), 0),
@@ -230,7 +254,7 @@ export default function ExpensesPage() {
 
     setAddOpen(false);
     setNewDescription("");
-    setNewAmount("0");
+    setNewAmount("0.00");
     setNewDate(new Date().toISOString().slice(0, 10));
     setNewCategoryId("");
     setNewBrotherId("");
@@ -580,184 +604,144 @@ export default function ExpensesPage() {
           </Paper>
           ) : null}
 
-          <Box sx={{ width: "100%", maxWidth: 1200, mx: "auto" }}>
-            <Grid container spacing={2} alignItems="stretch">
-              <Grid item xs={12} md={3} sx={{ display: "flex" }}>
-                <Card variant="outlined" sx={{ width: "100%" }}>
-                  <CardContent sx={{ minHeight: 104, display: "flex", flexDirection: "column" }}>
-                    <Typography variant="overline" color="text.secondary">
-                      Total expenses (Approved)
-                    </Typography>
-                    <Typography variant="h5">${formatMoney(totalExpensesApproved)}</Typography>
-                    <Typography variant="caption" sx={{ visibility: "hidden" }}>
-                      spacer
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} md={3} sx={{ display: "flex" }}>
-                <Card variant="outlined" sx={{ width: "100%" }}>
-                  <CardContent sx={{ minHeight: 104, display: "flex", flexDirection: "column" }}>
-                    <Typography variant="overline" color="text.secondary">
-                      Entries
-                    </Typography>
-                    <Typography variant="h5">{approvedExpenses.length}</Typography>
-                    <Typography variant="caption" sx={{ visibility: "hidden" }}>
-                      spacer
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-          </Box>
+          {/* One thin strip rather than cards: reference figures, not the point
+              of the page. Counts live on the filter bar, so they are not
+              repeated here. */}
+          <Paper elevation={0} sx={{ p: 1.5, border: "1px solid", borderColor: "divider" }}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={{ xs: 1, sm: 2 }}
+              justifyContent="space-between"
+              alignItems={{ sm: "flex-start" }}
+            >
+              <Box>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Total expenses (approved)
+                </Typography>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                  ${formatMoney(totalExpensesApproved)}
+                </Typography>
+              </Box>
 
-          <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-            <Typography variant="h6" sx={{ mb: 1 }}>
-              Expense entries (Approved)
-            </Typography>
+              <Box sx={{ textAlign: { sm: "right" } }}>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Filtered total
+                </Typography>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                  ${formatMoney(filteredApprovedTotal)}
+                </Typography>
+              </Box>
+            </Stack>
+          </Paper>
 
+          <Paper elevation={0} sx={{ p: 1, border: "1px solid", borderColor: "divider" }}>
             <Stack
               direction={{ xs: "column", md: "row" }}
-              spacing={2}
+              spacing={1}
               alignItems={{ md: "center" }}
-              sx={{ mb: 2 }}
+              justifyContent="space-between"
             >
-              <TextField
-                label="Search"
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                fullWidth
-              />
-              <TextField
-                select
-                label="Category"
-                value={filterCategoryId}
-                onChange={(e) => setFilterCategoryId(e.target.value as any)}
-                sx={{ minWidth: { md: 220 } }}
-              >
-                <MenuItem value="">
-                  <em>All</em>
-                </MenuItem>
-                {categories.map((c) => (
-                  <MenuItem key={c.id ?? c.name} value={c.id ?? ""}>
-                    {c.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                label="Person"
-                value={filterBrotherId}
-                onChange={(e) => setFilterBrotherId(e.target.value as any)}
-                sx={{ minWidth: { md: 220 } }}
-              >
-                <MenuItem value="">
-                  <em>All</em>
-                </MenuItem>
-                {brothers.map((b) => (
-                  <MenuItem key={b.id ?? `${b.first_name}-${b.last_name}`} value={b.id ?? ""}>
-                    {b.first_name} {b.last_name}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                label="Cheque #"
-                value={filterChequeNumber}
-                onChange={(e) => setFilterChequeNumber(e.target.value)}
-                sx={{ minWidth: { md: 180 } }}
-              />
-              <Button
-                variant="outlined"
-                onClick={() => {
-                  setSearchText("");
-                  setFilterCategoryId("");
-                  setFilterBrotherId("");
-                  setFilterChequeNumber("");
-                }}
-                sx={{ minWidth: 120 }}
-              >
-                Clear
-              </Button>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={1} sx={{ flex: 1, minWidth: 0 }}>
+                <TextField
+                  size="small"
+                  placeholder="Search description, category, person…"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  sx={{ minWidth: { md: 260 }, flex: { md: "0 1 320px" } }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                    endAdornment: searchText ? (
+                      <InputAdornment position="end">
+                        <IconButton size="small" onClick={() => setSearchText("")} aria-label="clear search">
+                          <ClearIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ) : null,
+                  }}
+                />
+                <TextField
+                  select
+                  size="small"
+                  label="Category"
+                  value={filterCategoryId}
+                  onChange={(e) => setFilterCategoryId(e.target.value as any)}
+                  sx={{ minWidth: { md: 150 } }}
+                >
+                  <MenuItem value=""><em>All</em></MenuItem>
+                  {categories.map((c) => (
+                    <MenuItem key={c.id ?? c.name} value={c.id ?? ""}>{c.name}</MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  size="small"
+                  label="Person"
+                  value={filterBrotherId}
+                  onChange={(e) => setFilterBrotherId(e.target.value as any)}
+                  sx={{ minWidth: { md: 150 } }}
+                >
+                  <MenuItem value=""><em>All</em></MenuItem>
+                  {brothers.map((b) => (
+                    <MenuItem key={b.id ?? `${b.first_name}-${b.last_name}`} value={b.id ?? ""}>
+                      {b.first_name} {b.last_name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  size="small"
+                  label="Cheque #"
+                  value={filterChequeNumber}
+                  onChange={(e) => setFilterChequeNumber(e.target.value)}
+                  sx={{ minWidth: { md: 110 } }}
+                />
+                {(searchText || filterCategoryId !== "" || filterBrotherId !== "" || filterChequeNumber) && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => {
+                      setSearchText("");
+                      setFilterCategoryId("");
+                      setFilterBrotherId("");
+                      setFilterChequeNumber("");
+                    }}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </Stack>
+
+              <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
+                {filteredApprovedExpenses.length} of {approvedExpenses.length} shown
+              </Typography>
             </Stack>
+          </Paper>
 
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Showing <b>{filteredApprovedExpenses.length}</b> / <b>{approvedExpenses.length}</b> • Total (filtered):{" "}
-              <b>${formatMoney(filteredApprovedTotal)}</b>
-            </Typography>
-
-            {approvedExpenses.length === 0 ? (
+          {approvedExpenses.length === 0 ? (
+            <Paper variant="outlined" sx={{ p: 3, textAlign: "center" }}>
               <Typography variant="body2" color="text.secondary">
                 No expenses for this year yet.
               </Typography>
-            ) : (
-              <Stack spacing={1}>
-                {filteredApprovedExpenses.map((e) => (
-                  <Paper key={e.id ?? `${e.description}-${e.date}-${e.amount}`} variant="outlined" sx={{ p: 1.5 }}>
-                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between">
-                      <Box sx={{ flex: 1 }}>
-                        <Typography sx={{ fontWeight: 600 }}>{e.description}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {(e.category_name ?? "Uncategorized")} • {new Date(e.date).toDateString()}
-                          {e.cheque_number ? ` • Cheque: ${e.cheque_number}` : ""}
-                        </Typography>
-                        {e.receipt_url && (
-                          <Typography variant="body2" color="text.secondary">
-                            Receipt:{" "}
-                            <a style={{ cursor: "pointer" }} onClick={() => openAuthenticatedFile(`${apiBase}${e.receipt_url}`)}>
-                              open
-                            </a>
-                          </Typography>
-                        )}
-                        <Typography variant="body2" color="text.secondary">
-                          Reimburse:{" "}
-                          {e.reimburse_first_name && e.reimburse_last_name
-                            ? `${e.reimburse_first_name} ${e.reimburse_last_name}`
-                            : e.reimburse_brother_id
-                              ? `Brother #${e.reimburse_brother_id}`
-                              : "—"}
-                        </Typography>
-                      </Box>
-                      <Stack
-                        spacing={0.5}
-                        alignItems="flex-end"
-                        sx={{ minWidth: { sm: 160 } }}
-                      >
-                        <Stack direction="row" spacing={0.5}>
-                          {canWrite ? (
-                            <>
-                              <Tooltip title="Edit">
-                                <span>
-                                  <IconButton size="small" onClick={() => setEditing(e)} disabled={!e.id}>
-                                    <EditOutlinedIcon fontSize="small" />
-                                  </IconButton>
-                                </span>
-                              </Tooltip>
-                              <Tooltip title="Delete">
-                                <span>
-                                  <IconButton size="small" color="error" onClick={() => setDeleting(e)} disabled={!e.id}>
-                                    <DeleteOutlineIcon fontSize="small" />
-                                  </IconButton>
-                                </span>
-                              </Tooltip>
-                            </>
-                          ) : null}
-                        </Stack>
-                        <Typography sx={{ fontWeight: 700 }}>
-                          ${formatMoney(e.amount ?? 0)}
-                        </Typography>
-                      </Stack>
-                    </Stack>
-                  </Paper>
-                ))}
-              </Stack>
-            )}
-          </Paper>
+            </Paper>
+          ) : (
+            <ExpenseTable
+              data={filteredApprovedExpenses}
+              canWrite={canWrite}
+              onEdit={handleEditExpense}
+              onDelete={handleDeleteExpense}
+              onOpenReceipt={handleOpenReceipt}
+            />
+          )}
+
         </>
       )}
 
       {/* Add */}
       <Dialog open={addOpen && canWrite} onClose={() => setAddOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Add expense</DialogTitle>
+        <DialogTitle>Add Expense</DialogTitle>
         <DialogContent dividers>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           <Stack spacing={2}>
@@ -796,13 +780,12 @@ export default function ExpensesPage() {
             </Stack>
             <TextField
               label="Amount"
-              type="number"
               value={newAmount}
-              onChange={(e) => setNewAmount(e.target.value)}
+              onChange={(e) => setNewAmount(sanitizeMoneyInput(e.target.value))}
               onBlur={() => setNewAmount(normalizeMoneyInput(newAmount))}
               fullWidth
               required
-              inputProps={{ step: "0.01" }}
+              inputProps={{ inputMode: "decimal" }}
               InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
             />
             <FormControl fullWidth>
@@ -854,7 +837,7 @@ export default function ExpensesPage() {
 
       {/* Edit */}
       <Dialog open={!!editing && canWrite} onClose={() => setEditing(null)} fullWidth maxWidth="sm">
-        <DialogTitle>Edit expense</DialogTitle>
+        <DialogTitle>Edit Expense</DialogTitle>
         <DialogContent dividers>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           {editing && (
@@ -894,13 +877,20 @@ export default function ExpensesPage() {
               </Stack>
               <TextField
                 label="Amount"
-                type="number"
-                value={String(editing.amount ?? 0)}
-                onChange={(e) => setEditing({ ...editing, amount: Number(e.target.value) })}
-                onBlur={() => setEditing({ ...editing, amount: roundMoney(Number(editing.amount ?? 0)) })}
+                value={editAmountText}
+                onChange={(e) => {
+                  const next = sanitizeMoneyInput(e.target.value);
+                  setEditAmountText(next);
+                  setEditing({ ...editing, amount: Number(next) || 0 });
+                }}
+                onBlur={() => {
+                  const settled = normalizeMoneyInput(editAmountText);
+                  setEditAmountText(settled);
+                  setEditing({ ...editing, amount: roundMoney(Number(settled)) });
+                }}
                 fullWidth
                 required
-                inputProps={{ step: "0.01" }}
+                inputProps={{ inputMode: "decimal" }}
                 InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
               />
               <FormControl fullWidth>
@@ -1011,13 +1001,20 @@ export default function ExpensesPage() {
               </Stack>
               <TextField
                 label="Amount"
-                type="number"
-                value={String(reviewing.amount ?? 0)}
-                onChange={(e) => setReviewing({ ...reviewing, amount: Number(e.target.value) })}
-                onBlur={() => setReviewing({ ...reviewing, amount: roundMoney(Number(reviewing.amount ?? 0)) })}
+                value={reviewAmountText}
+                onChange={(e) => {
+                  const next = sanitizeMoneyInput(e.target.value);
+                  setReviewAmountText(next);
+                  setReviewing({ ...reviewing, amount: Number(next) || 0 });
+                }}
+                onBlur={() => {
+                  const settled = normalizeMoneyInput(reviewAmountText);
+                  setReviewAmountText(settled);
+                  setReviewing({ ...reviewing, amount: roundMoney(Number(settled)) });
+                }}
                 fullWidth
                 required
-                inputProps={{ step: "0.01" }}
+                inputProps={{ inputMode: "decimal" }}
                 InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
               />
               <FormControl fullWidth required>
