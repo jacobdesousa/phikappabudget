@@ -13,7 +13,6 @@ import {
   DialogTitle,
   IconButton,
   Paper,
-  Snackbar,
   Stack,
   Table,
   TableBody,
@@ -40,6 +39,7 @@ import {
 } from "../../services/shiftsService";
 import { getAllBrothers } from "../../services/brotherService";
 import type { IShiftBrotherCount } from "../../interfaces/api.interface";
+import SaveIndicator from "../../components/SaveIndicator";
 import { useAuth } from "../../context/authContext";
 
 type AttendanceStatus = "assigned" | "present" | "absent";
@@ -112,6 +112,7 @@ export default function ShiftDetailPage() {
   const lastHashRef = React.useRef<string | null>(null);
   const saveSeqRef = React.useRef(0);
   const [autosaveReady, setAutosaveReady] = React.useState(false);
+  const [savedAt, setSavedAt] = React.useState<Date | null>(null);
 
   const canWritePerm = shift
     ? can(`shifts.${shift.shift_type}.write`)
@@ -212,8 +213,7 @@ export default function ShiftDetailPage() {
         return;
       }
       lastHashRef.current = hash;
-      setSuccess("Saved");
-      setTimeout(() => setSuccess(null), 900);
+      setSavedAt(new Date());
       setShift(res.data!);
       // Re-fetch server counts so optimistic deltas stay near zero
       if (res.data?.shift_type && res.data?.school_year) {
@@ -353,7 +353,7 @@ export default function ShiftDetailPage() {
             </Typography>
           </Box>
           <Stack direction="row" spacing={1} alignItems="center">
-            {saving && <Typography variant="body2" color="text.secondary">Saving…</Typography>}
+            <SaveIndicator saving={saving} savedAt={savedAt} />
             <Button variant="outlined" onClick={() => void router.push(backHref)}>Back</Button>
           </Stack>
         </Stack>
@@ -361,9 +361,6 @@ export default function ShiftDetailPage() {
 
       {error && <Alert severity="error">{error}</Alert>}
       {saveError && <Alert severity="error">{saveError}</Alert>}
-      <Snackbar open={Boolean(success)} autoHideDuration={900} onClose={() => setSuccess(null)} anchorOrigin={{ vertical: "top", horizontal: "right" }}>
-        <Alert severity="success" variant="filled" sx={{ boxShadow: 6 }}>{success}</Alert>
-      </Snackbar>
 
       {loading ? (
         <CircularProgress />

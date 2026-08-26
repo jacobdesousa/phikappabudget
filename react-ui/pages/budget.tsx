@@ -45,6 +45,7 @@ import {
 } from "../services/budgetService";
 import { useAuth } from "../context/authContext";
 import SchoolYearSelector from "../components/SchoolYearSelector";
+import SaveIndicator from "../components/SaveIndicator";
 import { formatMoney } from "../utils/money";
 import { schoolYearStartForDate } from "../utils/schoolYear";
 
@@ -597,6 +598,7 @@ function ReconciliationSection({
   year,
   revenueBudgeted,
   expenseBudgeted,
+  onSaveReserve,
   onSaved,
 }: {
   data: IBudgetReconciliation;
@@ -604,10 +606,10 @@ function ReconciliationSection({
   year: number;
   revenueBudgeted: number;
   expenseBudgeted: number;
+  onSaveReserve: (value: number) => Promise<void>;
   onSaved: (d: IBudgetReconciliation) => void;
 }) {
   const [reserve, setReserve] = useState(data.emergency_reserve);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setReserve(data.emergency_reserve);
@@ -617,16 +619,15 @@ function ReconciliationSection({
     const val = parseFloat(raw) || 0;
     setReserve(val);
     if (!canWrite) return;
-    setSaving(true);
     try {
-      await saveReconciliation(year, val);
+      await onSaveReserve(val);
       onSaved({
         ...data,
         emergency_reserve: val,
         bank_balance: data.cash_amount + val,
       });
-    } finally {
-      setSaving(false);
+    } catch {
+      // runSave surfaces the message; leave the field showing what was typed.
     }
   };
 
@@ -642,7 +643,6 @@ function ReconciliationSection({
         <Typography variant="caption" fontWeight={700} sx={{ letterSpacing: 1, color: "text.secondary" }}>
           RECONCILIATION
         </Typography>
-        {saving && <CircularProgress size={12} />}
       </Stack>
 
       <Stack direction="row" gap={3} flexWrap="wrap" alignItems="flex-start">
@@ -756,6 +756,29 @@ export default function BudgetPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [estimatedPledges, setEstimatedPledges] = useState(15);
+  // Every editable figure on this page saves as soon as it is committed, with
+  // no Save button — so it has to say so. Tracked page-wide rather than per
+  // field: only one save is ever in flight, and a spinner per cell would be
+  // noisier than the edit itself.
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Two of these handlers previously swallowed their errors outright, so a
+  // failed save looked identical to a successful one.
+  const runSave = useCallback(async (fn: () => Promise<void>) => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await fn();
+      setSavedAt(new Date());
+    } catch (e: unknown) {
+      setSaveError(e instanceof Error ? e.message : "Could not save that change.");
+      throw e;
+    } finally {
+      setSaving(false);
+    }
+  }, []);
 
   const load = useCallback(async (y: number) => {
     setLoading(true);
@@ -783,7 +806,7 @@ export default function BudgetPage() {
       ),
     } : s);
     try {
-      await saveExpenseAllocations(year, [{ category_id: categoryId, budgeted_amount: amount }]);
+      await runSave(() => saveExpenseAllocations(year, [{ category_id: categoryId, budgeted_amount: amount }]));
     } catch { await load(year); }
   };
 
@@ -796,31 +819,31 @@ export default function BudgetPage() {
       ),
     } : s);
     try {
-      await saveRevenueAllocations(year, [{ category_id: categoryId, budgeted_amount: amount }]);
+      await runSave(() => saveRevenueAllocations(year, [{ category_id: categoryId, budgeted_amount: amount }]));
     } catch { await load(year); }
   };
 
   const handleSaveCbRate = async (rate: number) => {
     if (!summary || !canWrite) return;
     try {
-      await saveDuesConfig(year, {
+      await runSave(() => saveDuesConfig(year, {
         estimated_pledges: estimatedPledges,
         chapter_bonus_monthly_rate: rate,
-      });
+      }));
       await load(year);
-    } catch { /* ignore */ }
+    } catch { /* surfaced by runSave */ }
   };
 
   const handleSavePledges = async (n: number) => {
     if (!summary || !canWrite) return;
     setEstimatedPledges(n);
     try {
-      await saveDuesConfig(year, {
+      await runSave(() => saveDuesConfig(year, {
         estimated_pledges: n,
         chapter_bonus_monthly_rate: summary.dues_config.chapter_bonus_monthly_rate,
-      });
+      }));
       await load(year);
-    } catch { /* ignore */ }
+    } catch { /* surfaced by runSave */ }
   };
 
   return (
@@ -839,6 +862,7 @@ export default function BudgetPage() {
               </Typography>
             </Box>
             <Stack direction="row" spacing={1} alignItems="center">
+              <SaveIndicator saving={saving} savedAt={savedAt} />
               <SchoolYearSelector value={year} onChange={setYear} />
               <Button
                 variant="outlined"
@@ -858,6 +882,11 @@ export default function BudgetPage() {
         )}
 
         {error && <Alert severity="error">{error}</Alert>}
+        {saveError && (
+          <Alert severity="error" onClose={() => setSaveError(null)}>
+            {saveError}
+          </Alert>
+        )}
 
         {summary && !loading && (
           <>
@@ -883,6 +912,7 @@ export default function BudgetPage() {
               year={year}
               revenueBudgeted={summary.totals.revenue.budgeted}
               expenseBudgeted={summary.totals.expense.budgeted}
+              onSaveReserve={(v) => runSave(() => saveReconciliation(year, v))}
               onSaved={(d) =>
                 setSummary((s) => s ? { ...s, reconciliation: d } : s)
               }

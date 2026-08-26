@@ -32,6 +32,7 @@ import { listVotesForMeeting } from "../../services/votesService";
 import { schoolYearLabel, schoolYearStartForDate } from "../../utils/schoolYear";
 import { parseMinutesText } from "../../utils/minutesText";
 import { useAuth } from "../../context/authContext";
+import SaveIndicator from "../../components/SaveIndicator";
 import CreateVoteDialog from "../../components/createVote/createVote";
 import VoteResultsCard from "../../components/voteResultsCard/voteResultsCard";
 
@@ -119,6 +120,7 @@ export default function MeetingMinutesEditor() {
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
   const [autosaveReady, setAutosaveReady] = React.useState(false);
+  const [savedAt, setSavedAt] = React.useState<Date | null>(null);
   const [exporting, setExporting] = React.useState(false);
   const [emailing, setEmailing] = React.useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = React.useState(false);
@@ -387,8 +389,7 @@ export default function MeetingMinutesEditor() {
         return;
       }
       lastSavedHashRef.current = hash;
-      setSuccess("Saved");
-      setTimeout(() => setSuccess(null), 900);
+      setSavedAt(new Date());
 
       // Keep view-mode data in sync with the latest autosaved changes.
       setMeeting((prev) => {
@@ -534,9 +535,9 @@ export default function MeetingMinutesEditor() {
                 </Button>
               </>
             )}
-            <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-              {isEditing ? (saving ? "Saving…" : autosaveReady ? "Autosave on" : "") : ""}
-            </Typography>
+            <Stack sx={{ ml: 1 }}>
+              {isEditing ? <SaveIndicator saving={saving} savedAt={savedAt} /> : null}
+            </Stack>
           </Stack>
         </Stack>
       </Paper>

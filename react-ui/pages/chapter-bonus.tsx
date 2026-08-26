@@ -13,7 +13,6 @@ import {
   Link as MuiLink,
   MenuItem,
   Paper,
-  Snackbar,
   Stack,
   TextField,
   Typography,
@@ -40,6 +39,7 @@ import {
 import { API_BASE_URL } from "../services/apiClient";
 import { formatMoney, normalizeMoneyInput } from "../utils/money";
 import { openAuthenticatedFile } from "../utils/openFile";
+import SaveIndicator from "../components/SaveIndicator";
 import { useAuth } from "../context/authContext";
 
 function currentMonth(): string {
@@ -77,7 +77,6 @@ export default function ChapterBonusPage() {
   const [ratesLoading, setRatesLoading] = React.useState(false);
   const [ratesSaving, setRatesSaving] = React.useState(false);
   const [ratesError, setRatesError] = React.useState<string | null>(null);
-  const [ratesSuccess, setRatesSuccess] = React.useState<string | null>(null);
   const [activePresentRate, setActivePresentRate] = React.useState<string>("25.00");
   const [activeLateRate, setActiveLateRate] = React.useState<string>("20.00");
   const [activeCoverallsRate, setActiveCoverallsRate] = React.useState<string>("30.00");
@@ -148,6 +147,7 @@ export default function ChapterBonusPage() {
 
   const lastSavedRatesHashRef = React.useRef<string | null>(null);
   const ratesAutosaveReadyRef = React.useRef(false);
+  const [ratesSavedAt, setRatesSavedAt] = React.useState<Date | null>(null);
   const ratesDebounceRef = React.useRef<any>(null);
   const ratesSaveSeqRef = React.useRef(0);
 
@@ -230,7 +230,6 @@ export default function ChapterBonusPage() {
       const seq = ++ratesSaveSeqRef.current;
       setRatesSaving(true);
       setRatesError(null);
-      setRatesSuccess(null);
 
       const res = await upsertWorkdayRatesForMonth(month, payload);
       if (seq !== ratesSaveSeqRef.current) return;
@@ -241,8 +240,7 @@ export default function ChapterBonusPage() {
         return;
       }
       lastSavedRatesHashRef.current = hash;
-      setRatesSuccess("Saved");
-      setTimeout(() => setRatesSuccess(null), 900);
+      setRatesSavedAt(new Date());
 
       // Update the visible workday earnings locally to avoid a jarring refetch/replace.
       setWorkdays((prev) =>
@@ -390,21 +388,8 @@ export default function ChapterBonusPage() {
           </Box>
           {ratesError ? <Alert severity="error">{ratesError}</Alert> : null}
           <Box sx={{ minWidth: 80, display: "flex", justifyContent: "flex-end" }}>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ whiteSpace: "nowrap", visibility: canWrite && ratesSaving ? "visible" : "hidden" }}
-            >
-              Saving…
-            </Typography>
+            {canWrite ? <SaveIndicator saving={ratesSaving} savedAt={ratesSavedAt} /> : null}
           </Box>
-          {canWrite ? (
-            <Snackbar open={Boolean(ratesSuccess)} onClose={() => setRatesSuccess(null)} autoHideDuration={900} anchorOrigin={{ vertical: "top", horizontal: "right" }}>
-              <Alert severity="success" variant="filled" sx={{ boxShadow: 6 }}>
-                {ratesSuccess}
-              </Alert>
-            </Snackbar>
-          ) : null}
           <Box
             sx={{
               flex: 1,

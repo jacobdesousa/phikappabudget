@@ -10,13 +10,13 @@ import {
   TextField,
   Typography,
   MenuItem,
-  Snackbar,
 } from "@mui/material";
 import dayjs from "dayjs";
 import { useRouter } from "next/router";
 import type { IWorkday, IWorkdayAttendanceRow } from "../../interfaces/api.interface";
 import { getWorkday, updateWorkday } from "../../services/workdaysService";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
+import SaveIndicator from "../../components/SaveIndicator";
 import { useAuth } from "../../context/authContext";
 
 const STATUS_OPTIONS: Array<IWorkdayAttendanceRow["status"]> = ["Present", "Late", "Excused", "Missing"];
@@ -37,6 +37,7 @@ export default function WorkdayDetailPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
   const [autosaveReady, setAutosaveReady] = React.useState(false);
+  const [savedAt, setSavedAt] = React.useState<Date | null>(null);
   const [workday, setWorkday] = React.useState<IWorkday | null>(null);
 
   const [isEditing, setIsEditing] = React.useState(false);
@@ -135,8 +136,7 @@ export default function WorkdayDetailPage() {
         return;
       }
       lastSavedHashRef.current = hash;
-      setSuccess("Saved");
-      setTimeout(() => setSuccess(null), 900);
+      setSavedAt(new Date());
 
       // Keep view-mode data in sync with the latest autosaved changes.
       setWorkday(result.workday);
@@ -227,11 +227,6 @@ export default function WorkdayDetailPage() {
 
       {error ? <Alert severity="error">{error}</Alert> : null}
       {saveError ? <Alert severity="error">{saveError}</Alert> : null}
-      <Snackbar open={Boolean(success)} onClose={() => setSuccess(null)} autoHideDuration={900} anchorOrigin={{ vertical: "top", horizontal: "right" }}>
-        <Alert severity="success" variant="filled" sx={{ boxShadow: 6 }}>
-          {success}
-        </Alert>
-      </Snackbar>
 
       {loading ? (
         <Box display="flex" justifyContent="center" py={6}>
@@ -254,7 +249,7 @@ export default function WorkdayDetailPage() {
                   InputLabelProps={{ shrink: true }}
                 />
                 <Typography variant="body2" color="text.secondary" sx={{ display: "flex", alignItems: "center" }}>
-                  {saving ? "Saving…" : autosaveReady ? "Autosave on" : ""}
+                  <SaveIndicator saving={saving} savedAt={savedAt} />
                 </Typography>
               </Stack>
             </Paper>
