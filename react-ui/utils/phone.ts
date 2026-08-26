@@ -4,9 +4,18 @@ import { AsYouType, parsePhoneNumberFromString } from "libphonenumber-js";
 // International residents enter their number with the "+" prefix.
 export const DEFAULT_COUNTRY = "CA";
 
+// The North American Numbering Plan: +1 covers the US, Canada and much of the
+// Caribbean, all sharing one national format.
+const NANP_CALLING_CODE = "1";
+
 // Phones are stored in E.164 ("+353831234567"); this is the human-facing shape.
-// Local numbers read as "(416) 555-1234", everything else as
+// North American numbers read as "(416) 555-1234", everything else as
 // "+353 83 123 4567" so the country is visible.
+//
+// Keyed on the calling code rather than the country: the US, Canada and the
+// Caribbean all sit under +1 and share the same "(NPA) NXX-XXXX" layout, so a
+// US area code like 408 resolves to country "US" and would otherwise fall
+// through to the international format for no reason a reader would expect.
 export function formatPhoneForDisplay(value: string | null | undefined): string {
   const raw = (value ?? "").trim();
   if (!raw) return "";
@@ -14,7 +23,7 @@ export function formatPhoneForDisplay(value: string | null | undefined): string 
   const parsed = parsePhoneNumberFromString(raw, DEFAULT_COUNTRY);
   if (!parsed || !parsed.isValid()) return raw;
 
-  return parsed.country === DEFAULT_COUNTRY
+  return parsed.countryCallingCode === NANP_CALLING_CODE
     ? parsed.formatNational()
     : parsed.formatInternational();
 }
