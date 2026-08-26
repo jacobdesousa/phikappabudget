@@ -43,6 +43,16 @@ const meetingUpsertSchema = z.object({
   motion_end_seconded_by_brother_id: z.coerce.number().int().positive().optional().nullable(),
 });
 
-module.exports = { meetingUpsertSchema };
+// The email-minutes payload. `recipient_brother_ids` is optional: absent means
+// "every active brother", which is what the button did before it grew a
+// recipient picker.
+const emailMinutesSchema = z.object({
+  custom_message: z.string().max(5000).optional().nullable(),
+  sender_name: z.string().max(200).optional().nullable(),
+  sender_office: z.string().max(200).optional().nullable(),
+  recipient_brother_ids: z.array(z.coerce.number().int().positive()).max(1000).optional(),
+});
+
+module.exports = { meetingUpsertSchema, emailMinutesSchema };
 
 

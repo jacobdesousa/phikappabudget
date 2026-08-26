@@ -7,10 +7,6 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Divider,
   IconButton,
   MenuItem,
@@ -34,6 +30,7 @@ import { parseMinutesText } from "../../utils/minutesText";
 import { useAuth } from "../../context/authContext";
 import SaveIndicator from "../../components/SaveIndicator";
 import CreateVoteDialog from "../../components/createVote/createVote";
+import EmailMinutesDialog from "../../components/minutes/emailMinutesDialog";
 import VoteResultsCard from "../../components/voteResultsCard/voteResultsCard";
 
 function renderMinutesBlocks(text?: string | null) {
@@ -124,7 +121,6 @@ export default function MeetingMinutesEditor() {
   const [exporting, setExporting] = React.useState(false);
   const [emailing, setEmailing] = React.useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = React.useState(false);
-  const [customMessage, setCustomMessage] = React.useState("");
   const [isEditing, setIsEditing] = React.useState(false);
 
   const [meeting, setMeeting] = React.useState<IMeetingMinutes | null>(null);
@@ -283,22 +279,28 @@ export default function MeetingMinutesEditor() {
     }
   }, [meeting]);
 
-  const sendMinutes = React.useCallback(async () => {
-    if (!meeting) return;
-    setEmailing(true);
-    setEmailDialogOpen(false);
-    try {
-      const result = await emailMeetingMinutes(meeting.id, { custom_message: customMessage, sender_name: senderName, sender_office: senderOffice });
-      if (result.ok) {
-        setSuccess(`Minutes sent to ${result.sent_to} brother${result.sent_to === 1 ? "" : "s"}.`);
-        setCustomMessage("");
-      } else {
-        setError(result.error);
+  const sendMinutes = React.useCallback(
+    async (payload: { custom_message: string; recipient_brother_ids: number[] }) => {
+      if (!meeting) return;
+      setEmailing(true);
+      setEmailDialogOpen(false);
+      try {
+        const result = await emailMeetingMinutes(meeting.id, {
+          ...payload,
+          sender_name: senderName,
+          sender_office: senderOffice,
+        });
+        if (result.ok) {
+          setSuccess(`Minutes sent to ${result.sent_to} recipient${result.sent_to === 1 ? "" : "s"}.`);
+        } else {
+          setError(result.error);
+        }
+      } finally {
+        setEmailing(false);
       }
-    } finally {
-      setEmailing(false);
-    }
-  }, [meeting, customMessage, senderName, senderOffice]);
+    },
+    [meeting, senderName, senderOffice]
+  );
 
   React.useEffect(() => {
     if (!router.isReady) return;
@@ -971,34 +973,14 @@ export default function MeetingMinutesEditor() {
         />
       ) : null}
 
-      <Dialog open={emailDialogOpen} onClose={() => setEmailDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Email Meeting Minutes</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Minutes will be sent as a PDF attachment to all active brothers. Add an optional message below.
-          </Typography>
-          <TextField
-            label="Message (optional)"
-            multiline
-            minRows={4}
-            fullWidth
-            value={customMessage}
-            onChange={(e) => setCustomMessage(e.target.value)}
-            placeholder="e.g. Brothers — hope everyone had a great meeting tonight..."
-          />
-          {(senderName || senderOffice) && (
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
-              Signed as: {[senderName, senderOffice].filter(Boolean).join(", ")}
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" startIcon={<EmailOutlinedIcon />} onClick={sendMinutes}>
-            Send to All Active Brothers
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <EmailMinutesDialog
+        open={emailDialogOpen}
+        brothers={brothers}
+        senderName={senderName}
+        senderOffice={senderOffice}
+        onClose={() => setEmailDialogOpen(false)}
+        onSend={sendMinutes}
+      />
     </Stack>
   );
 }

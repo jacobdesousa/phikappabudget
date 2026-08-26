@@ -83,7 +83,14 @@ export async function downloadMeetingPdf(id: number): Promise<void> {
 
 export async function emailMeetingMinutes(
   id: number,
-  payload?: { custom_message?: string; sender_name?: string; sender_office?: string }
+  payload?: {
+    custom_message?: string;
+    sender_name?: string;
+    sender_office?: string;
+    // Omit to fall back to every active brother; pass explicit ids to control
+    // who receives the minutes.
+    recipient_brother_ids?: number[];
+  }
 ): Promise<{ ok: true; sent_to: number } | { ok: false; status: number; error: string }> {
   try {
     const res = await apiClient.post(`/meetings/${id}/email-minutes`, payload ?? {});

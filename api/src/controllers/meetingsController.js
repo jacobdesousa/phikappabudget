@@ -1,6 +1,6 @@
 const { pool } = require("../db/pool");
 const { idParamSchema } = require("../validation/common");
-const { meetingUpsertSchema } = require("../validation/meetings");
+const { meetingUpsertSchema, emailMinutesSchema } = require("../validation/meetings");
 const { schoolYearStartForDate } = require("../utils/schoolYear");
 const { sendMail } = require("../utils/mailer");
 const { generateMeetingPdf } = require("../utils/pdfGenerator");
@@ -262,9 +262,11 @@ async function deleteMeeting(req, res) {
 
 async function emailMeetingMinutes(req, res) {
   const { id } = idParamSchema.parse(req.params);
-  const customMessage = String(req.body?.custom_message ?? "").trim();
-  const senderName = String(req.body?.sender_name ?? "").trim();
-  const senderOffice = String(req.body?.sender_office ?? "").trim();
+  const body = emailMinutesSchema.parse(req.body ?? {});
+  const customMessage = String(body.custom_message ?? "").trim();
+  const senderName = String(body.sender_name ?? "").trim();
+  const senderOffice = String(body.sender_office ?? "").trim();
+  const recipientIds = body.recipient_brother_ids;
 
   // Generate PDF (also fetches meeting data)
   let pdfBuffer, meetingData;
@@ -277,12 +279,39 @@ async function emailMeetingMinutes(req, res) {
     throw e;
   }
 
-  const brothersRes = await pool.query(
-    `SELECT email FROM brothers WHERE status IN ('Active') AND email IS NOT NULL AND email <> ''`
-  );
-  const recipients = brothersRes.rows.map((r) => r.email).filter(Boolean);
+  // Alumni records often carry only a secondary address, so fall back to it
+  // rather than silently dropping a recipient the sender explicitly picked.
+  const EMAIL_EXPR = `COALESCE(NULLIF(TRIM(email), ''), NULLIF(TRIM(email_secondary), ''))`;
+
+  // No explicit list means the old behaviour: every active brother.
+  const brothersRes = recipientIds
+    ? await pool.query(
+        `SELECT ${EMAIL_EXPR} AS email FROM brothers WHERE id = ANY($1::int[]) AND ${EMAIL_EXPR} IS NOT NULL`,
+        [recipientIds]
+      )
+    : await pool.query(
+        `SELECT ${EMAIL_EXPR} AS email FROM brothers WHERE status = 'Active' AND ${EMAIL_EXPR} IS NOT NULL`
+      );
+
+  // One brother picked twice — as an active and again through the search — must
+  // not get two copies.
+  const seen = new Set();
+  const recipients = [];
+  for (const row of brothersRes.rows) {
+    const key = row.email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    recipients.push(row.email);
+  }
+
   if (recipients.length === 0) {
-    return res.status(400).json({ error: { message: "No active brothers with email addresses found." } });
+    return res.status(400).json({
+      error: {
+        message: recipientIds
+          ? "None of the selected brothers have an email address on file."
+          : "No active brothers with email addresses found.",
+      },
+    });
   }
 
   const { meeting } = meetingData;
