@@ -28,6 +28,7 @@ import dayjs from "dayjs";
 import type { IShiftEvent, IShiftBrotherCount } from "../../interfaces/api.interface";
 import { listShifts, createShift, deleteShift, getBrotherCounts } from "../../services/shiftsService";
 import { useAuth } from "../../context/authContext";
+import SchoolYearSelector from "../../components/SchoolYearSelector";
 
 const SHIFT_TYPE = "cleanup";
 const CURRENT_SCHOOL_YEAR = (() => {
@@ -78,12 +79,6 @@ export default function CleanupShiftsPage() {
     void refresh();
   }, [refresh]);
 
-  const yearOptions = React.useMemo(() => {
-    const opts = [];
-    for (let y = CURRENT_SCHOOL_YEAR; y >= CURRENT_SCHOOL_YEAR - 4; y--) opts.push(y);
-    return opts;
-  }, []);
-
   return (
     <Stack spacing={2}>
       <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
@@ -95,19 +90,7 @@ export default function CleanupShiftsPage() {
             </Typography>
           </Box>
           <Stack direction="row" spacing={1} alignItems="center">
-            <TextField
-              select
-              size="small"
-              label="School year"
-              value={schoolYear}
-              onChange={(e) => setSchoolYear(Number(e.target.value))}
-              SelectProps={{ native: true }}
-              sx={{ minWidth: 120 }}
-            >
-              {yearOptions.map((y) => (
-                <option key={y} value={y}>{y}–{y + 1}</option>
-              ))}
-            </TextField>
+            <SchoolYearSelector value={schoolYear} onChange={setSchoolYear} />
             {canWrite && (
               <Button variant="contained" startIcon={<AddOutlinedIcon />} onClick={() => { setAddError(null); setAddOpen(true); }}>
                 New cleanup
