@@ -1,6 +1,8 @@
 import {useEffect, useState} from "react";
 import {getAllBrothers} from "../services/brotherService";
-import {Box, CircularProgress, Paper, Stack, Typography} from "@mui/material";
+import {Box, CircularProgress, IconButton, InputAdornment, Paper, Stack, TextField, Typography} from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import ClearIcon from "@mui/icons-material/Clear";
 import {IBrother, IDuesConfig, IDuesPayment, IDuesSummaryRow} from "../interfaces/api.interface";
 import {getDuesSummary, getPaymentsForBrother} from "../services/duesPaymentsService";
 import AddPaymentModal from "../components/addPayment/addPayment";
@@ -9,6 +11,7 @@ import {getDuesConfig} from "../services/duesConfigService";
 import {schoolYearLabel, schoolYearStartForDate} from "../utils/schoolYear";
 import SchoolYearSelector from "../components/SchoolYearSelector";
 import { isActiveInYear } from "../utils/membership";
+import { matchesBrotherSearch } from "../utils/brotherSearch";
 import EditPaymentDialog from "../components/editPayment/editPayment";
 import ConfirmDeletePaymentDialog from "../components/confirmDeletePayment/confirmDeletePayment";
 import { useAuth } from "../context/authContext";
@@ -29,6 +32,7 @@ export default function DuesPage() {
     const [editingPayment, setEditingPayment] = useState<{ brotherId: number, payment: IDuesPayment } | undefined>(undefined);
     const [deletingPayment, setDeletingPayment] = useState<{ brotherId: number, brotherName: string, payment: IDuesPayment } | undefined>(undefined);
     const [refreshTable, setRefreshTable] = useState(false);
+    const [search, setSearch] = useState("");
 
 
     useEffect(() => {
@@ -98,6 +102,8 @@ export default function DuesPage() {
         await refreshBrotherPayments(brotherId, false);
     }
 
+    const visibleBrothers = brothers.filter((b) => matchesBrotherSearch(b, search));
+
     return (
         <>
             {canWrite && addPaymentFor && (
@@ -150,11 +156,40 @@ export default function DuesPage() {
                     </Stack>
                 </Paper>
 
+                <Paper elevation={0} sx={{ p: 1, border: "1px solid", borderColor: "divider" }}>
+                    <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                        <TextField
+                            size="small"
+                            placeholder="Search brothers…"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            sx={{ minWidth: { md: 340 }, flex: { md: "0 1 420px" } }}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon fontSize="small" />
+                                    </InputAdornment>
+                                ),
+                                endAdornment: search ? (
+                                    <InputAdornment position="end">
+                                        <IconButton size="small" onClick={() => setSearch("")} aria-label="clear search">
+                                            <ClearIcon fontSize="small" />
+                                        </IconButton>
+                                    </InputAdornment>
+                                ) : null,
+                            }}
+                        />
+                        <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
+                            {visibleBrothers.length} of {brothers.length} shown
+                        </Typography>
+                    </Stack>
+                </Paper>
+
                 {brothersLoading || summaryLoading || configLoading ? (
                     <CircularProgress />
                 ) : (
                     <DuesTable
-                        brothersData={brothers}
+                        brothersData={visibleBrothers}
                         summaryData={summary}
                         paymentsByBrother={paymentsByBrother}
                         onExpandBrother={onExpandBrother}
