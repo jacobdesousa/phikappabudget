@@ -22,7 +22,24 @@ async function listBrothers(req, res) {
           AND (bo.end_date IS NULL OR bo.end_date >= CURRENT_DATE)
         ),
         '[]'::json
-      ) AS current_offices
+      ) AS current_offices,
+      -- Every term ever held, current ones included. The roster is small enough
+      -- that shipping the history with the list beats a fetch per row when a
+      -- detail panel is opened.
+      COALESCE(
+        (SELECT json_agg(json_build_object(
+          'id', bo.id,
+          'office_key', bo.office_key,
+          'display_name', o.display_name,
+          'start_date', to_char(bo.start_date, 'YYYY-MM-DD'),
+          'end_date', to_char(bo.end_date, 'YYYY-MM-DD')
+        ) ORDER BY bo.start_date DESC, bo.id DESC)
+        FROM brother_offices bo
+        JOIN offices o ON o.office_key = bo.office_key
+        WHERE bo.brother_id = b.id
+        ),
+        '[]'::json
+      ) AS office_history
     FROM brothers b
     ORDER BY b.first_name ASC
   `);
