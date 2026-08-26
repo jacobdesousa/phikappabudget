@@ -17,7 +17,7 @@ import {
 } from "@mui/material";
 import { IRevenue, IRevenueCategory } from "../../interfaces/api.interface";
 import { updateRevenue } from "../../services/revenueService";
-import { formatMoney, normalizeMoneyInput } from "../../utils/money";
+import { formatMoney, normalizeMoneyInput, sanitizeMoneyInput } from "../../utils/money";
 import SchoolYearFilingSelect from "../SchoolYearFilingSelect";
 import { schoolYearStartForDate } from "../../utils/schoolYear";
 
@@ -37,20 +37,27 @@ export default function EditRevenueDialog(props: Props) {
   const [schoolYear, setSchoolYear] = useState<number>(
     props.revenue.school_year ?? schoolYearStartForDate(props.revenue.date)
   );
+  // An entry already filed against a year different from its date was filed
+  // that way deliberately, so treat it as overridden from the start: editing an
+  // unrelated field must not quietly re-file it.
+  const [schoolYearTouched, setSchoolYearTouched] = useState(
+    () => (props.revenue.school_year ?? null) !== schoolYearStartForDate(props.revenue.date)
+  );
 
-  const [cash, setCash] = useState<string>(String(props.revenue.cash_amount ?? 0));
-  const [square, setSquare] = useState<string>(String(props.revenue.square_amount ?? 0));
-  const [etransfer, setEtransfer] = useState<string>(String(props.revenue.etransfer_amount ?? 0));
+  // Normalised on the way in: the raw record gives "0" and "1234.5", which read
+  // as typos next to the other money fields.
+  const [cash, setCash] = useState<string>(normalizeMoneyInput(String(props.revenue.cash_amount ?? 0)));
+  const [square, setSquare] = useState<string>(normalizeMoneyInput(String(props.revenue.square_amount ?? 0)));
+  const [etransfer, setEtransfer] = useState<string>(normalizeMoneyInput(String(props.revenue.etransfer_amount ?? 0)));
+  const [cheque, setCheque] = useState<string>(normalizeMoneyInput(String(props.revenue.cheque_amount ?? 0)));
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
 
   const total = useMemo(() => {
-    const c = Number(cash || 0);
-    const s = Number(square || 0);
-    const e = Number(etransfer || 0);
-    return (Number.isFinite(c) ? c : 0) + (Number.isFinite(s) ? s : 0) + (Number.isFinite(e) ? e : 0);
-  }, [cash, square, etransfer]);
+    const parts = [cash, square, etransfer, cheque].map((v) => Number(v || 0));
+    return parts.reduce((sum, n) => sum + (Number.isFinite(n) ? n : 0), 0);
+  }, [cash, square, etransfer, cheque]);
 
   async function onSave() {
     if (!props.revenue.id) return;
@@ -59,7 +66,8 @@ export default function EditRevenueDialog(props: Props) {
     const c = Number(cash);
     const s = Number(square);
     const e = Number(etransfer);
-    if (!description || !date || !categoryId || Number.isNaN(c) || Number.isNaN(s) || Number.isNaN(e)) {
+    const q = Number(cheque);
+    if (!description || !date || !categoryId || Number.isNaN(c) || Number.isNaN(s) || Number.isNaN(e) || Number.isNaN(q)) {
       setError("Please fill out description, category, date, and valid amounts.");
       return;
     }
@@ -72,6 +80,7 @@ export default function EditRevenueDialog(props: Props) {
       cash_amount: c,
       square_amount: s,
       etransfer_amount: e,
+      cheque_amount: q,
       amount: total,
       school_year: schoolYear,
     });
@@ -88,7 +97,7 @@ export default function EditRevenueDialog(props: Props) {
 
   return (
     <Dialog open onClose={props.onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Edit revenue</DialogTitle>
+      <DialogTitle>Edit Revenue</DialogTitle>
       <DialogContent dividers>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Stack spacing={2}>
@@ -119,14 +128,24 @@ export default function EditRevenueDialog(props: Props) {
               label="Date"
               type="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => {
+                setDate(e.target.value);
+                if (!schoolYearTouched && e.target.value) {
+                  setSchoolYear(schoolYearStartForDate(e.target.value));
+                }
+              }}
               InputLabelProps={{ shrink: true }}
               fullWidth
               required
             />
           </Stack>
 
-          <SchoolYearFilingSelect value={schoolYear} onChange={setSchoolYear} date={date} />
+          <SchoolYearFilingSelect
+            value={schoolYear}
+            onChange={(y) => { setSchoolYear(y); setSchoolYearTouched(true); }}
+            date={date}
+            warning="Warning: This revenue item is filed under a school year that does not correspond with the indicated date."
+          />
 
           <Typography variant="subtitle2" color="text.secondary">
             Payment streams
@@ -134,32 +153,38 @@ export default function EditRevenueDialog(props: Props) {
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
             <TextField
               label="Cash"
-              type="number"
-              value={cash}
-              onChange={(e) => setCash(e.target.value)}
+                            value={cash}
+              onChange={(e) => setCash(sanitizeMoneyInput(e.target.value))}
               onBlur={() => setCash(normalizeMoneyInput(cash))}
               fullWidth
-              inputProps={{ step: "0.01" }}
+              inputProps={{ inputMode: "decimal" }}
               InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
             />
             <TextField
               label="Square"
-              type="number"
-              value={square}
-              onChange={(e) => setSquare(e.target.value)}
+                            value={square}
+              onChange={(e) => setSquare(sanitizeMoneyInput(e.target.value))}
               onBlur={() => setSquare(normalizeMoneyInput(square))}
               fullWidth
-              inputProps={{ step: "0.01" }}
+              inputProps={{ inputMode: "decimal" }}
               InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
             />
             <TextField
               label="E-transfer"
-              type="number"
-              value={etransfer}
-              onChange={(e) => setEtransfer(e.target.value)}
+                            value={etransfer}
+              onChange={(e) => setEtransfer(sanitizeMoneyInput(e.target.value))}
               onBlur={() => setEtransfer(normalizeMoneyInput(etransfer))}
               fullWidth
-              inputProps={{ step: "0.01" }}
+              inputProps={{ inputMode: "decimal" }}
+              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+            />
+            <TextField
+              label="Cheque"
+                            value={cheque}
+              onChange={(e) => setCheque(sanitizeMoneyInput(e.target.value))}
+              onBlur={() => setCheque(normalizeMoneyInput(cheque))}
+              fullWidth
+              inputProps={{ inputMode: "decimal" }}
               InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
             />
           </Stack>

@@ -7,15 +7,12 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
-  Grid,
   InputAdornment,
   InputLabel,
   MenuItem,
@@ -23,16 +20,17 @@ import {
   Select,
   Stack,
   TextField,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import { addRevenue, getRevenue, getRevenueSummary } from "../services/revenueService";
 import { schoolYearLabel, schoolYearStartForDate } from "../utils/schoolYear";
-import { formatMoney, normalizeMoneyInput } from "../utils/money";
+import { formatMoney, normalizeMoneyInput, sanitizeMoneyInput } from "../utils/money";
+import { matchesRevenueSearch } from "../utils/revenueSearch";
+import RevenueTable from "../components/revenueTable/revenueTable";
+import SearchIcon from "@mui/icons-material/Search";
+import ClearIcon from "@mui/icons-material/Clear";
 import IconButton from "@mui/material/IconButton";
 import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditRevenueDialog from "../components/editRevenue/editRevenue";
 import ConfirmDeleteRevenueDialog from "../components/confirmDeleteRevenue/confirmDeleteRevenue";
 import { useAuth } from "../context/authContext";
@@ -56,24 +54,27 @@ export default function RevenuePage() {
     const [deleting, setDeleting] = useState<IRevenue | null>(null);
 
     const [newDescription, setNewDescription] = useState("");
-    const [newCash, setNewCash] = useState<string>("0");
-    const [newSquare, setNewSquare] = useState<string>("0");
-    const [newEtransfer, setNewEtransfer] = useState<string>("0");
+    const [newCash, setNewCash] = useState<string>("0.00");
+    const [newSquare, setNewSquare] = useState<string>("0.00");
+    const [newEtransfer, setNewEtransfer] = useState<string>("0.00");
+    const [newCheque, setNewCheque] = useState<string>("0.00");
     const [newDate, setNewDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
     const [newCategoryId, setNewCategoryId] = useState<number | "">("");
-    // Defaults to the year on screen, not the one the date implies — you are
-    // filing against the year you are looking at.
+    // Opens on the year being viewed — you are filing against the year on
+    // screen. From there it follows the date, until the user picks a year
+    // themselves; their choice then sticks and the field warns about the
+    // mismatch rather than being overwritten on the next date edit.
     const [newSchoolYear, setNewSchoolYear] = useState(schoolYearStartForDate(new Date()));
+    const [schoolYearTouched, setSchoolYearTouched] = useState(false);
 
     const [error, setError] = useState<string | undefined>(undefined);
+    const [search, setSearch] = useState("");
 
     const [selectedYear, setSelectedYear] = useState(schoolYearStartForDate(new Date()));
     const newTotal = useMemo(() => {
-        const c = Number(newCash || 0);
-        const s = Number(newSquare || 0);
-        const e = Number(newEtransfer || 0);
-        return (Number.isFinite(c) ? c : 0) + (Number.isFinite(s) ? s : 0) + (Number.isFinite(e) ? e : 0);
-    }, [newCash, newSquare, newEtransfer]);
+        const parts = [newCash, newSquare, newEtransfer, newCheque].map((v) => Number(v || 0));
+        return parts.reduce((sum, n) => sum + (Number.isFinite(n) ? n : 0), 0);
+    }, [newCash, newSquare, newEtransfer, newCheque]);
 
     useEffect(() => {
         setRevenueCategoriesLoading(true);
@@ -106,7 +107,10 @@ export default function RevenuePage() {
     }, [refresh, selectedYear]);
 
     useEffect(() => {
-        if (!addDialogOpen) setNewSchoolYear(selectedYear);
+        if (!addDialogOpen) {
+            setNewSchoolYear(selectedYear);
+            setSchoolYearTouched(false);
+        }
     }, [selectedYear, addDialogOpen]);
 
     async function handleCreateRevenue() {
@@ -114,7 +118,8 @@ export default function RevenuePage() {
         const cash = Number(newCash);
         const square = Number(newSquare);
         const etransfer = Number(newEtransfer);
-        if (!newDescription || !newDate || !newCategoryId || Number.isNaN(cash) || Number.isNaN(square) || Number.isNaN(etransfer)) {
+        const cheque = Number(newCheque);
+        if (!newDescription || !newDate || !newCategoryId || Number.isNaN(cash) || Number.isNaN(square) || Number.isNaN(etransfer) || Number.isNaN(cheque)) {
             setError("Please fill out description, category, date, and valid amounts.");
             return;
         }
@@ -126,6 +131,7 @@ export default function RevenuePage() {
             cash_amount: cash,
             square_amount: square,
             etransfer_amount: etransfer,
+            cheque_amount: cheque,
             amount: newTotal,
             school_year: newSchoolYear,
         });
@@ -137,13 +143,20 @@ export default function RevenuePage() {
 
         setAddDialogOpen(false);
         setNewDescription("");
-        setNewCash("0");
-        setNewSquare("0");
-        setNewEtransfer("0");
+        setNewCash("0.00");
+        setNewSquare("0.00");
+        setNewEtransfer("0.00");
+        setNewCheque("0.00");
         setNewDate(new Date().toISOString().slice(0, 10));
         setNewCategoryId("");
+        // Back to the viewed year, so the next entry doesn't inherit the last
+        // one's override.
+        setNewSchoolYear(selectedYear);
+        setSchoolYearTouched(false);
         setRefresh(r => !r);
     }
+
+    const visibleRevenue = revenue.filter((r) => matchesRevenueSearch(r, search));
 
     return (
         <Stack spacing={2}>
@@ -173,131 +186,111 @@ export default function RevenuePage() {
                 <>
                     {error && <Alert severity="error">{error}</Alert>}
 
-                    <Box sx={{ width: "100%", maxWidth: 1200, mx: "auto" }}>
-                    <Grid container spacing={2} alignItems="stretch">
-                        <Grid item xs={12} md={3} sx={{ display: "flex" }}>
-                            <Card variant="outlined" sx={{ height: "100%", width: "100%" }}>
-                                <CardContent sx={{ height: "100%", minHeight: 104, display: "flex", flexDirection: "column" }}>
-                                    <Typography variant="overline" color="text.secondary">Total revenue</Typography>
-                                    <Typography variant="h5">
-                                        ${formatMoney(summary?.total_revenue ?? 0)}
+                    {/* One thin strip rather than four cards: these are reference
+                        figures, not the point of the page. Entry count lives on
+                        the search bar, so it is not repeated here.
+
+                        Total sits left as the headline; the two components it
+                        breaks down into are pushed to the right edge, so the
+                        strip spans the row instead of bunching at one end. */}
+                    <Paper elevation={0} sx={{ p: 1.5, border: "1px solid", borderColor: "divider" }}>
+                        <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={{ xs: 1, sm: 2 }}
+                            justifyContent="space-between"
+                            alignItems={{ sm: "flex-start" }}
+                        >
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                    Total revenue
+                                </Typography>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                                    ${formatMoney(summary?.total_revenue ?? 0)}
+                                </Typography>
+                            </Box>
+
+                            <Stack
+                                direction="row"
+                                spacing={3}
+                                divider={<Box sx={{ borderLeft: "1px solid", borderColor: "divider" }} />}
+                            >
+                                <Box sx={{ textAlign: { sm: "right" } }}>
+                                    <Typography variant="caption" color="text.secondary" display="block">
+                                        Dues
                                     </Typography>
-                                    <Typography variant="caption" sx={{ visibility: "hidden" }}>
-                                        spacer
-                                    </Typography>
-                                </CardContent>
-                            </Card>
-                        </Grid>
-                        <Grid item xs={12} md={3} sx={{ display: "flex" }}>
-                            <Card variant="outlined" sx={{ height: "100%", width: "100%" }}>
-                                <CardContent sx={{ height: "100%", minHeight: 104, display: "flex", flexDirection: "column" }}>
-                                    <Typography variant="overline" color="text.secondary">Dues (total)</Typography>
-                                    <Typography variant="h5">
+                                    <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
                                         ${formatMoney(summary?.dues_total ?? 0)}
                                     </Typography>
-                                    <Typography
-                                        variant="caption"
-                                        color="text.secondary"
-                                        noWrap
-                                        title={`Active: $${formatMoney(summary?.dues_regular_total ?? 0)} • Neophyte: $${formatMoney(summary?.dues_neophyte_total ?? 0)}`}
-                                    >
-                                        Regular: ${formatMoney(summary?.dues_regular_total ?? 0)} • Neophyte: ${formatMoney(summary?.dues_neophyte_total ?? 0)}
+                                    <Typography variant="caption" color="text.disabled" sx={{ fontSize: "0.65rem" }}>
+                                        Regular ${formatMoney(summary?.dues_regular_total ?? 0)} · Neophyte ${formatMoney(summary?.dues_neophyte_total ?? 0)}
                                     </Typography>
-                                </CardContent>
-                            </Card>
-                        </Grid>
-                        <Grid item xs={12} md={3} sx={{ display: "flex" }}>
-                            <Card variant="outlined" sx={{ height: "100%", width: "100%" }}>
-                                <CardContent sx={{ height: "100%", minHeight: 104, display: "flex", flexDirection: "column" }}>
-                                    <Typography variant="overline" color="text.secondary">Manual revenue</Typography>
-                                    <Typography variant="h5">
+                                </Box>
+
+                                <Box sx={{ textAlign: { sm: "right" } }}>
+                                    <Typography variant="caption" color="text.secondary" display="block">
+                                        Manual revenue
+                                    </Typography>
+                                    <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
                                         ${formatMoney(summary?.manual_total ?? 0)}
                                     </Typography>
-                                    <Typography variant="caption" sx={{ visibility: "hidden" }}>
-                                        spacer
-                                    </Typography>
-                                </CardContent>
-                            </Card>
-                        </Grid>
-                        <Grid item xs={12} md={3} sx={{ display: "flex" }}>
-                            <Card variant="outlined" sx={{ height: "100%", width: "100%" }}>
-                                <CardContent sx={{ height: "100%", minHeight: 104, display: "flex", flexDirection: "column" }}>
-                                    <Typography variant="overline" color="text.secondary">Entries</Typography>
-                                    <Typography variant="h5">
-                                        {revenue.length}
-                                    </Typography>
-                                    <Typography variant="caption" sx={{ visibility: "hidden" }}>
-                                        spacer
-                                    </Typography>
-                                </CardContent>
-                            </Card>
-                        </Grid>
-                    </Grid>
-                    </Box>
-
-                    <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-                        <Typography variant="h6" sx={{ mb: 1 }}>Revenue entries</Typography>
-
-                        {revenue.length === 0 ? (
-                            <Typography variant="body2" color="text.secondary">No revenue entries for this year yet.</Typography>
-                        ) : (
-                            <Stack spacing={1}>
-                                {revenue.map(r => (
-                                    <Paper
-                                        key={r.id ?? `${r.description}-${r.date}-${r.amount}`}
-                                        variant="outlined"
-                                        sx={{ p: 1.5 }}
-                                    >
-                                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between">
-                                            <Box sx={{ flex: 1 }}>
-                                                <Typography sx={{ fontWeight: 600 }}>{r.description}</Typography>
-                                                <Typography variant="body2" color="text.secondary">
-                                                    {(r.category_name ?? "Uncategorized")} • {new Date(r.date).toDateString()}
-                                                </Typography>
-                                                <Typography variant="body2" color="text.secondary">
-                                                    Cash: ${formatMoney(r.cash_amount ?? 0)} • Square: ${formatMoney(r.square_amount ?? 0)} • E-transfer: ${formatMoney(r.etransfer_amount ?? 0)}
-                                                </Typography>
-                                            </Box>
-                                            <Stack
-                                                spacing={0.5}
-                                                alignItems="flex-end"
-                                                sx={{ minWidth: { sm: 160 } }}
-                                            >
-                                                <Stack direction="row" spacing={0.5}>
-                                                    {canWrite ? (
-                                                      <>
-                                                        <Tooltip title="Edit">
-                                                          <span>
-                                                            <IconButton size="small" onClick={() => setEditing(r)} disabled={!r.id}>
-                                                              <EditOutlinedIcon fontSize="small" />
-                                                            </IconButton>
-                                                          </span>
-                                                        </Tooltip>
-                                                        <Tooltip title="Delete">
-                                                          <span>
-                                                            <IconButton size="small" color="error" onClick={() => setDeleting(r)} disabled={!r.id}>
-                                                              <DeleteOutlineIcon fontSize="small" />
-                                                            </IconButton>
-                                                          </span>
-                                                        </Tooltip>
-                                                      </>
-                                                    ) : null}
-                                                </Stack>
-                                                <Typography sx={{ fontWeight: 700 }}>
-                                                    ${formatMoney(r.amount ?? 0)}
-                                                </Typography>
-                                            </Stack>
-                                        </Stack>
-                                    </Paper>
-                                ))}
+                                </Box>
                             </Stack>
-                        )}
+                        </Stack>
                     </Paper>
+
+                    <Paper elevation={0} sx={{ p: 1, border: "1px solid", borderColor: "divider" }}>
+                        <Stack
+                            direction={{ xs: "column", md: "row" }}
+                            spacing={1}
+                            alignItems={{ md: "center" }}
+                            justifyContent="space-between"
+                        >
+                            <TextField
+                                size="small"
+                                placeholder="Search description, category, amount…"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                sx={{ minWidth: { md: 340 }, flex: { md: "0 1 420px" } }}
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon fontSize="small" />
+                                        </InputAdornment>
+                                    ),
+                                    endAdornment: search ? (
+                                        <InputAdornment position="end">
+                                            <IconButton size="small" onClick={() => setSearch("")} aria-label="clear search">
+                                                <ClearIcon fontSize="small" />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ) : null,
+                                }}
+                            />
+                            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
+                                {visibleRevenue.length} of {revenue.length} shown
+                            </Typography>
+                        </Stack>
+                    </Paper>
+
+                    {revenue.length === 0 ? (
+                        <Paper variant="outlined" sx={{ p: 3, textAlign: "center" }}>
+                            <Typography variant="body2" color="text.secondary">
+                                No revenue entries for this year yet.
+                            </Typography>
+                        </Paper>
+                    ) : (
+                        <RevenueTable
+                            data={visibleRevenue}
+                            canWrite={canWrite}
+                            onEdit={(r) => setEditing(r)}
+                            onDelete={(r) => setDeleting(r)}
+                        />
+                    )}
                 </>
             )}
 
             <Dialog open={addDialogOpen && canWrite} onClose={() => setAddDialogOpen(false)} fullWidth maxWidth="sm">
-                <DialogTitle>Add revenue</DialogTitle>
+                <DialogTitle>Add Revenue</DialogTitle>
                 <DialogContent dividers>
                     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
                     <Stack spacing={2}>
@@ -326,7 +319,12 @@ export default function RevenuePage() {
                                 label="Date"
                                 type="date"
                                 value={newDate}
-                                onChange={(e) => setNewDate(e.target.value)}
+                                onChange={(e) => {
+                                    setNewDate(e.target.value);
+                                    if (!schoolYearTouched && e.target.value) {
+                                        setNewSchoolYear(schoolYearStartForDate(e.target.value));
+                                    }
+                                }}
                                 InputLabelProps={{ shrink: true }}
                                 fullWidth
                                 required
@@ -334,38 +332,44 @@ export default function RevenuePage() {
                         </Stack>
                         <SchoolYearFilingSelect
                             value={newSchoolYear}
-                            onChange={setNewSchoolYear}
+                            onChange={(y) => { setNewSchoolYear(y); setSchoolYearTouched(true); }}
                             date={newDate}
                         />
-                            <TextField
+                        <TextField
                             label="Cash"
-                            type="number"
-                            value={newCash}
-                                onChange={(e) => setNewCash(e.target.value)}
-                                onBlur={() => setNewCash(normalizeMoneyInput(newCash))}
+                                                        value={newCash}
+                            onChange={(e) => setNewCash(sanitizeMoneyInput(e.target.value))}
+                            onBlur={() => setNewCash(normalizeMoneyInput(newCash))}
                             fullWidth
-                                inputProps={{ step: "0.01" }}
+                            inputProps={{ inputMode: "decimal" }}
                             InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                         />
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                             <TextField
                                 label="Square"
-                                type="number"
-                                value={newSquare}
-                                onChange={(e) => setNewSquare(e.target.value)}
+                                                                value={newSquare}
+                                onChange={(e) => setNewSquare(sanitizeMoneyInput(e.target.value))}
                                 onBlur={() => setNewSquare(normalizeMoneyInput(newSquare))}
                                 fullWidth
-                                inputProps={{ step: "0.01" }}
+                                inputProps={{ inputMode: "decimal" }}
                                 InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                             />
                             <TextField
                                 label="E-transfer"
-                                type="number"
-                                value={newEtransfer}
-                                onChange={(e) => setNewEtransfer(e.target.value)}
+                                                                value={newEtransfer}
+                                onChange={(e) => setNewEtransfer(sanitizeMoneyInput(e.target.value))}
                                 onBlur={() => setNewEtransfer(normalizeMoneyInput(newEtransfer))}
                                 fullWidth
-                                inputProps={{ step: "0.01" }}
+                                inputProps={{ inputMode: "decimal" }}
+                                InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                            />
+                            <TextField
+                                label="Cheque"
+                                                                value={newCheque}
+                                onChange={(e) => setNewCheque(sanitizeMoneyInput(e.target.value))}
+                                onBlur={() => setNewCheque(normalizeMoneyInput(newCheque))}
+                                fullWidth
+                                inputProps={{ inputMode: "decimal" }}
                                 InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                             />
                         </Stack>
