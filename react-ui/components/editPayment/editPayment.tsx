@@ -8,6 +8,7 @@ import {
   IconButton,
   Stack,
   TextField,
+  InputAdornment
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { LocalizationProvider } from "@mui/x-date-pickers";
@@ -17,7 +18,7 @@ import dayjs from "dayjs";
 import { useMemo, useState } from "react";
 import { IDuesPayment } from "../../interfaces/api.interface";
 import { updatePayment } from "../../services/duesPaymentsService";
-import { normalizeMoneyInput } from "../../utils/money";
+import { normalizeMoneyInput, sanitizeMoneyInput } from "../../utils/money";
 
 interface Props {
   payment: IDuesPayment;
@@ -27,7 +28,11 @@ interface Props {
 
 export default function EditPaymentDialog(props: Props) {
   const [paidAt, setPaidAt] = useState(dayjs(props.payment.paid_at));
-  const [amount, setAmount] = useState<string>(String(props.payment.amount ?? ""));
+  const [amount, setAmount] = useState<string>(
+    props.payment.amount === null || props.payment.amount === undefined
+      ? ""
+      : normalizeMoneyInput(String(props.payment.amount))
+  );
   const [memo, setMemo] = useState<string>(String(props.payment.memo ?? ""));
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
@@ -84,11 +89,11 @@ export default function EditPaymentDialog(props: Props) {
             required
             fullWidth
             label="Amount"
-            type="number"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => setAmount(sanitizeMoneyInput(e.target.value))}
             onBlur={() => setAmount(normalizeMoneyInput(amount))}
-            inputProps={{ step: "0.01" }}
+            inputProps={{ inputMode: "decimal" }}
+            InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
           />
 
           <TextField

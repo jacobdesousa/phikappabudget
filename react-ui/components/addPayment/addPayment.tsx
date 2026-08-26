@@ -8,6 +8,7 @@ import {
   IconButton,
   Stack,
   TextField,
+  InputAdornment
 } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -17,7 +18,7 @@ import { useMemo, useState } from "react";
 import { addPayment } from "../../services/duesPaymentsService";
 import { schoolYearLabel, schoolYearStartForDate } from "../../utils/schoolYear";
 import CloseIcon from "@mui/icons-material/Close";
-import { normalizeMoneyInput } from "../../utils/money";
+import { normalizeMoneyInput, sanitizeMoneyInput } from "../../utils/money";
 
 interface Props {
   brotherId: number;
@@ -91,11 +92,11 @@ export default function AddPaymentModal(props: Props) {
             required
             fullWidth
             label="Amount"
-            type="number"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => setAmount(sanitizeMoneyInput(e.target.value))}
             onBlur={() => setAmount(normalizeMoneyInput(amount))}
-            inputProps={{ step: "0.01" }}
+            inputProps={{ inputMode: "decimal" }}
+            InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
           />
 
           <TextField
