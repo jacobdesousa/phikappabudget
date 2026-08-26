@@ -230,6 +230,9 @@ async function setupTables() {
   await addColumnIfMissing("revenue", "cash_amount", "NUMERIC");
   await addColumnIfMissing("revenue", "square_amount", "NUMERIC");
   await addColumnIfMissing("revenue", "etransfer_amount", "NUMERIC");
+  // Cheques are a distinct stream from e-transfers for reconciliation: they
+  // clear on their own schedule. See neon-revenue-cheque.sql.
+  await addColumnIfMissing("revenue", "cheque_amount", "NUMERIC");
 
   await createIndexIfMissing(
     "revenue_school_year_idx",
@@ -254,8 +257,10 @@ async function setupTables() {
     SET
       cash_amount = COALESCE(cash_amount, amount, 0),
       square_amount = COALESCE(square_amount, 0),
-      etransfer_amount = COALESCE(etransfer_amount, 0)
-    WHERE cash_amount IS NULL OR square_amount IS NULL OR etransfer_amount IS NULL;
+      etransfer_amount = COALESCE(etransfer_amount, 0),
+      cheque_amount = COALESCE(cheque_amount, 0)
+    WHERE cash_amount IS NULL OR square_amount IS NULL OR etransfer_amount IS NULL
+       OR cheque_amount IS NULL;
   `);
 
   // Expenses + categories

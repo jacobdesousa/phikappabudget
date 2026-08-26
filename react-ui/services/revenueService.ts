@@ -33,6 +33,7 @@ export async function updateRevenue(
       | "cash_amount"
       | "square_amount"
       | "etransfer_amount"
+      | "cheque_amount"
       | "amount"
       | "school_year"
     >

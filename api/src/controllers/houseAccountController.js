@@ -676,8 +676,8 @@ async function postDisbursementRevenue(req, res) {
     const revenueRes = await client.query(
       `INSERT INTO revenue
          (date, description, category_id, cash_amount, square_amount, etransfer_amount,
-          amount, school_year)
-       VALUES ($1,$2,$3,0,0,$4,$4,$5)
+          cheque_amount, amount, school_year)
+       VALUES ($1,$2,$3,0,0,$4,0,$4,$5)
        RETURNING id`,
       [date, description, categoryId, amount, payload.school_year ?? schoolYearStartForDate(date)]
     );

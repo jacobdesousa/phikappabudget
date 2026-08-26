@@ -186,7 +186,8 @@ async function getBudgetSummary(req, res) {
     SELECT id, date, description, category_id, amount,
            COALESCE(cash_amount, 0) AS cash_amount,
            COALESCE(square_amount, 0) AS square_amount,
-           COALESCE(etransfer_amount, 0) AS etransfer_amount
+           COALESCE(etransfer_amount, 0) AS etransfer_amount,
+           COALESCE(cheque_amount, 0) AS cheque_amount
     FROM revenue
     WHERE school_year = $1
     ORDER BY date DESC
@@ -206,6 +207,7 @@ async function getBudgetSummary(req, res) {
       cash_amount: roundMoney(Number(e.cash_amount)),
       square_amount: roundMoney(Number(e.square_amount)),
       etransfer_amount: roundMoney(Number(e.etransfer_amount)),
+      cheque_amount: roundMoney(Number(e.cheque_amount)),
     });
   }
 

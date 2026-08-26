@@ -16,6 +16,7 @@ const revenueCreateSchema = z
   cash_amount: z.coerce.number().optional().default(0),
   square_amount: z.coerce.number().optional().default(0),
   etransfer_amount: z.coerce.number().optional().default(0),
+  cheque_amount: z.coerce.number().optional().default(0),
   // Backwards-compat: if old clients send `amount`, treat it as cash.
   amount: z.coerce.number().optional(),
 })
@@ -23,15 +24,17 @@ const revenueCreateSchema = z
   const cash = v.cash_amount ?? 0;
   const square = v.square_amount ?? 0;
   const etransfer = v.etransfer_amount ?? 0;
+  const cheque = v.cheque_amount ?? 0;
   const legacy = v.amount ?? 0;
 
   const hasBreakdown =
     v.cash_amount !== undefined ||
     v.square_amount !== undefined ||
-    v.etransfer_amount !== undefined;
+    v.etransfer_amount !== undefined ||
+    v.cheque_amount !== undefined;
 
   const nextCash = hasBreakdown ? cash : legacy;
-  const total = Number(nextCash) + Number(square) + Number(etransfer);
+  const total = Number(nextCash) + Number(square) + Number(etransfer) + Number(cheque);
 
   return {
     date: v.date,
@@ -41,6 +44,7 @@ const revenueCreateSchema = z
     cash_amount: Number(nextCash),
     square_amount: Number(square),
     etransfer_amount: Number(etransfer),
+    cheque_amount: Number(cheque),
     amount: Number(total),
   };
 });
@@ -54,6 +58,7 @@ const revenueUpdateSchema = z
     cash_amount: z.coerce.number().optional(),
     square_amount: z.coerce.number().optional(),
     etransfer_amount: z.coerce.number().optional(),
+    cheque_amount: z.coerce.number().optional(),
     // Backwards-compat: allow updating via `amount` (treated as cash if no breakdown fields provided).
     amount: z.coerce.number().optional(),
   })

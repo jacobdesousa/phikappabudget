@@ -22,6 +22,9 @@ export interface IBrother {
     // null for anyone still active, and for alumni whose history predates it.
     alumni_date?: string | null;
     current_offices?: IBrotherOffice[];
+    // Every term ever held, newest first — current_offices is only those active
+    // today.
+    office_history?: IBrotherOffice[];
     // A second email address, common on the alumni records.
     email_secondary?: string | null;
     // Home address. Optional throughout — most of the roster has none.
@@ -117,6 +120,7 @@ export interface IRevenue {
     cash_amount?: number | null;
     square_amount?: number | null;
     etransfer_amount?: number | null;
+    cheque_amount?: number | null;
     // Total (cash + square + e-transfer). Backend also keeps this in `amount`.
     amount: number;
     category_name?: string | null;
@@ -405,6 +409,7 @@ export interface IBudgetRevenueEntry {
     cash_amount: number;
     square_amount: number;
     etransfer_amount: number;
+    cheque_amount: number;
 }
 
 export interface IBudgetRevenueRow {

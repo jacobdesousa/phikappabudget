@@ -117,13 +117,15 @@ async function createRevenue(req, res) {
   const cash = roundMoney(payload.cash_amount);
   const square = roundMoney(payload.square_amount);
   const etransfer = roundMoney(payload.etransfer_amount);
-  const total = roundMoney(cash + square + etransfer);
+  const cheque = roundMoney(payload.cheque_amount);
+  const total = roundMoney(cash + square + etransfer + cheque);
   const result = await pool.query(
     `
       INSERT INTO revenue
-        (date, description, category_id, cash_amount, square_amount, etransfer_amount, amount, school_year)
+        (date, description, category_id, cash_amount, square_amount, etransfer_amount,
+         cheque_amount, amount, school_year)
       VALUES
-        ($1, $2, $3, $4, $5, $6, $7, $8)
+        ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `,
     [
@@ -133,6 +135,7 @@ async function createRevenue(req, res) {
       cash,
       square,
       etransfer,
+      cheque,
       total,
       schoolYear,
     ]
@@ -163,7 +166,8 @@ async function updateRevenue(req, res) {
   const hasBreakdown =
     patch.cash_amount !== undefined ||
     patch.square_amount !== undefined ||
-    patch.etransfer_amount !== undefined;
+    patch.etransfer_amount !== undefined ||
+    patch.cheque_amount !== undefined;
 
   const nextCash =
     patch.cash_amount !== undefined
@@ -179,11 +183,16 @@ async function updateRevenue(req, res) {
     patch.etransfer_amount !== undefined
       ? patch.etransfer_amount
       : Number(existing.etransfer_amount ?? 0);
+  const nextCheque =
+    patch.cheque_amount !== undefined
+      ? patch.cheque_amount
+      : Number(existing.cheque_amount ?? 0);
 
   const cash = roundMoney(nextCash);
   const square = roundMoney(nextSquare);
   const etransfer = roundMoney(nextEtransfer);
-  const total = roundMoney(cash + square + etransfer);
+  const cheque = roundMoney(nextCheque);
+  const total = roundMoney(cash + square + etransfer + cheque);
 
   // An explicit school_year wins. Failing that, a caller that sends a new date
   // gets the entry re-filed from it — the intuitive way to correct one. An edit
@@ -205,9 +214,10 @@ async function updateRevenue(req, res) {
           cash_amount = $4,
           square_amount = $5,
           etransfer_amount = $6,
-          amount = $7,
-          school_year = $8
-      WHERE id = $9
+          cheque_amount = $7,
+          amount = $8,
+          school_year = $9
+      WHERE id = $10
       RETURNING *
     `,
     [
@@ -217,6 +227,7 @@ async function updateRevenue(req, res) {
       cash,
       square,
       etransfer,
+      cheque,
       total,
       schoolYear,
       id,
