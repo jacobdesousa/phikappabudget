@@ -153,7 +153,9 @@ export interface IExpense {
     reimburse_last_name?: string | null;
     cheque_number?: string | null;
     school_year?: number | null;
-    status?: "submitted" | "approved" | "paid" | "rejected" | string;
+    // "recorded" is settled with no disbursement: no cheque, nobody to
+    // reimburse. Counts against the budget like "approved" and "paid".
+    status?: "submitted" | "approved" | "paid" | "rejected" | "recorded" | string;
     submitted_by_name?: string | null;
     receipt_url?: string | null;
     submitted_at?: string | Date | null;

@@ -114,17 +114,30 @@ async function listExpenses(req, res) {
   return res.status(200).json(rows);
 }
 
+// A treasurer entering an expense directly can only create it in a settled
+// state: the normal one awaiting a cheque, or "recorded" for spend that will
+// never have one. The submission and review statuses belong to the brother-
+// facing flow and are not settable here.
+function creationStatus(requested) {
+  return requested === "recorded" ? "recorded" : "approved";
+}
+
 async function createExpense(req, res) {
   const payload = expenseCreateSchema.parse(req.body);
   const schoolYear = schoolYearStartForDate(payload.date);
   const amount = roundMoney(payload.amount);
+  const status = creationStatus(payload.status);
+
+  // Nothing is owed on a recorded expense, so it carries no cheque and no
+  // brother even if the client sent them.
+  const recorded = status === "recorded";
 
   const result = await pool.query(
     `
       INSERT INTO expenses
         (date, description, category_id, amount, reimburse_brother_id, cheque_number, school_year, status, approved_at)
       VALUES
-        ($1, $2, $3, $4, $5, $6, $7, 'approved', NOW())
+        ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
       RETURNING *
     `,
     [
@@ -132,9 +145,10 @@ async function createExpense(req, res) {
       payload.description,
       payload.category_id,
       amount,
-      payload.reimburse_brother_id ?? null,
-      payload.cheque_number ?? null,
+      recorded ? null : payload.reimburse_brother_id ?? null,
+      recorded ? null : payload.cheque_number ?? null,
       schoolYear,
+      status,
     ]
   );
 
@@ -173,13 +187,15 @@ async function createExpenseWithReceipt(req, res) {
   const schoolYear = schoolYearStartForDate(payload.date);
   const amount = roundMoney(payload.amount);
   const receiptUrl = await resolveReceiptUrl(req.file);
+  const status = creationStatus(payload.status);
+  const recorded = status === "recorded";
 
   const result = await pool.query(
     `
       INSERT INTO expenses
         (date, description, category_id, amount, reimburse_brother_id, cheque_number, school_year, status, approved_at, receipt_url)
       VALUES
-        ($1, $2, $3, $4, $5, $6, $7, 'approved', NOW(), $8)
+        ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9)
       RETURNING *
     `,
     [
@@ -187,9 +203,10 @@ async function createExpenseWithReceipt(req, res) {
       payload.description,
       payload.category_id,
       amount,
-      payload.reimburse_brother_id ?? null,
-      payload.cheque_number ?? null,
+      recorded ? null : payload.reimburse_brother_id ?? null,
+      recorded ? null : payload.cheque_number ?? null,
       schoolYear,
+      status,
       receiptUrl,
     ]
   );
@@ -226,19 +243,28 @@ async function updateExpense(req, res) {
   const nextDate = patch.date !== undefined ? patch.date : existing.date;
   const schoolYear = schoolYearStartForDate(nextDate);
 
+  const nextStatus = patch.status !== undefined ? patch.status : existing.status;
+  // Same rule as creation: a recorded expense owes nobody, so switching to it
+  // clears the disbursement fields rather than leaving stale ones behind.
+  const recorded = nextStatus === "recorded";
+
   const next = {
     date: nextDate,
     description: patch.description !== undefined ? patch.description : existing.description,
     category_id: patch.category_id !== undefined ? patch.category_id : existing.category_id,
     amount: roundMoney(patch.amount !== undefined ? patch.amount : existing.amount),
-    reimburse_brother_id:
-      patch.reimburse_brother_id !== undefined
+    reimburse_brother_id: recorded
+      ? null
+      : patch.reimburse_brother_id !== undefined
         ? patch.reimburse_brother_id
         : existing.reimburse_brother_id,
-    cheque_number:
-      patch.cheque_number !== undefined ? patch.cheque_number : existing.cheque_number,
+    cheque_number: recorded
+      ? null
+      : patch.cheque_number !== undefined
+        ? patch.cheque_number
+        : existing.cheque_number,
     school_year: schoolYear,
-    status: patch.status !== undefined ? patch.status : existing.status,
+    status: nextStatus,
     approved_at:
       patch.status === "approved" && existing.status !== "approved"
         ? new Date()

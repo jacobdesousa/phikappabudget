@@ -4,6 +4,7 @@ const { roundMoney } = require("../utils/money");
 const { totalOwedFor } = require("../utils/houseFees");
 const { activeInYearSql } = require("../utils/membership");
 const z = require("zod");
+const { SETTLED_EXPENSE_STATUSES } = require("../validation/expenses");
 
 const allocationRowSchema = z.object({
   category_id: z.number().int().positive(),
@@ -99,8 +100,8 @@ async function priorYearCarryover(year) {
     `SELECT
        COALESCE((SELECT SUM(amount) FROM revenue WHERE school_year < $1), 0) AS revenue,
        COALESCE((SELECT SUM(amount) FROM expenses
-                 WHERE school_year < $1 AND status IN ('approved', 'paid')), 0) AS expense`,
-    [year]
+                 WHERE school_year < $1 AND status = ANY($2::text[])), 0) AS expense`,
+    [year, SETTLED_EXPENSE_STATUSES]
   );
   return roundMoney(Number(rows[0].revenue) - Number(rows[0].expense));
 }
@@ -125,18 +126,18 @@ async function getBudgetSummary(req, res) {
     LEFT JOIN (
       SELECT category_id, SUM(amount) AS actual_amount
       FROM expenses
-      WHERE school_year = $1 AND status IN ('approved', 'paid')
+      WHERE school_year = $1 AND status = ANY($3::text[])
       GROUP BY category_id
     ) curr ON curr.category_id = ec.id
     LEFT JOIN (
       SELECT category_id, SUM(amount) AS actual_amount
       FROM expenses
-      WHERE school_year = $2 AND status IN ('approved', 'paid')
+      WHERE school_year = $2 AND status = ANY($3::text[])
       GROUP BY category_id
     ) prev ON prev.category_id = ec.id
     ORDER BY ec.name ASC
     `,
-    [year, prevYear]
+    [year, prevYear, SETTLED_EXPENSE_STATUSES]
   );
 
   const expense_rows = expenseRes.rows.map((r) => ({
@@ -354,9 +355,12 @@ async function getBudgetSummary(req, res) {
 
   // Outstanding disbursements
   const disbRes = await pool.query(
+    // Must match getOutstandingDisbursements and the expenses page: an
+    // approved expense that already has a cheque number is not outstanding.
     `SELECT COUNT(*)::int AS count, COALESCE(SUM(amount), 0) AS total
      FROM expenses
-     WHERE school_year = $1 AND status = 'approved'`,
+     WHERE school_year = $1 AND status = 'approved'
+       AND (cheque_number IS NULL OR cheque_number = '')`,
     [year]
   );
   const outstanding_disbursements = {

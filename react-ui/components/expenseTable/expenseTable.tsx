@@ -164,7 +164,9 @@ function ExpenseTable(props: Props) {
                                         <TableCell sx={{ ...CELL_SX, width: 150, overflow: "hidden", textOverflow: "ellipsis" }}>
                                             {reimburseName(e)}
                                         </TableCell>
-                                        <TableCell sx={{ ...CELL_SX, width: 90 }}>{e.cheque_number || "—"}</TableCell>
+                                        <TableCell sx={{ ...CELL_SX, width: 90 }}>
+                                            {e.cheque_number || (e.status === "recorded" ? "n/a" : "—")}
+                                        </TableCell>
                                         <TableCell sx={{ ...CELL_SX, width: 100, fontWeight: 600 }} align="right">
                                             ${formatMoney(e.amount ?? 0)}
                                         </TableCell>
@@ -192,7 +194,12 @@ function ExpenseTable(props: Props) {
                                                             </Stack>
                                                             <Stack direction="row" gap={1}>
                                                                 <Typography variant="caption" color="text.secondary" sx={{ minWidth: 96 }}>Cheque</Typography>
-                                                                <Typography variant="caption">{e.cheque_number || "Not disbursed"}</Typography>
+                                                                <Typography variant="caption">
+                                                                    {e.cheque_number ||
+                                                                        (e.status === "recorded"
+                                                                            ? "No disbursement needed"
+                                                                            : "Not disbursed")}
+                                                                </Typography>
                                                             </Stack>
                                                             {e.submitted_by_name ? (
                                                                 <Stack direction="row" gap={1}>

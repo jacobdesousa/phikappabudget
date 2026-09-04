@@ -4,7 +4,16 @@ const expenseCategorySchema = z.object({
   name: z.string().min(1),
 });
 
-const expenseStatusSchema = z.enum(["submitted", "approved", "paid", "rejected"]);
+// "recorded" is a terminal state alongside "paid": the money left the account
+// but no cheque is coming — a direct debit, a card charge, a correction, a
+// reimbursement a brother waived. Without it the only way to settle an expense
+// was to cut a cheque, so anything paid another way sat in the disbursement
+// queue forever.
+const expenseStatusSchema = z.enum(["submitted", "approved", "paid", "rejected", "recorded"]);
+
+// The statuses that mean real money against the budget. Kept here so the
+// budget queries and the expenses page cannot drift apart.
+const SETTLED_EXPENSE_STATUSES = ["approved", "paid", "recorded"];
 
 const expenseCreateSchema = z.object({
   date: z.union([z.string(), z.date()]),
@@ -14,6 +23,8 @@ const expenseCreateSchema = z.object({
   // Brother to reimburse (optional, but supported).
   reimburse_brother_id: z.coerce.number().int().positive().optional().nullable(),
   cheque_number: z.string().max(50).optional().nullable(),
+  // Create the entry already settled, with nobody to reimburse.
+  status: expenseStatusSchema.optional(),
 });
 
 const expenseUpdateSchema = z
@@ -51,6 +62,7 @@ const expenseDisbursementSchema = z.object({
 module.exports = {
   expenseCategorySchema,
   expenseStatusSchema,
+  SETTLED_EXPENSE_STATUSES,
   expenseCreateSchema,
   expenseUpdateSchema,
   expenseSubmissionSchema,

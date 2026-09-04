@@ -83,6 +83,10 @@ export default function ExpensesPage() {
   const [newCategoryId, setNewCategoryId] = useState<number | "">("");
   const [newBrotherId, setNewBrotherId] = useState<number | "">("");
   const [newCheque, setNewCheque] = useState<string>("");
+  // Spend that will never have a cheque: a direct debit, a card charge, a
+  // correction. Nearly every expense is a cheque, so this stays off by default
+  // and only hides the disbursement fields when it is ticked.
+  const [newRecorded, setNewRecorded] = useState(false);
   const [newReceipt, setNewReceipt] = useState<File | null>(null);
   const [editReceipt, setEditReceipt] = useState<File | null>(null);
 
@@ -99,7 +103,8 @@ export default function ExpensesPage() {
           e.status === undefined ||
           e.status === null ||
           e.status === "approved" ||
-          e.status === "paid"
+          e.status === "paid" ||
+          e.status === "recorded"
       ),
     [expenses]
   );
@@ -234,8 +239,9 @@ export default function ExpensesPage() {
           description: newDescription,
           category_id: Number(newCategoryId),
           amount,
-          reimburse_brother_id: newBrotherId ? Number(newBrotherId) : null,
-          cheque_number: newCheque || null,
+          reimburse_brother_id: newRecorded || !newBrotherId ? null : Number(newBrotherId),
+          cheque_number: newRecorded ? null : newCheque || null,
+          status: newRecorded ? "recorded" : undefined,
           receipt: newReceipt,
         })
       : await addExpense({
@@ -243,8 +249,9 @@ export default function ExpensesPage() {
           description: newDescription,
           category_id: Number(newCategoryId),
           amount,
-          reimburse_brother_id: newBrotherId ? Number(newBrotherId) : null,
-          cheque_number: newCheque || null,
+          reimburse_brother_id: newRecorded || !newBrotherId ? null : Number(newBrotherId),
+          cheque_number: newRecorded ? null : newCheque || null,
+          status: newRecorded ? "recorded" : undefined,
         } as IExpense);
 
     if (!res.ok) {
@@ -259,6 +266,7 @@ export default function ExpensesPage() {
     setNewCategoryId("");
     setNewBrotherId("");
     setNewCheque("");
+    setNewRecorded(false);
     setNewReceipt(null);
     setRefresh((r) => !r);
   }
@@ -278,6 +286,12 @@ export default function ExpensesPage() {
       amount,
       reimburse_brother_id: editing.reimburse_brother_id ?? null,
       cheque_number: editing.cheque_number ?? null,
+      // Only ever moves an entry between "awaiting a cheque" and "recorded";
+      // a disbursed expense keeps whatever status the cheque run gave it.
+      status:
+        editing.status === "recorded" || editing.status === "approved"
+          ? editing.status
+          : undefined,
     });
     if (!res.ok) {
       setError(res.error?.message ?? "Could not update expense.");
@@ -788,31 +802,49 @@ export default function ExpensesPage() {
               inputProps={{ inputMode: "decimal" }}
               InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
             />
-            <FormControl fullWidth>
-              <InputLabel id="exp-bro-label">Brother to reimburse</InputLabel>
-              <Select
-                labelId="exp-bro-label"
-                label="Brother to reimburse"
-                value={newBrotherId}
-                onChange={(e) => setNewBrotherId(e.target.value as any)}
-              >
-                <MenuItem value="">
-                  <em>None</em>
-                </MenuItem>
-                {brothers.map((b) => (
-                  <MenuItem key={b.id ?? `${b.first_name}-${b.last_name}`} value={b.id ?? ""}>
-                    {b.first_name} {b.last_name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              label="Cheque number"
-              value={newCheque}
-              onChange={(e) => setNewCheque(e.target.value)}
-              fullWidth
-              placeholder="e.g. 1042"
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={newRecorded}
+                  onChange={(e) => setNewRecorded(e.target.checked)}
+                />
+              }
+              label="No disbursement needed"
             />
+            {newRecorded ? (
+              <Alert severity="info">
+                Recorded against the budget with no cheque and nobody to reimburse — for
+                direct debits, card charges and corrections.
+              </Alert>
+            ) : (
+              <>
+                <FormControl fullWidth>
+                  <InputLabel id="exp-bro-label">Brother to reimburse</InputLabel>
+                  <Select
+                    labelId="exp-bro-label"
+                    label="Brother to reimburse"
+                    value={newBrotherId}
+                    onChange={(e) => setNewBrotherId(e.target.value as any)}
+                  >
+                    <MenuItem value="">
+                      <em>None</em>
+                    </MenuItem>
+                    {brothers.map((b) => (
+                      <MenuItem key={b.id ?? `${b.first_name}-${b.last_name}`} value={b.id ?? ""}>
+                        {b.first_name} {b.last_name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <TextField
+                  label="Cheque number"
+                  value={newCheque}
+                  onChange={(e) => setNewCheque(e.target.value)}
+                  fullWidth
+                  placeholder="e.g. 1042"
+                />
+              </>
+            )}
 
             <Button variant="outlined" component="label">
               {newReceipt ? `Receipt selected: ${newReceipt.name}` : "Attach receipt (optional)"}
@@ -893,35 +925,63 @@ export default function ExpensesPage() {
                 inputProps={{ inputMode: "decimal" }}
                 InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
               />
-              <FormControl fullWidth>
-                <InputLabel id="exp-edit-bro-label">Brother to reimburse</InputLabel>
-                <Select
-                  labelId="exp-edit-bro-label"
-                  label="Brother to reimburse"
-                  value={editing.reimburse_brother_id ?? ""}
-                  onChange={(e) =>
-                    setEditing({
-                      ...editing,
-                      reimburse_brother_id: e.target.value ? Number(e.target.value) : null,
-                    })
+              {/* A disbursed expense is history — its cheque has been written,
+                  so the toggle is only offered while one is still outstanding. */}
+              {(editing.status === "recorded" || editing.status === "approved") && (
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={editing.status === "recorded"}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          status: e.target.checked ? "recorded" : "approved",
+                          reimburse_brother_id: e.target.checked ? null : editing.reimburse_brother_id,
+                          cheque_number: e.target.checked ? null : editing.cheque_number,
+                        })
+                      }
+                    />
                   }
-                >
-                  <MenuItem value="">
-                    <em>None</em>
-                  </MenuItem>
-                  {brothers.map((b) => (
-                    <MenuItem key={b.id ?? `${b.first_name}-${b.last_name}`} value={b.id ?? ""}>
-                      {b.first_name} {b.last_name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField
-                label="Cheque number"
-                value={editing.cheque_number ?? ""}
-                onChange={(e) => setEditing({ ...editing, cheque_number: e.target.value })}
-                fullWidth
-              />
+                  label="No disbursement needed"
+                />
+              )}
+              {editing.status === "recorded" ? (
+                <Alert severity="info">
+                  Recorded against the budget with no cheque and nobody to reimburse.
+                </Alert>
+              ) : (
+                <>
+                  <FormControl fullWidth>
+                    <InputLabel id="exp-edit-bro-label">Brother to reimburse</InputLabel>
+                    <Select
+                      labelId="exp-edit-bro-label"
+                      label="Brother to reimburse"
+                      value={editing.reimburse_brother_id ?? ""}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          reimburse_brother_id: e.target.value ? Number(e.target.value) : null,
+                        })
+                      }
+                    >
+                      <MenuItem value="">
+                        <em>None</em>
+                      </MenuItem>
+                      {brothers.map((b) => (
+                        <MenuItem key={b.id ?? `${b.first_name}-${b.last_name}`} value={b.id ?? ""}>
+                          {b.first_name} {b.last_name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <TextField
+                    label="Cheque number"
+                    value={editing.cheque_number ?? ""}
+                    onChange={(e) => setEditing({ ...editing, cheque_number: e.target.value })}
+                    fullWidth
+                  />
+                </>
+              )}
 
               <Button variant="outlined" component="label">
                 {editReceipt ? `New receipt: ${editReceipt.name}` : "Replace / attach receipt (optional)"}

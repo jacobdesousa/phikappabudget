@@ -29,6 +29,8 @@ export async function addExpenseWithReceipt(input: {
   amount: number;
   reimburse_brother_id?: number | null;
   cheque_number?: string | null;
+  // "recorded" creates it settled, with no cheque and nobody to reimburse.
+  status?: string;
   receipt: File;
 }) {
   try {
@@ -39,6 +41,7 @@ export async function addExpenseWithReceipt(input: {
     fd.append("amount", String(input.amount));
     if (input.reimburse_brother_id) fd.append("reimburse_brother_id", String(input.reimburse_brother_id));
     if (input.cheque_number) fd.append("cheque_number", input.cheque_number);
+    if (input.status) fd.append("status", input.status);
     fd.append("receipt", input.receipt);
 
     const res = await apiClient.post("/expenses/with-receipt", fd, {
@@ -70,7 +73,13 @@ export async function updateExpense(
   update: Partial<
     Pick<
       IExpense,
-      "date" | "description" | "category_id" | "amount" | "reimburse_brother_id" | "cheque_number"
+      | "date"
+      | "description"
+      | "category_id"
+      | "amount"
+      | "reimburse_brother_id"
+      | "cheque_number"
+      | "status"
     >
   >
 ) {
