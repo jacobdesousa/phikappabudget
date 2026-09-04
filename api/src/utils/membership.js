@@ -53,4 +53,22 @@ function isActiveInYear(brother, year) {
   return schoolYearStartForDate(toLocalDate(brother.alumni_date)) >= Number(year);
 }
 
-module.exports = { activeInYearSql, isActiveInYear };
+// Statuses that mean "a member of the chapter right now", which is what the
+// read-only `member` baseline is for. Kept as an explicit list rather than
+// "not an alumnus": the disciplinary statuses (Restricted, Suspended, Revoked)
+// and Boarder — a non-member house resident — should not carry chapter
+// finances and minutes by default either.
+const MEMBER_BASELINE_STATUSES = ["Active", "Pledge"];
+
+// Does this brother get the member baseline?
+//
+// The baseline used to be appended to every authenticated user, which meant an
+// alumni board account could never be narrower than a rank-and-file brother's
+// view — its office permissions could only add to dues, revenue, expenses,
+// budget and minutes reads it had already been given. Tying the baseline to
+// current membership lets an alumni-side role stand on its own.
+function hasMemberBaseline(status) {
+  return MEMBER_BASELINE_STATUSES.includes(String(status ?? "").trim());
+}
+
+module.exports = { activeInYearSql, isActiveInYear, hasMemberBaseline, MEMBER_BASELINE_STATUSES };

@@ -1,6 +1,7 @@
 const { pool } = require("../db/pool");
 const { auditAdminEvent } = require("../utils/auditEvents");
 const { computePermissions, normalizeRoleKey } = require("../utils/permissions");
+const { hasMemberBaseline } = require("../utils/membership");
 
 function normalizeKey(value) {
   const k = String(value ?? "").trim();
@@ -89,11 +90,12 @@ async function listUsers(req, res) {
     if (u.brother_id) {
       const keys = activeOfficesByBrotherId.get(Number(u.brother_id)) ?? [];
       roles = keys.map((k) => normalizeRoleKey(k)).filter(Boolean);
-      if (String(u.brother_status ?? "").toLowerCase().startsWith("alumn")) roles.push("alumni");
     } else {
       roles = rolesByUserId.get(uid) ?? [];
     }
-    if (!roles.includes("member")) roles.push("member");
+    // Mirrors loadAuthContext: the baseline follows current membership.
+    const baseline = u.brother_id ? hasMemberBaseline(u.brother_status) : true;
+    if (baseline && !roles.includes("member")) roles.push("member");
     roles = Array.from(new Set(roles));
     const overrides = overridesByUserId.get(uid) ?? [];
     const permissions = computePermissions({ roles, overrides });

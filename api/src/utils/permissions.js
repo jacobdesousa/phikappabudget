@@ -119,8 +119,32 @@ const ROLE_PERMISSIONS = {
   zeta: ["shifts.cleanup.read", "shifts.cleanup.write"],
   // Theta: manages party shifts
   theta: ["shifts.party.read", "shifts.party.write"],
-  // Alumni: view-only baseline (can be overridden per user)
-  alumni: ["brothers.read", "meetings.read", "workdays.read", "chapterBonus.read"],
+  // Alumni board: an office like any other, granted through brother_offices.
+  // Being an alumnus is not itself a role — plenty of alumni have logins and
+  // need nothing beyond the member baseline.
+  //
+  // Residents, instalments and the house account are all gated by the single
+  // house.read/house.write pair, so there is no finer split to make there.
+  // The board owns the setup for what it runs, hence the .config keys.
+  alumni_board: [
+    "brothers.read",
+    "brothers.write",
+    "workdays.read",
+    "workdays.write",
+    "chapterBonus.read",
+    "chapterBonus.write",
+    "chapterBonus.config",
+    "roomDraw.read",
+    "house.read",
+    "house.write",
+    "house.config",
+    "chores.read",
+    "chores.write",
+    "chores.config",
+    "donations.read",
+    "donations.write",
+    "donations.config",
+  ],
   // Member: default read-only granted to every authenticated user
   member: [
     "brothers.read",

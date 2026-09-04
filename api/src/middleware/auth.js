@@ -3,6 +3,7 @@ const { env } = require("../config/env");
 const { verifyHs256, signHs256 } = require("../utils/jwt");
 const { pool } = require("../db/pool");
 const { computePermissions, normalizeRoleKey, ROLE_PERMISSIONS } = require("../utils/permissions");
+const { hasMemberBaseline } = require("../utils/membership");
 
 function parseCookies(req) {
   const header = req.headers?.cookie;
@@ -53,9 +54,12 @@ async function loadAuthContext(req) {
   // Roles are derived from the brother's active office tenures in brother_offices.
   // This supports multiple simultaneous offices and historical records with start/end dates.
   let roles = [];
+  // Non-brother users (bootstrap and service accounts) keep the baseline; they
+  // have no status to judge and their access is explicit in user_roles.
+  let memberBaseline = true;
   if (u.brother_id) {
     const broRes = await pool.query(`SELECT status FROM brothers WHERE id = $1`, [u.brother_id]);
-    const b = broRes.rows?.[0];
+    memberBaseline = hasMemberBaseline(broRes.rows?.[0]?.status);
     try {
       const officesRes = await pool.query(
         `SELECT bo.office_key FROM brother_offices bo
@@ -71,15 +75,15 @@ async function loadAuthContext(req) {
     } catch {
       // brother_offices table may not exist yet on first boot; skip silently
     }
-    // Alumni get a baseline view-only role by status
-    if (String(b?.status ?? "").toLowerCase().startsWith("alumn")) roles.push("alumni");
   } else {
     // Bootstrap / service users can still use explicit roles.
     const rolesRes = await pool.query(`SELECT role_key FROM user_roles WHERE user_id = $1`, [userId]);
     roles = rolesRes.rows.map((r) => r.role_key);
   }
-  // Every authenticated user gets read-only baseline
-  if (!roles.includes("member")) roles.push("member");
+  // Current members get the read-only baseline. Alumni, boarders and anyone
+  // suspended get only what their offices grant, so an alumni-side role can be
+  // narrower than a brother's default view instead of strictly wider.
+  if (memberBaseline && !roles.includes("member")) roles.push("member");
   const overridesRes = await pool.query(`SELECT permission_key, effect FROM user_permission_overrides WHERE user_id = $1`, [userId]);
   const overrides = overridesRes.rows ?? [];
 

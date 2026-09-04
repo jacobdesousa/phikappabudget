@@ -665,7 +665,6 @@ async function setupTables() {
 
   // Seed/sync offices (runs every boot to capture legacy offices from Brothers).
   // - ensure default roles exist
-  // - ensure alumni pseudo-role exists (used when brother status is Alumnus)
   // - ensure any existing brothers.office values exist (preserve casing as display_name)
   try {
     const { ROLE_PERMISSIONS } = require("../utils/permissions");
@@ -691,9 +690,10 @@ async function setupTables() {
       ["omicron", "Omicron"],
       ["rush_committee",   "Rush Committee"],
       ["social_committee", "Social Committee"],
+      ["alumni_board",     "Alumni Board"],
     ];
     const defaultOfficeKeys = DEFAULT_OFFICES.map(([k]) => k);
-    const seedKeys = Array.from(new Set([...roleKeys, ...defaultOfficeKeys, "alumni"]));
+    const seedKeys = Array.from(new Set([...roleKeys, ...defaultOfficeKeys]));
     const seedDisplayMap = new Map([...DEFAULT_OFFICES]);
     for (const k of seedKeys) {
       const existsRes = await pool.query(`SELECT 1 FROM offices WHERE office_key = $1 LIMIT 1`, [k]);
