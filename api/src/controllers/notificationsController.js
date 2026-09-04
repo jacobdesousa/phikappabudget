@@ -33,40 +33,4 @@ async function getNotifications(req, res) {
   return res.json({ upcoming_shifts });
 }
 
-async function getAllMakeups(req, res) {
-  const { loadAuthContext } = require("../middleware/auth");
-  const ctx = await loadAuthContext(req);
-  if (!ctx) return res.status(401).json({ error: { message: "Unauthorized" } });
-
-  const [wm, sm] = await Promise.all([
-    pool.query(
-      `SELECT w.id AS workday_id, w.workday_date, w.title,
-              wa.brother_id, b.first_name, b.last_name, wa.status
-       FROM workday_attendance wa
-       JOIN workdays w ON w.id = wa.workday_id
-       JOIN brothers b ON b.id = wa.brother_id
-       WHERE wa.status IN ('Missing', 'Absent')
-         AND wa.makeup_completed_at IS NULL
-       ORDER BY b.last_name, b.first_name, w.workday_date DESC
-       LIMIT 200`
-    ),
-    pool.query(
-      `SELECT se.id AS shift_id, se.event_date, se.shift_type, se.title,
-              sa.brother_id, b.first_name, b.last_name, sa.status
-       FROM shift_assignments sa
-       JOIN shift_events se ON se.id = sa.shift_event_id
-       JOIN brothers b ON b.id = sa.brother_id
-       WHERE sa.status = 'absent'
-         AND sa.makeup_completed_at IS NULL
-       ORDER BY b.last_name, b.first_name, se.event_date DESC
-       LIMIT 200`
-    ),
-  ]);
-
-  return res.json({
-    workday_makeups: wm.rows,
-    shift_makeups: sm.rows,
-  });
-}
-
-module.exports = { getNotifications, getAllMakeups };
+module.exports = { getNotifications };

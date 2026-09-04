@@ -444,6 +444,9 @@ async function setupTables() {
   await addColumnIfMissing("workday_attendance", "coveralls", "BOOLEAN");
   await addColumnIfMissing("workday_attendance", "nametag", "BOOLEAN");
   await addColumnIfMissing("workday_attendance", "makeup_completed_at", "DATE");
+  // What the makeup actually is — "kitchen deep clean", "help at rush BBQ".
+  // Assigned from the makeups page, free text because the tasks are ad hoc.
+  await addColumnIfMissing("workday_attendance", "makeup_assignment", "TEXT");
 
   // Snapshot-in-time fields so attendance isn't affected by later brother edits/deletes.
   await addColumnIfMissing("workday_attendance", "member_first_name", "TEXT");
@@ -979,6 +982,11 @@ async function setupTables() {
     "shift_party_slots_event_idx",
     `CREATE INDEX shift_party_slots_event_idx ON shift_party_slots (shift_event_id);`
   );
+
+  // Same free-text makeup assignment as workday_attendance, for both the
+  // setup/cleanup roster and the party duty slots.
+  await addColumnIfMissing("shift_assignments", "makeup_assignment", "TEXT");
+  await addColumnIfMissing("shift_party_slots", "makeup_assignment", "TEXT");
 
   // Seed shift-related offices (psi, gamma, zeta, theta) alongside existing role seeding.
   try {

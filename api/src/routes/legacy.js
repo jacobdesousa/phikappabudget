@@ -113,7 +113,8 @@ const {
   updatePartyDuty,
   deletePartyDuty,
 } = require("../controllers/shiftsController");
-const { getNotifications, getAllMakeups } = require("../controllers/notificationsController");
+const { getNotifications } = require("../controllers/notificationsController");
+const { getAllMakeups, updateMakeup } = require("../controllers/makeupsController");
 const { getStandings, getLegacyAdjustments, addLegacyAdjustment, deleteLegacyAdjustment } = require("../controllers/roomDrawController");
 const {
   getBudgetSummary,
@@ -335,6 +336,8 @@ router.delete("/shift-duties/:dutyId", asyncHandler(deletePartyDuty));
 
 router.get("/notifications", asyncHandler(getNotifications));
 router.get("/makeups", asyncHandler(getAllMakeups));
+// Permission depends on the row: workdays.write, or shifts.<type>.write.
+router.patch("/makeups/:kind/:id", asyncHandler(updateMakeup));
 
 router.get("/room-draw/standings",     requirePermission("roomDraw.read"),  asyncHandler(getStandings));
 router.get("/room-draw/legacy",        requirePermission("roomDraw.read"),  asyncHandler(getLegacyAdjustments));
