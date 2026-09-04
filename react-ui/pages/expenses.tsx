@@ -34,6 +34,7 @@ import { addExpense, addExpenseWithReceipt, getExpenses, updateExpense, uploadEx
 import { getAllBrothers } from "../services/brotherService";
 import { schoolYearStartForDate } from "../utils/schoolYear";
 import SchoolYearSelector from "../components/SchoolYearSelector";
+import SchoolYearFilingSelect from "../components/SchoolYearFilingSelect";
 import ConfirmDeleteExpenseDialog from "../components/confirmDeleteExpense/confirmDeleteExpense";
 import ExpenseTable from "../components/expenseTable/expenseTable";
 import SearchIcon from "@mui/icons-material/Search";
@@ -88,6 +89,11 @@ export default function ExpensesPage() {
   // correction. Nearly every expense is a cheque, so this stays off by default
   // and only hides the disbursement fields when it is ticked.
   const [newRecorded, setNewRecorded] = useState(false);
+  // Which school year the expense counts toward. Follows the date until the
+  // treasurer overrides it, then stops following so a later date edit cannot
+  // silently undo the override.
+  const [newSchoolYear, setNewSchoolYear] = useState(schoolYearStartForDate(new Date()));
+  const [schoolYearTouched, setSchoolYearTouched] = useState(false);
   const [newReceipt, setNewReceipt] = useState<File | null>(null);
   const [editReceipt, setEditReceipt] = useState<File | null>(null);
 
@@ -118,6 +124,13 @@ export default function ExpensesPage() {
     (e: IExpense) => openAuthenticatedFile(`${apiBase}${e.receipt_url}`),
     []
   );
+
+  useEffect(() => {
+    if (!addOpen) {
+      setNewSchoolYear(selectedYear);
+      setSchoolYearTouched(false);
+    }
+  }, [selectedYear, addOpen]);
 
   useEffect(() => {
     setEditAmountText(editing ? normalizeMoneyInput(String(editing.amount ?? 0)) : "");
@@ -243,6 +256,7 @@ export default function ExpensesPage() {
           reimburse_brother_id: newRecorded || !newBrotherId ? null : Number(newBrotherId),
           cheque_number: newRecorded ? null : newCheque || null,
           status: newRecorded ? "recorded" : undefined,
+          school_year: newSchoolYear,
           receipt: newReceipt,
         })
       : await addExpense({
@@ -253,6 +267,7 @@ export default function ExpensesPage() {
           reimburse_brother_id: newRecorded || !newBrotherId ? null : Number(newBrotherId),
           cheque_number: newRecorded ? null : newCheque || null,
           status: newRecorded ? "recorded" : undefined,
+          school_year: newSchoolYear,
         } as IExpense);
 
     if (!res.ok) {
@@ -268,6 +283,10 @@ export default function ExpensesPage() {
     setNewBrotherId("");
     setNewCheque("");
     setNewRecorded(false);
+    // Back to the viewed year, so the next entry doesn't inherit the last
+    // one's override.
+    setNewSchoolYear(selectedYear);
+    setSchoolYearTouched(false);
     setNewReceipt(null);
     setRefresh((r) => !r);
   }
@@ -287,6 +306,7 @@ export default function ExpensesPage() {
       amount,
       reimburse_brother_id: editing.reimburse_brother_id ?? null,
       cheque_number: editing.cheque_number ?? null,
+      school_year: editing.school_year ?? schoolYearStartForDate(editing.date),
       // Only ever moves an entry between "awaiting a cheque" and "recorded";
       // a disbursed expense keeps whatever status the cheque run gave it.
       status:
@@ -793,12 +813,24 @@ export default function ExpensesPage() {
                 label="Date"
                 type="date"
                 value={newDate}
-                onChange={(e) => setNewDate(e.target.value)}
+                onChange={(e) => {
+                  setNewDate(e.target.value);
+                  // The date settles the filing year until it is overridden.
+                  if (!schoolYearTouched && e.target.value) {
+                    setNewSchoolYear(schoolYearStartForDate(e.target.value));
+                  }
+                }}
                 InputLabelProps={{ shrink: true }}
                 fullWidth
                 required
               />
             </Stack>
+            <SchoolYearFilingSelect
+              value={newSchoolYear}
+              onChange={(y) => { setNewSchoolYear(y); setSchoolYearTouched(true); }}
+              date={newDate}
+              warning="Warning: You are filing this expense against a school year that does not correspond with the indicated date."
+            />
             <TextField
               label="Amount"
               value={newAmount}
@@ -914,6 +946,14 @@ export default function ExpensesPage() {
                   required
                 />
               </Stack>
+              {/* No date-following here: an entry being edited already has a
+                  filing year, and re-deriving it would undo a past override. */}
+              <SchoolYearFilingSelect
+                value={editing.school_year ?? schoolYearStartForDate(editing.date)}
+                onChange={(y) => setEditing({ ...editing, school_year: y })}
+                date={toDateInputValue(editing.date) || undefined}
+                warning="Warning: You are filing this expense against a school year that does not correspond with the indicated date."
+              />
               <TextField
                 label="Amount"
                 value={editAmountText}

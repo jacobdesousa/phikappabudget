@@ -23,6 +23,10 @@ const expenseCreateSchema = z.object({
   // Brother to reimburse (optional, but supported).
   reimburse_brother_id: z.coerce.number().int().positive().optional().nullable(),
   cheque_number: z.string().max(50).optional().nullable(),
+  // Which school year the expense counts toward. Normally derived from the
+  // date; sent explicitly to file it against a different year, the way revenue
+  // already allows.
+  school_year: z.coerce.number().int().min(1900).max(2200).optional(),
   // Create the entry already settled, with nobody to reimburse.
   status: expenseStatusSchema.optional(),
 });
@@ -35,6 +39,7 @@ const expenseUpdateSchema = z
     amount: z.coerce.number().optional(),
     reimburse_brother_id: z.coerce.number().int().positive().optional().nullable(),
     cheque_number: z.string().max(50).optional().nullable(),
+    school_year: z.coerce.number().int().min(1900).max(2200).optional(),
     status: expenseStatusSchema.optional(),
   })
   .strict();

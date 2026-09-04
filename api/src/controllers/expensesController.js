@@ -124,7 +124,8 @@ function creationStatus(requested) {
 
 async function createExpense(req, res) {
   const payload = expenseCreateSchema.parse(req.body);
-  const schoolYear = schoolYearStartForDate(payload.date);
+  // An explicit filing year wins; otherwise the date settles it.
+  const schoolYear = payload.school_year ?? schoolYearStartForDate(payload.date);
   const amount = roundMoney(payload.amount);
   const status = creationStatus(payload.status);
 
@@ -184,7 +185,7 @@ async function createExpenseWithReceipt(req, res) {
     return res.status(400).json({ error: { message: "Receipt file is required." } });
   }
   const payload = expenseCreateSchema.parse(req.body);
-  const schoolYear = schoolYearStartForDate(payload.date);
+  const schoolYear = payload.school_year ?? schoolYearStartForDate(payload.date);
   const amount = roundMoney(payload.amount);
   const receiptUrl = await resolveReceiptUrl(req.file);
   const status = creationStatus(payload.status);
@@ -241,7 +242,17 @@ async function updateExpense(req, res) {
   }
 
   const nextDate = patch.date !== undefined ? patch.date : existing.date;
-  const schoolYear = schoolYearStartForDate(nextDate);
+
+  // An explicit school_year wins. Failing that, a caller that sends a new date
+  // gets the entry re-filed from it — the intuitive way to correct one. An edit
+  // that touches neither keeps the filing as-is, so an unrelated change can't
+  // quietly undo a deliberate override by re-deriving from the date.
+  const schoolYear =
+    patch.school_year !== undefined
+      ? patch.school_year
+      : patch.date !== undefined || existing.school_year === null
+        ? schoolYearStartForDate(nextDate)
+        : Number(existing.school_year);
 
   const nextStatus = patch.status !== undefined ? patch.status : existing.status;
   // Same rule as creation: a recorded expense owes nobody, so switching to it

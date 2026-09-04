@@ -31,6 +31,8 @@ export async function addExpenseWithReceipt(input: {
   cheque_number?: string | null;
   // "recorded" creates it settled, with no cheque and nobody to reimburse.
   status?: string;
+  // Files the expense against a year other than the one its date implies.
+  school_year?: number;
   receipt: File;
 }) {
   try {
@@ -42,6 +44,7 @@ export async function addExpenseWithReceipt(input: {
     if (input.reimburse_brother_id) fd.append("reimburse_brother_id", String(input.reimburse_brother_id));
     if (input.cheque_number) fd.append("cheque_number", input.cheque_number);
     if (input.status) fd.append("status", input.status);
+    if (input.school_year) fd.append("school_year", String(input.school_year));
     fd.append("receipt", input.receipt);
 
     const res = await apiClient.post("/expenses/with-receipt", fd, {
@@ -80,6 +83,7 @@ export async function updateExpense(
       | "reimburse_brother_id"
       | "cheque_number"
       | "status"
+      | "school_year"
     >
   >
 ) {
