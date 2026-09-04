@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
@@ -19,6 +19,8 @@ import { IRevenue, IRevenueCategory } from "../../interfaces/api.interface";
 import { updateRevenue } from "../../services/revenueService";
 import { formatMoney, normalizeMoneyInput, sanitizeMoneyInput } from "../../utils/money";
 import SchoolYearFilingSelect from "../SchoolYearFilingSelect";
+import { useCategoriesForYear } from "../../hooks/useCategoriesForYear";
+import { getRevenueCategories } from "../../services/revenueCategoryService";
 import { schoolYearStartForDate } from "../../utils/schoolYear";
 
 interface Props {
@@ -32,11 +34,23 @@ export default function EditRevenueDialog(props: Props) {
   const [description, setDescription] = useState(props.revenue.description ?? "");
   const [date, setDate] = useState<string>(() => new Date(props.revenue.date).toISOString().slice(0, 10));
   const [categoryId, setCategoryId] = useState<number | "">(props.revenue.category_id ?? "");
+  // The categories the filing year offers. props.categories stays the full list
+  // and is not used for the picker, only as a fallback while this loads.
   // Whatever the entry is filed under today, not a fresh derivation — editing
   // an unrelated field must not silently re-file it.
   const [schoolYear, setSchoolYear] = useState<number>(
     props.revenue.school_year ?? schoolYearStartForDate(props.revenue.date)
   );
+
+  const { categories: yearCategories } = useCategoriesForYear(getRevenueCategories, schoolYear);
+  const categoryOptions = yearCategories.length > 0 ? yearCategories : props.categories;
+
+  // A category the newly chosen year does not offer cannot stay selected, so
+  // the field clears and asks for a new one.
+  useEffect(() => {
+    if (!categoryId || yearCategories.length === 0) return;
+    if (!yearCategories.some((c) => c.id === categoryId)) setCategoryId("");
+  }, [yearCategories, categoryId]);
   // An entry already filed against a year different from its date was filed
   // that way deliberately, so treat it as overridden from the start: editing an
   // unrelated field must not quietly re-file it.
@@ -117,7 +131,7 @@ export default function EditRevenueDialog(props: Props) {
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value as any)}
               >
-                {props.categories.map((c) => (
+                {categoryOptions.map((c) => (
                   <MenuItem key={c.id ?? c.name} value={c.id ?? ""}>
                     {c.name}
                   </MenuItem>

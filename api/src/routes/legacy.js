@@ -15,6 +15,10 @@ const {
 } = require("../controllers/duesController");
 const {
   listRevenueCategories,
+  listRevenueCategoryYear,
+  addRevenueCategoryToYear,
+  removeRevenueCategoryFromYear,
+  importRevenueCategoryYear,
   createRevenueCategory,
   updateRevenueCategory,
   deleteRevenueCategory,
@@ -37,6 +41,10 @@ const {
 } = require("../controllers/duesConfigController");
 const {
   listExpenseCategories,
+  listExpenseCategoryYear,
+  addExpenseCategoryToYear,
+  removeExpenseCategoryFromYear,
+  importExpenseCategoryYear,
   createExpenseCategory,
   updateExpenseCategory,
   deleteExpenseCategory,
@@ -253,6 +261,12 @@ router.put("/dues/:id", requirePermission("dues.write"), asyncHandler(updateDues
 
 // Revenue categories
 router.get("/revenue/category", requirePermission("revenue.read"), asyncHandler(listRevenueCategories));
+// Per-year category availability. Literal paths before the ":id" routes above
+// them would shadow, so these sit alongside their own resource.
+router.get("/revenue/category-years", requirePermission("revenue.read"), asyncHandler(listRevenueCategoryYear));
+router.post("/revenue/category-years/import", requirePermission("revenue.config"), asyncHandler(importRevenueCategoryYear));
+router.put("/revenue/category/:id/years/:year", requirePermission("revenue.config"), asyncHandler(addRevenueCategoryToYear));
+router.delete("/revenue/category/:id/years/:year", requirePermission("revenue.config"), asyncHandler(removeRevenueCategoryFromYear));
 router.post("/revenue/category", requirePermission("revenue.config"), asyncHandler(createRevenueCategory));
 router.put("/revenue/category/:id", requirePermission("revenue.config"), asyncHandler(updateRevenueCategory));
 router.delete("/revenue/category/:id", requirePermission("revenue.config"), asyncHandler(deleteRevenueCategory));
@@ -265,6 +279,10 @@ router.delete("/revenue/:id", requirePermission("revenue.write"), asyncHandler(d
 
 // Expenses categories
 router.get("/expenses/category", requirePermission("expenses.read"), asyncHandler(listExpenseCategories));
+router.get("/expenses/category-years", requirePermission("expenses.read"), asyncHandler(listExpenseCategoryYear));
+router.post("/expenses/category-years/import", requirePermission("expenses.write"), asyncHandler(importExpenseCategoryYear));
+router.put("/expenses/category/:id/years/:year", requirePermission("expenses.write"), asyncHandler(addExpenseCategoryToYear));
+router.delete("/expenses/category/:id/years/:year", requirePermission("expenses.write"), asyncHandler(removeExpenseCategoryFromYear));
 router.post("/expenses/category", requirePermission("expenses.write"), asyncHandler(createExpenseCategory));
 router.put("/expenses/category/:id", requirePermission("expenses.write"), asyncHandler(updateExpenseCategory));
 router.delete("/expenses/category/:id", requirePermission("expenses.write"), asyncHandler(deleteExpenseCategory));

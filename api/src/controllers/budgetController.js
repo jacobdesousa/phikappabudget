@@ -135,6 +135,16 @@ async function getBudgetSummary(req, res) {
       WHERE school_year = $2 AND status = ANY($3::text[])
       GROUP BY category_id
     ) prev ON prev.category_id = ec.id
+    -- Only the categories this year offers, plus any still carrying money or a
+    -- budgeted figure. Availability decides what can be picked, never what can
+    -- be seen: filtering a category with actuals out of the budget would drop
+    -- real dollars from the totals.
+    WHERE EXISTS (
+      SELECT 1 FROM expense_category_years ecy
+      WHERE ecy.category_id = ec.id AND ecy.school_year = $1
+    )
+    OR COALESCE(bea.budgeted_amount, 0) <> 0
+    OR COALESCE(curr.actual_amount, 0) <> 0
     ORDER BY ec.name ASC
     `,
     [year, prevYear, SETTLED_EXPENSE_STATUSES]
@@ -176,6 +186,14 @@ async function getBudgetSummary(req, res) {
       WHERE school_year = $2
       GROUP BY category_id
     ) prev ON prev.category_id = rc.id
+    -- Same rule as the expense rows: this year's categories, plus anything
+    -- still carrying money or a budgeted figure.
+    WHERE EXISTS (
+      SELECT 1 FROM revenue_category_years rcy
+      WHERE rcy.category_id = rc.id AND rcy.school_year = $1
+    )
+    OR COALESCE(bra.budgeted_amount, 0) <> 0
+    OR COALESCE(curr.actual_amount, 0) <> 0
     ORDER BY rc.name ASC
     `,
     [year, prevYear]

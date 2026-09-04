@@ -8,6 +8,7 @@ const { currentSchoolYearStart, schoolYearStartForDate } = require("../utils/sch
 const { duesCategoryForBrother } = require("../utils/pledgeClass");
 const { idParamSchema } = require("../validation/common");
 const { roundMoney } = require("../utils/money");
+const categoryYears = require("../utils/categoryYears");
 const { activeInYearSql } = require("../utils/membership");
 
 const MISC_CATEGORY_NAME = "Misc";
@@ -27,9 +28,75 @@ async function ensureMiscCategoryId(client) {
   return created.rows[0].id;
 }
 
+// Without a school_year this stays the full list, which is what the config
+// page and any older caller expects. With one it narrows to the categories that
+// year offers, which is what the entry dialogs want.
 async function listRevenueCategories(req, res) {
-  const { rows } = await pool.query("SELECT * FROM revenue_categories");
+  if (req.query.school_year) {
+    const year = Number(req.query.school_year);
+    if (!Number.isFinite(year)) {
+      return res.status(400).json({ error: { message: "Invalid school_year" } });
+    }
+    return res.status(200).json(await categoryYears.listForYear("revenue", year));
+  }
+  const { rows } = await pool.query("SELECT * FROM revenue_categories ORDER BY name ASC");
   res.status(200).json(rows);
+}
+
+// Category availability for one year, with what each is carrying that year.
+async function listRevenueCategoryYear(req, res) {
+  const year = Number(req.query.school_year ?? currentSchoolYearStart());
+  if (!Number.isFinite(year)) {
+    return res.status(400).json({ error: { message: "Invalid school_year" } });
+  }
+  return res.status(200).json({
+    school_year: year,
+    categories: await categoryYears.listWithYearState("revenue", year),
+    years: await categoryYears.yearsWithCategories("revenue"),
+  });
+}
+
+async function addRevenueCategoryToYear(req, res) {
+  const { id } = idParamSchema.parse(req.params);
+  const year = Number(req.params.year);
+  if (!Number.isFinite(year)) {
+    return res.status(400).json({ error: { message: "Invalid school year" } });
+  }
+  await categoryYears.addToYear("revenue", id, year);
+  return res.status(200).json({ ok: true });
+}
+
+// Scoped to one year: this year's entries move to Misc, other years keep the
+// category as it was.
+async function removeRevenueCategoryFromYear(req, res) {
+  const { id } = idParamSchema.parse(req.params);
+  const year = Number(req.params.year);
+  if (!Number.isFinite(year)) {
+    return res.status(400).json({ error: { message: "Invalid school year" } });
+  }
+  try {
+    const result = await categoryYears.removeFromYear("revenue", id, year, ensureMiscCategoryId);
+    return res.status(200).json({ ...result, reassigned_to: MISC_CATEGORY_NAME });
+  } catch (e) {
+    if (e.code === "MISC_PROTECTED") {
+      return res.status(409).json({
+        error: { message: `"${MISC_CATEGORY_NAME}" is the fallback category and is offered every year.` },
+      });
+    }
+    throw e;
+  }
+}
+
+async function importRevenueCategoryYear(req, res) {
+  const fromYear = Number(req.body?.from_year);
+  const toYear = Number(req.body?.to_year);
+  if (!Number.isFinite(fromYear) || !Number.isFinite(toYear)) {
+    return res.status(400).json({ error: { message: "from_year and to_year are required." } });
+  }
+  if (fromYear === toYear) {
+    return res.status(400).json({ error: { message: "Pick a different year to import from." } });
+  }
+  return res.status(200).json(await categoryYears.importFromYear("revenue", fromYear, toYear));
 }
 
 async function createRevenueCategory(req, res) {
@@ -38,6 +105,12 @@ async function createRevenueCategory(req, res) {
     "INSERT INTO revenue_categories (name) VALUES ($1) RETURNING *",
     [payload.name]
   );
+  // A category created while looking at a year is meant for that year — having
+  // to add it to the year as a second step would be busywork.
+  const year = Number(req.body?.school_year ?? currentSchoolYearStart());
+  if (Number.isFinite(year)) {
+    await categoryYears.addToYear("revenue", result.rows[0].id, year);
+  }
   res.status(201).json(result.rows[0]);
 }
 
@@ -296,6 +369,10 @@ async function revenueSummary(req, res) {
 }
 
 module.exports = {
+  listRevenueCategoryYear,
+  addRevenueCategoryToYear,
+  removeRevenueCategoryFromYear,
+  importRevenueCategoryYear,
   listRevenueCategories,
   createRevenueCategory,
   updateRevenueCategory,

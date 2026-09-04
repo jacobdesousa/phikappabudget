@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import SchoolYearSelector from "../components/SchoolYearSelector";
 import SchoolYearFilingSelect from "../components/SchoolYearFilingSelect";
 import { getRevenueCategories } from "../services/revenueCategoryService";
+import { useCategoriesForYear } from "../hooks/useCategoriesForYear";
 import { IRevenue, IRevenueCategory, IRevenueSummary } from "../interfaces/api.interface";
 import {
   Alert,
@@ -71,6 +72,17 @@ export default function RevenuePage() {
     const [search, setSearch] = useState("");
 
     const [selectedYear, setSelectedYear] = useState(schoolYearStartForDate(new Date()));
+    // `revenueCategories` stays the full list — the table and the edit dialog
+    // must be able to name a category an existing entry points at, even one the
+    // year no longer offers. The add picker uses only the filing year's.
+    const { categories: addYearCategories } = useCategoriesForYear(getRevenueCategories, newSchoolYear);
+
+    // A category the newly chosen year does not offer cannot stay selected.
+    useEffect(() => {
+        if (!newCategoryId || addYearCategories.length === 0) return;
+        if (!addYearCategories.some((c) => c.id === newCategoryId)) setNewCategoryId("");
+    }, [addYearCategories, newCategoryId]);
+
     const newTotal = useMemo(() => {
         const parts = [newCash, newSquare, newEtransfer, newCheque].map((v) => Number(v || 0));
         return parts.reduce((sum, n) => sum + (Number.isFinite(n) ? n : 0), 0);
@@ -310,7 +322,7 @@ export default function RevenuePage() {
                                     value={newCategoryId}
                                     onChange={(e) => setNewCategoryId(e.target.value as any)}
                                 >
-                                    {revenueCategories.map(c => (
+                                    {addYearCategories.map(c => (
                                         <MenuItem key={c.id ?? c.name} value={c.id ?? ""}>{c.name}</MenuItem>
                                     ))}
                                 </Select>

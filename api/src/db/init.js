@@ -1025,6 +1025,50 @@ async function setupTables() {
     );
   `);
 
+  // Which categories a given school year offers. Categories keep one identity
+  // forever — entries, allocations and the budget's year-over-year comparison
+  // all join on category_id — so availability is a separate per-year list
+  // rather than a duplicated category row per year.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS expense_category_years (
+      school_year INTEGER NOT NULL,
+      category_id INTEGER NOT NULL REFERENCES expense_categories(id) ON DELETE CASCADE,
+      PRIMARY KEY (school_year, category_id)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS revenue_category_years (
+      school_year INTEGER NOT NULL,
+      category_id INTEGER NOT NULL REFERENCES revenue_categories(id) ON DELETE CASCADE,
+      PRIMARY KEY (school_year, category_id)
+    );
+  `);
+
+  // Backfill, once. Before these tables existed every category was offered in
+  // every year, so seed exactly that for the years already in the books —
+  // otherwise the upgrade empties every category picker.
+  //
+  // Guarded on the table being empty rather than ON CONFLICT DO NOTHING: this
+  // runs on every boot, and a blanket re-insert would undo every deliberate
+  // removal the next time the API restarted.
+  for (const [table, entryTable, allocTable, categoryTable] of [
+    ["expense_category_years", "expenses", "budget_expense_allocations", "expense_categories"],
+    ["revenue_category_years", "revenue", "budget_revenue_allocations", "revenue_categories"],
+  ]) {
+    const { rows } = await pool.query(`SELECT COUNT(*)::int AS c FROM ${table};`);
+    if ((rows[0]?.c ?? 0) > 0) continue;
+    await pool.query(`
+      INSERT INTO ${table} (school_year, category_id)
+      SELECT y.school_year, c.id
+      FROM ${categoryTable} c
+      CROSS JOIN (
+        SELECT school_year FROM ${entryTable} WHERE school_year IS NOT NULL
+        UNION SELECT school_year FROM ${allocTable}
+      ) y
+      ON CONFLICT DO NOTHING;
+    `);
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS budget_reconciliation (
       school_year         INTEGER PRIMARY KEY,

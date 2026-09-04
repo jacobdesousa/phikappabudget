@@ -141,6 +141,25 @@ export interface IExpenseCategory {
     name: string;
 }
 
+// A category as the config page sees it for one school year: whether the year
+// offers it, and what it is carrying there — the numbers that say what removing
+// it from the year would actually move.
+export interface ICategoryYearRow {
+    id: number;
+    name: string;
+    in_year: boolean;
+    entry_count: number;
+    entry_total: number | string;
+    budgeted_amount: number | string;
+}
+
+export interface ICategoryYearState {
+    school_year: number;
+    categories: ICategoryYearRow[];
+    // Years that already have a category list, newest first — the import sources.
+    years: number[];
+}
+
 export interface IExpense {
     id?: number;
     date: string | Date;

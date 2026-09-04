@@ -30,6 +30,7 @@ import { useAuth } from "../context/authContext";
 
 import { IExpense, IExpenseCategory, IBrother } from "../interfaces/api.interface";
 import { getExpenseCategories } from "../services/expenseCategoryService";
+import { useCategoriesForYear } from "../hooks/useCategoriesForYear";
 import { addExpense, addExpenseWithReceipt, getExpenses, updateExpense, uploadExpenseReceipt } from "../services/expensesService";
 import { getAllBrothers } from "../services/brotherService";
 import { schoolYearStartForDate } from "../utils/schoolYear";
@@ -115,6 +116,30 @@ export default function ExpensesPage() {
       ),
     [expenses]
   );
+
+  // `categories` above stays the full list — the filter dropdown and the table
+  // have to name a category an old entry still points at, even one this year no
+  // longer offers. The pickers below use only what their filing year offers.
+  const { categories: addYearCategories } = useCategoriesForYear(getExpenseCategories, newSchoolYear);
+  const editingYear = editing ? editing.school_year ?? schoolYearStartForDate(editing.date) : null;
+  const { categories: editYearCategories } = useCategoriesForYear(getExpenseCategories, editingYear);
+
+  // A category the newly chosen year does not offer cannot stay selected, so
+  // the field clears and asks for a new one rather than silently filing the
+  // entry under a category that year has retired.
+  useEffect(() => {
+    if (!newCategoryId || addYearCategories.length === 0) return;
+    if (!addYearCategories.some((c) => c.id === newCategoryId)) setNewCategoryId("");
+  }, [addYearCategories, newCategoryId]);
+
+  useEffect(() => {
+    if (!editing?.category_id || editYearCategories.length === 0) return;
+    if (!editYearCategories.some((c) => c.id === editing.category_id)) {
+      // 0 is the unselected sentinel: category_id is a required number on the
+      // entry, and the save guard already rejects a falsy one.
+      setEditing((prev) => (prev ? { ...prev, category_id: 0 } : prev));
+    }
+  }, [editYearCategories, editing?.category_id]);
 
   // Stable identities so the memoised ExpenseTable is not re-rendered by every
   // keystroke in the Add/Edit dialogs, which share this component's state.
@@ -802,7 +827,7 @@ export default function ExpensesPage() {
                   value={newCategoryId}
                   onChange={(e) => setNewCategoryId(e.target.value as any)}
                 >
-                  {categories.map((c) => (
+                  {addYearCategories.map((c) => (
                     <MenuItem key={c.id ?? c.name} value={c.id ?? ""}>
                       {c.name}
                     </MenuItem>
@@ -926,10 +951,10 @@ export default function ExpensesPage() {
                   <Select
                     labelId="exp-edit-cat-label"
                     label="Category"
-                    value={editing.category_id}
+                    value={editing.category_id || ""}
                     onChange={(e) => setEditing({ ...editing, category_id: Number(e.target.value) })}
                   >
-                    {categories.map((c) => (
+                    {editYearCategories.map((c) => (
                       <MenuItem key={c.id ?? c.name} value={c.id ?? ""}>
                         {c.name}
                       </MenuItem>
