@@ -40,6 +40,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Clear";
 import { formatMoney, normalizeMoneyInput, roundMoney, sanitizeMoneyInput } from "../utils/money";
 import { openAuthenticatedFile } from "../utils/openFile";
+import { toDateInputValue } from "../utils/date";
 import { approveExpense, disburseExpenses, rejectExpense } from "../services/expenseWorkflowService";
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
@@ -319,6 +320,12 @@ export default function ExpensesPage() {
     setError(undefined);
     if (!reviewing.reimburse_brother_id) {
       setError("Select a brother to reimburse before approving.");
+      return;
+    }
+    // A half-typed date leaves the input empty, and an empty date would be
+    // filed against a nonsense school year.
+    if (!reviewing.date) {
+      setError("Enter a valid date before approving.");
       return;
     }
     setReviewSaving(true);
@@ -900,7 +907,7 @@ export default function ExpensesPage() {
                 <TextField
                   label="Date"
                   type="date"
-                  value={new Date(editing.date).toISOString().slice(0, 10)}
+                  value={toDateInputValue(editing.date)}
                   onChange={(e) => setEditing({ ...editing, date: e.target.value })}
                   InputLabelProps={{ shrink: true }}
                   fullWidth
@@ -1052,7 +1059,7 @@ export default function ExpensesPage() {
                 <TextField
                   label="Date"
                   type="date"
-                  value={new Date(reviewing.date).toISOString().slice(0, 10)}
+                  value={toDateInputValue(reviewing.date)}
                   onChange={(e) => setReviewing({ ...reviewing, date: e.target.value })}
                   InputLabelProps={{ shrink: true }}
                   fullWidth
