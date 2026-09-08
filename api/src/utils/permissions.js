@@ -172,6 +172,43 @@ function normalizeRoleKey(value) {
   return k || null;
 }
 
+// What each role actually grants, according to the database.
+//
+// The role_permissions table is the source of truth once configured; the code
+// defaults above are only a fallback for a role with no rows. Callers must
+// resolve through this rather than letting computePermissions fall back to the
+// defaults, or they report what the code says instead of what the chapter set
+// — which is how the users page came to show tau with 36 permissions while the
+// role permissions page showed 11.
+//
+// `db` is the pg pool, passed in so this file stays free of a database import.
+async function resolveRolePermissions(db, roles) {
+  const keys = Array.from(new Set(roles.map((r) => String(r).toLowerCase())));
+  const effective = {};
+  let fromDb = new Map();
+  if (keys.length > 0) {
+    try {
+      const { rows } = await db.query(
+        `SELECT role_key, permission_key FROM role_permissions WHERE role_key = ANY($1::text[])`,
+        [keys]
+      );
+      for (const r of rows ?? []) {
+        const k = String(r.role_key ?? "").toLowerCase();
+        if (!fromDb.has(k)) fromDb.set(k, []);
+        fromDb.get(k).push(r.permission_key);
+      }
+    } catch {
+      // Table not present yet on a first boot; fall back to the code defaults.
+      fromDb = new Map();
+    }
+  }
+  for (const key of keys) {
+    const stored = fromDb.get(key);
+    effective[key] = stored && stored.length > 0 ? stored : ROLE_PERMISSIONS[key] ?? [];
+  }
+  return effective;
+}
+
 function computePermissions({ roles = [], overrides = [], rolePermissions = ROLE_PERMISSIONS }) {
   const set = new Set();
   for (const r of roles) {
@@ -187,6 +224,6 @@ function computePermissions({ roles = [], overrides = [], rolePermissions = ROLE
   return Array.from(set);
 }
 
-module.exports = { ROLE_PERMISSIONS, computePermissions, normalizeRoleKey };
+module.exports = { ROLE_PERMISSIONS, computePermissions, normalizeRoleKey, resolveRolePermissions };
 
 

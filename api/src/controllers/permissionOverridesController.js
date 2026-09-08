@@ -1,6 +1,6 @@
 const { pool } = require("../db/pool");
 const { auditAdminEvent } = require("../utils/auditEvents");
-const { computePermissions, normalizeRoleKey } = require("../utils/permissions");
+const { computePermissions, normalizeRoleKey, resolveRolePermissions } = require("../utils/permissions");
 const { hasMemberBaseline } = require("../utils/membership");
 
 function normalizeKey(value) {
@@ -84,6 +84,23 @@ async function listUsers(req, res) {
     overridesByUserId.get(uid).push({ permission_key: o.permission_key, effect: o.effect });
   }
 
+  // Every role in play across the listed users, resolved once against the
+  // database rather than per user.
+  const allRoles = new Set(["member"]);
+  for (const keys of activeOfficesByBrotherId.values()) {
+    for (const k of keys) {
+      const key = normalizeRoleKey(k);
+      if (key) allRoles.add(key);
+    }
+  }
+  for (const keys of rolesByUserId.values()) {
+    for (const k of keys) {
+      const key = normalizeRoleKey(k);
+      if (key) allRoles.add(key);
+    }
+  }
+  const effectiveRolePerms = await resolveRolePermissions(pool, Array.from(allRoles));
+
   const out = users.map((u) => {
     const uid = Number(u.id);
     let roles = [];
@@ -98,7 +115,7 @@ async function listUsers(req, res) {
     if (baseline && !roles.includes("member")) roles.push("member");
     roles = Array.from(new Set(roles));
     const overrides = overridesByUserId.get(uid) ?? [];
-    const permissions = computePermissions({ roles, overrides });
+    const permissions = computePermissions({ roles, overrides, rolePermissions: effectiveRolePerms });
 
     const officeKeys = u.brother_id ? (activeOfficesByBrotherId.get(Number(u.brother_id)) ?? []) : [];
     return {

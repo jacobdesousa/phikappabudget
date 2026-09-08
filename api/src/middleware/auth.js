@@ -2,7 +2,7 @@ const crypto = require("crypto");
 const { env } = require("../config/env");
 const { verifyHs256, signHs256 } = require("../utils/jwt");
 const { pool } = require("../db/pool");
-const { computePermissions, normalizeRoleKey, ROLE_PERMISSIONS } = require("../utils/permissions");
+const { computePermissions, normalizeRoleKey, resolveRolePermissions } = require("../utils/permissions");
 const { hasMemberBaseline } = require("../utils/membership");
 
 function parseCookies(req) {
@@ -117,31 +117,7 @@ async function loadAuthContext(req) {
   const overridesRes = await pool.query(`SELECT permission_key, effect FROM user_permission_overrides WHERE user_id = $1`, [userId]);
   const overrides = overridesRes.rows ?? [];
 
-  // Prefer DB-backed role permissions if configured; fallback to code defaults.
-  // This allows role permissions to be configured via admin UI.
-  let rolePermsMap = null;
-  try {
-    const rpRes = await pool.query(
-      `SELECT role_key, permission_key FROM role_permissions WHERE role_key = ANY($1::text[])`,
-      [roles]
-    );
-    rolePermsMap = new Map();
-    for (const r of rpRes.rows ?? []) {
-      const k = String(r.role_key ?? "");
-      if (!rolePermsMap.has(k)) rolePermsMap.set(k, []);
-      rolePermsMap.get(k).push(r.permission_key);
-    }
-  } catch {
-    rolePermsMap = null;
-  }
-
-  const effectiveRolePerms = {};
-  for (const r of roles) {
-    const key = String(r).toLowerCase();
-    const fromDb = rolePermsMap?.get(key);
-    if (fromDb && fromDb.length > 0) effectiveRolePerms[key] = fromDb;
-    else effectiveRolePerms[key] = ROLE_PERMISSIONS[key] ?? [];
-  }
+  const effectiveRolePerms = await resolveRolePermissions(pool, roles);
 
   const permissions = computePermissions({ roles, overrides, rolePermissions: effectiveRolePerms });
 
