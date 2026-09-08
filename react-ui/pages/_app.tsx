@@ -106,6 +106,8 @@ export default function App({ Component, pageProps }: AppProps) {
   // Print/submit/invite flows: light-only and no admin shell.
   if (
     router.pathname === "/invite/[token]" ||
+    router.pathname === "/forgot-password" ||
+    router.pathname === "/reset-password/[token]" ||
     router.pathname === "/expense-submit" ||
     router.pathname === "/meetings/[id]/print" ||
     router.pathname === "/workdays/[id]/print" ||
@@ -117,6 +119,10 @@ export default function App({ Component, pageProps }: AppProps) {
     const printTitle =
       router.pathname === "/invite/[token]"
         ? "PKS - Accept Invite"
+        : router.pathname === "/forgot-password"
+          ? "PKS - Reset Password"
+        : router.pathname === "/reset-password/[token]"
+          ? "PKS - Reset Password"
         : router.pathname === "/expense-submit"
           ? "PKS - Expense Submit"
           : router.pathname === "/meetings/[id]/print"
@@ -183,6 +189,8 @@ function InnerApp(props: { title: string; children: React.ReactNode }) {
     const publicPaths = new Set([
       "/login",
       "/invite/[token]",
+      "/forgot-password",
+      "/reset-password/[token]",
       "/expense-submit",
       "/meetings/[id]/print",
       "/workdays/[id]/print",

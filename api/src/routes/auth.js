@@ -10,7 +10,9 @@ const {
   inviteUser,
   acceptInvite,
   getInviteInfo,
-  devPasswordResetRequest,
+  requestPasswordReset,
+  getPasswordResetInfo,
+  resetPassword,
   listInvites,
   revokeInvite,
   reissueInvite,
@@ -50,7 +52,11 @@ router.post("/accept-invite", asyncHandler(acceptInvite));
 router.get("/invite-info/:token", asyncHandler(getInviteInfo));
 
 // Dev-only helper (Phase 1 placeholder)
-router.post("/forgot-password", asyncHandler(devPasswordResetRequest));
+// Unauthenticated by necessity — the point is that the user cannot get in.
+// Each answers identically whether or not the address has an account.
+router.post("/forgot-password", asyncHandler(requestPasswordReset));
+router.get("/reset-info/:token", asyncHandler(getPasswordResetInfo));
+router.post("/reset-password", asyncHandler(resetPassword));
 
 // Sessions (refresh token sessions) — admin only
 router.get("/sessions", requireAuth, requirePermission("admin.sessions"), asyncHandler(listSessions));

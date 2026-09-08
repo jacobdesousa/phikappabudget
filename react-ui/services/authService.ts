@@ -306,3 +306,40 @@ export async function stopViewAs(): Promise<void> {
   }
   setViewAs(null, null);
 }
+
+// Ask for a reset link. Always resolves the same way — the server answers
+// identically whether or not the address has an account, and the UI must not
+// undo that by behaving differently.
+export async function requestPasswordReset(email: string): Promise<{ reset_url?: string }> {
+  try {
+    const res = await apiClient.post("/auth/forgot-password", { email });
+    return { reset_url: res.data?.reset_url };
+  } catch {
+    return {};
+  }
+}
+
+export async function getPasswordResetInfo(
+  token: string
+): Promise<{ ok: true; email: string } | { ok: false; error: string }> {
+  try {
+    const res = await apiClient.get(`/auth/reset-info/${encodeURIComponent(token)}`);
+    return { ok: true, email: res.data?.email };
+  } catch (e) {
+    const err = parseApiError(e);
+    return { ok: false, error: err.message };
+  }
+}
+
+export async function resetPassword(
+  token: string,
+  password: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await apiClient.post("/auth/reset-password", { token, password });
+    return { ok: true };
+  } catch (e) {
+    const err = parseApiError(e);
+    return { ok: false, error: err.message };
+  }
+}

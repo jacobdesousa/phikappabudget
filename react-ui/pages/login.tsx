@@ -1,7 +1,8 @@
 import * as React from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
-import { Alert, Box, Button, Container, IconButton, Paper, Stack, TextField, Tooltip, Typography } from "@mui/material";
+import { Alert, Box, Button, Container, IconButton, Link as MuiLink, Paper, Stack, TextField, Tooltip, Typography } from "@mui/material";
+import Link from "next/link";
 import LoginIcon from "@mui/icons-material/Login";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
@@ -131,6 +132,12 @@ export default function LoginPage() {
               >
                 Sign in
               </Button>
+
+              <Box sx={{ textAlign: "center" }}>
+                <MuiLink component={Link} href="/forgot-password" variant="body2" underline="hover">
+                  Forgot your password?
+                </MuiLink>
+              </Box>
             </Stack>
           </Paper>
 

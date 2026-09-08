@@ -769,6 +769,24 @@ async function setupTables() {
     );
   }
 
+  // Password resets. Same shape as invite_tokens: only the hash is stored, so a
+  // leaked database row cannot be turned back into a working link.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      requested_ip TEXT
+    );
+  `);
+  await createIndexIfMissing(
+    "password_reset_tokens_user_idx",
+    `CREATE INDEX password_reset_tokens_user_idx ON password_reset_tokens (user_id, created_at DESC);`
+  );
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS user_permission_overrides (
       user_id INTEGER NOT NULL,

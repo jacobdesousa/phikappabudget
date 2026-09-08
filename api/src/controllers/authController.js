@@ -363,18 +363,205 @@ async function acceptInvite(req, res) {
   }
 }
 
-async function devPasswordResetRequest(req, res) {
-  // Phase 1: just a dev-only helper to avoid blocking login testing.
-  const email = normalizeEmail(req.body?.email);
-  if (!email) return res.status(200).json({ ok: true });
-  const userRes = await pool.query(`SELECT id FROM users WHERE email = $1`, [email]);
-  const u = userRes.rows?.[0];
-  if (!u) return res.status(200).json({ ok: true });
+// How long a reset link is good for. Much shorter than an invite's week: a
+// reset is acted on within minutes, and the link is enough to take an account
+// over.
+const RESET_TTL_MS = 60 * 60 * 1000;
 
-  const raw = crypto.randomBytes(24).toString("hex");
-  const url = `${env.appBaseUrl.replace(/\/$/, "")}/reset-password/${raw}`;
-  devLog("RESET_LINK", url);
-  return res.status(200).json({ ok: true, reset_url: env.nodeEnv !== "production" ? url : undefined });
+// Throttle, per account. Enough to cover a mistyped address or a mail delay,
+// low enough that the endpoint cannot be used to flood someone's inbox.
+const RESET_MAX_PER_WINDOW = 3;
+const RESET_WINDOW_MS = 15 * 60 * 1000;
+
+function resetEmailHtml(resetUrl, firstName) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:sans-serif;margin:0;padding:32px 16px;background:#f5f5f5">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e0e0e0">
+    <tr><td style="background:#1a1a2e;padding:20px 32px">
+      <table cellpadding="0" cellspacing="0"><tr>
+        <td style="padding-right:12px;vertical-align:middle">
+          <img src="${LOGO_URL}" alt="Alpha Beta" width="36" height="36" style="display:block">
+        </td>
+        <td style="vertical-align:middle">
+          <div style="color:#fff;font-size:17px;font-weight:700;letter-spacing:.3px">Phi Kappa Sigma</div>
+          <div style="color:#aaa;font-size:12px;margin-top:1px">Alpha Beta Chapter</div>
+        </td>
+      </tr></table>
+    </td></tr>
+    <tr><td style="padding:32px">
+      <p style="margin:0 0 16px;font-size:16px;color:#111">${firstName ? `Hi ${esc(firstName)},` : "Hi,"}</p>
+      <p style="margin:0 0 16px;font-size:14px;color:#333">
+        Someone asked to reset the password on your chapter portal account. Use the button below
+        within the next hour to choose a new one.
+      </p>
+      <table cellpadding="0" cellspacing="0" style="margin:24px 0">
+        <tr><td style="background:#1a1a2e;border-radius:6px;padding:12px 24px">
+          <a href="${resetUrl}" target="_blank" style="color:#fff;text-decoration:none;font-size:15px;font-weight:600;font-family:sans-serif">Reset password</a>
+        </td></tr>
+      </table>
+      <p style="margin:0 0 8px;font-size:12px;color:#888">Or copy this link: ${resetUrl}</p>
+      <p style="margin:16px 0 0;font-size:13px;color:#555">
+        If you did not ask for this, you can ignore this email — your password stays as it is, and
+        the link expires on its own.
+      </p>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+function esc(value) {
+  return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Ask for a reset link.
+//
+// Always answers the same way, whether or not the address belongs to an
+// account. Anything else turns this into a membership oracle: type an address,
+// read the response, learn who has a login here.
+async function requestPasswordReset(req, res) {
+  const email = normalizeEmail(req.body?.email);
+  const ok = { ok: true };
+
+  if (!email) return res.status(200).json(ok);
+
+  const userRes = await pool.query(`SELECT id, email, status, brother_id FROM users WHERE email = $1`, [email]);
+  const u = userRes.rows?.[0];
+  // A disabled account cannot log in, so a reset would achieve nothing.
+  if (!u || u.status !== "active") return res.status(200).json(ok);
+
+  const recentRes = await pool.query(
+    `SELECT COUNT(*)::int AS c FROM password_reset_tokens
+     WHERE user_id = $1 AND created_at > NOW() - ($2::int * INTERVAL '1 millisecond')`,
+    [u.id, RESET_WINDOW_MS]
+  );
+  if ((recentRes.rows?.[0]?.c ?? 0) >= RESET_MAX_PER_WINDOW) {
+    // Silently, for the same reason: a throttle message is itself a signal that
+    // the address exists.
+    return res.status(200).json(ok);
+  }
+
+  // One live link at a time. An older one still working after a new request is
+  // a link the user has probably forgotten about.
+  await pool.query(
+    `UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL`,
+    [u.id]
+  );
+
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  await pool.query(
+    `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, requested_ip)
+     VALUES ($1, $2, $3, $4)`,
+    [u.id, hashToken(rawToken), new Date(Date.now() + RESET_TTL_MS), req.ip ?? null]
+  );
+
+  let firstName = null;
+  if (u.brother_id) {
+    const bRes = await pool.query(`SELECT first_name FROM brothers WHERE id = $1`, [u.brother_id]);
+    firstName = bRes.rows?.[0]?.first_name ?? null;
+  }
+
+  const resetUrl = `${env.appBaseUrl.replace(/\/$/, "")}/reset-password/${rawToken}`;
+  devLog("RESET_LINK", resetUrl);
+  await auditAuthEvent(req, res, {
+    action: "auth.password_reset.request",
+    actor_email: u.email,
+    target_type: "user",
+    target_id: String(u.id),
+  });
+
+  await sendMail({
+    to: u.email,
+    subject: "Reset your Phi Kappa Sigma - Alpha Beta password",
+    html: resetEmailHtml(resetUrl, firstName),
+    text: `${firstName ? `Hi ${firstName},\n\n` : ""}Reset your password here: ${resetUrl}\n\nThis link expires in 1 hour. If you did not ask for this, ignore this email.`,
+  });
+
+  // The mailer sends for real only on "ses" and prints for anything else, so
+  // the link has to come back for anything else too — matching on "dev" alone
+  // would leave a misconfigured provider with neither a mail nor a link.
+  const payload = { ...ok };
+  if (env.mail.provider !== "ses" && env.nodeEnv !== "production") payload.reset_url = resetUrl;
+  return res.status(200).json(payload);
+}
+
+// Whether a link is still good, so the page can say what is wrong before the
+// user types a new password into a form that cannot work.
+async function getPasswordResetInfo(req, res) {
+  const token = String(req.params.token ?? "").trim();
+  if (!token) return res.status(400).json({ error: { message: "Token required" } });
+
+  const { rows } = await pool.query(
+    `SELECT t.used_at, t.expires_at, u.email
+     FROM password_reset_tokens t JOIN users u ON u.id = t.user_id
+     WHERE t.token_hash = $1`,
+    [hashToken(token)]
+  );
+  const row = rows?.[0];
+  if (!row) return res.status(404).json({ error: { message: "This reset link is not valid." } });
+  if (row.used_at) return res.status(410).json({ error: { message: "This reset link has already been used." } });
+  if (new Date(row.expires_at) < new Date()) {
+    return res.status(410).json({ error: { message: "This reset link has expired." } });
+  }
+  return res.status(200).json({ email: row.email });
+}
+
+// Set the new password.
+//
+// Every existing session is revoked. If the reset was prompted by someone else
+// having the account, leaving their refresh token alive would make the whole
+// exercise pointless.
+async function resetPassword(req, res) {
+  const token = String(req.body?.token ?? "").trim();
+  const password = String(req.body?.password ?? "");
+  if (!token || !password) {
+    return res.status(400).json({ error: { message: "Token and password are required." } });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: { message: "Password must be at least 8 characters." } });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Locked for the duration so the same link cannot be spent twice by two
+    // requests arriving together.
+    const { rows } = await client.query(
+      `SELECT t.id, t.user_id, t.used_at, t.expires_at, u.email
+       FROM password_reset_tokens t JOIN users u ON u.id = t.user_id
+       WHERE t.token_hash = $1 FOR UPDATE OF t`,
+      [hashToken(token)]
+    );
+    const row = rows?.[0];
+    if (!row || row.used_at || new Date(row.expires_at) < new Date()) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: { message: "This reset link is no longer valid. Request a new one." } });
+    }
+
+    await client.query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [hashPassword(password), row.user_id]);
+    await client.query(`UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1`, [row.id]);
+    await client.query(
+      `UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL`,
+      [row.user_id]
+    );
+    await client.query("COMMIT");
+
+    await auditAuthEvent(req, res, {
+      action: "auth.password_reset.complete",
+      actor_email: row.email,
+      target_type: "user",
+      target_id: String(row.user_id),
+    });
+    // Signing in with the new password is the confirmation that it took.
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 async function listInvites(req, res) {
@@ -484,6 +671,9 @@ async function getInviteInfo(req, res) {
 }
 
 module.exports = {
+  requestPasswordReset,
+  getPasswordResetInfo,
+  resetPassword,
   startViewAs,
   stopViewAs,
   login,
@@ -493,7 +683,6 @@ module.exports = {
   inviteUser,
   acceptInvite,
   getInviteInfo,
-  devPasswordResetRequest,
   listInvites,
   revokeInvite,
   reissueInvite,
