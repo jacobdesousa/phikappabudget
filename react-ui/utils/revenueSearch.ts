@@ -1,5 +1,6 @@
 import { IRevenue } from "../interfaces/api.interface";
 import { schoolYearLabel } from "./schoolYear";
+import { toDateInputValue, toLocalDateOnly } from "./date";
 
 // Free-text search over a revenue entry: description, category, date, school
 // year and every amount. Tokens are AND-ed, each only has to match somewhere.
@@ -13,10 +14,12 @@ function normalize(value: unknown): string {
 }
 
 function haystack(entry: IRevenue): string {
-  const date = entry.date ? new Date(entry.date) : null;
+  // Date-only, so the text searched matches the date the table displays rather
+  // than one shifted by the viewer's timezone.
+  const date = toLocalDateOnly(entry.date);
   const dateForms = date
     ? [
-        date.toISOString().slice(0, 10),
+        toDateInputValue(entry.date),
         date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }),
         date.toLocaleDateString(undefined, { year: "numeric", month: "long" }),
       ]

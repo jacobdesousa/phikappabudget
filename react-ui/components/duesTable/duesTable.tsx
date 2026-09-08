@@ -27,6 +27,7 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import { formatMoney } from "../../utils/money";
+import { formatDateOnly } from "../../utils/date";
 
 interface Props {
     brothersData: Array<IBrother>;
@@ -55,11 +56,8 @@ export default function DuesTable(props: Props) {
     // information here, so the column reads ragged. "Aug 18, 2026" is steadier.
     function getDateDisplay(date?: string | Date | null): string {
         if (!date) return "";
-        return new Date(date).toLocaleDateString(undefined, {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-        });
+        // Date-only: a payment date is a calendar date, not an instant.
+        return formatDateOnly(date);
     }
 
     function getSummaryForBrother(brotherId?: number) {

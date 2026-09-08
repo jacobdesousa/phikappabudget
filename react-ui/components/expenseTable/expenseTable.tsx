@@ -21,6 +21,7 @@ import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import { IExpense } from "../../interfaces/api.interface";
 import { formatMoney } from "../../utils/money";
+import { formatDateOnly } from "../../utils/date";
 
 interface Props {
     data: Array<IExpense>;
@@ -36,13 +37,9 @@ interface Props {
 const CELL_SX = { py: 0.25, px: 1, fontSize: "0.8rem", whiteSpace: "nowrap" as const };
 const HEAD_SX = { ...CELL_SX, py: 0.75, fontWeight: 700 };
 
+// Date-only: an expense date is a calendar date, not an instant.
 function formatDate(value: string | Date | null | undefined): string {
-    if (!value) return "—";
-    return new Date(value).toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-    });
+    return formatDateOnly(value);
 }
 
 export function reimburseName(e: IExpense): string {

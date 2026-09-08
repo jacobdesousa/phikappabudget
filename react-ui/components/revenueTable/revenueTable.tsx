@@ -21,6 +21,7 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import { IRevenue } from "../../interfaces/api.interface";
 import { formatMoney } from "../../utils/money";
+import { formatDateOnly } from "../../utils/date";
 import { schoolYearLabel, schoolYearStartForDate } from "../../utils/schoolYear";
 
 interface Props {
@@ -39,13 +40,9 @@ interface Props {
 const CELL_SX = { py: 0.25, px: 1, fontSize: "0.8rem", whiteSpace: "nowrap" as const };
 const HEAD_SX = { ...CELL_SX, py: 0.75, fontWeight: 700 };
 
+// Date-only: a revenue date is a calendar date, not an instant.
 function formatDate(value: string | Date | null | undefined): string {
-    if (!value) return "—";
-    return new Date(value).toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-    });
+    return formatDateOnly(value);
 }
 
 // The streams that actually carry money on this entry. Showing all four every

@@ -11,9 +11,10 @@ import {
 } from "@mui/material";
 import Link from "next/link";
 import { getNotifications, type UpcomingShift } from "../services/notificationsService";
+import { formatDateOnly } from "../utils/date";
 
 function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  return formatDateOnly(d, { weekday: "short", month: "short", day: "numeric" });
 }
 
 function shiftLabel(t: UpcomingShift["shift_type"]) {

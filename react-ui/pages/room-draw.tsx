@@ -43,6 +43,7 @@ import {
     getStandings,
 } from "../services/roomDrawService";
 import { getAllBrothers } from "../services/brotherService";
+import { formatDateOnly } from "../utils/date";
 import { IBrother } from "../interfaces/api.interface";
 
 function BreakdownRow({ label, value, color }: { label: string; value: number | string; color?: string }) {
@@ -113,7 +114,7 @@ function StandingRow({
                 </TableCell>
                 <TableCell align="right" sx={{ color: "text.secondary", fontSize: "0.8rem" }}>
                     {standing.accumulation_end
-                        ? new Date(standing.accumulation_end).toLocaleDateString("en-CA", { year: "numeric", month: "short" })
+                        ? formatDateOnly(standing.accumulation_end, { year: "numeric", month: "short" }, "en-CA")
                         : "—"}
                 </TableCell>
             </TableRow>
@@ -155,9 +156,9 @@ function StandingRow({
                                                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                                                     <Typography variant="body2" fontWeight={600}>{t.display_name}</Typography>
                                                     <Typography variant="caption" color="text.secondary">
-                                                        {new Date(t.start_date).toLocaleDateString("en-CA", { year: "numeric", month: "short" })}
+                                                        {formatDateOnly(t.start_date, { year: "numeric", month: "short" }, "en-CA")}
                                                         {" – "}
-                                                        {t.end_date ? new Date(t.end_date).toLocaleDateString("en-CA", { year: "numeric", month: "short" }) : "Present"}
+                                                        {t.end_date ? formatDateOnly(t.end_date, { year: "numeric", month: "short" }, "en-CA") : "Present"}
                                                     </Typography>
                                                 </Stack>
                                                 {t.semesters.length > 0 && (
