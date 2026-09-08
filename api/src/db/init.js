@@ -755,6 +755,20 @@ async function setupTables() {
     }
   }
 
+  // Permissions added to the code defaults after a database was first seeded.
+  // The seed above only fires on an empty table, so without this an existing
+  // install never gains a newly-declared permission.
+  for (const [roleKey, permissionKey] of [["admin", "admin.viewAs"]]) {
+    await pool.query(
+      `INSERT INTO role_permissions (role_key, permission_key)
+       SELECT $1, $2
+       WHERE NOT EXISTS (
+         SELECT 1 FROM role_permissions WHERE role_key = $1 AND permission_key = $2
+       );`,
+      [roleKey, permissionKey]
+    );
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS user_permission_overrides (
       user_id INTEGER NOT NULL,

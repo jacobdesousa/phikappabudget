@@ -14,6 +14,8 @@ const {
   listInvites,
   revokeInvite,
   reissueInvite,
+  startViewAs,
+  stopViewAs,
 } = require("../controllers/authController");
 const { listSessions, revokeSession, revokeAllSessions } = require("../controllers/sessionsController");
 const {
@@ -33,6 +35,11 @@ router.post("/refresh", asyncHandler(refresh));
 router.post("/logout", asyncHandler(logout));
 
 router.get("/me", requireAuth, asyncHandler(me));
+
+// View the app as another user. Gated on the admin's own permissions inside the
+// handler, since the request arrives on their real token.
+router.post("/view-as", requireAuth, auditWrites(), asyncHandler(startViewAs));
+router.post("/view-as/stop", requireAuth, auditWrites(), asyncHandler(stopViewAs));
 
 // Invite-only onboarding (admin)
 router.post("/invite", requireAuth, auditWrites(), requirePermission("admin.users"), asyncHandler(inviteUser));

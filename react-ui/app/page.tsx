@@ -20,11 +20,12 @@ import {
 } from "@mui/material";
 import LoginIcon from "@mui/icons-material/Login";
 import { APP_MODULES } from "../components/navigation/modules";
+import ViewAsBanner from "../components/ViewAsBanner";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { me } from "../services/authService";
-import { getAccessToken, redirectToLogin } from "../services/apiClient";
+import { getAccessToken, getViewAsToken, redirectToLogin, setViewAs } from "../services/apiClient";
 import { logout } from "../services/authService";
 import { useColorMode } from "../theme/colorMode";
 
@@ -71,6 +72,14 @@ export default function LandingPage() {
         setLoading(false);
       } catch {
         if (cancelled) return;
+        // A "view as" session that will not load is a dead end: the admin's own
+        // token is still good, so drop the session and come back as themselves
+        // rather than bouncing them to login.
+        if (getViewAsToken()) {
+          setViewAs(null, null);
+          window.location.reload();
+          return;
+        }
         setPermissions(null);
         setUserEmail(null);
         setError(null);
@@ -91,6 +100,9 @@ export default function LandingPage() {
   return (
     <Box sx={{ bgcolor: "background.default", minHeight: "100vh", py: { xs: 3, md: 6 } }}>
       <Container maxWidth="lg">
+        {/* The one page an admin is guaranteed to land on after starting a
+            "view as" session, so the way out has to be here. */}
+        <ViewAsBanner />
         <Stack spacing={3}>
           {/* Header row */}
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
@@ -160,7 +172,21 @@ export default function LandingPage() {
           ) : null}
 
           {!loading && permissions && visibleModules.length === 0 ? (
-            <Alert severity="warning">No modules are available for your account yet. Ask the Tau to grant access.</Alert>
+            <Paper elevation={2} sx={{ p: { xs: 2, md: 3 } }}>
+              <Stack spacing={1.5} alignItems="flex-start">
+                <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                  No access yet
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Your account is active, but no permissions have been granted to it, so there is
+                  nothing to show. Access comes from the office on your brother record — ask the Tau
+                  or an admin to set one, or to grant you access directly.
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Signed in as {userEmail ?? "this account"}.
+                </Typography>
+              </Stack>
+            </Paper>
           ) : null}
 
           {!loading && permissions && visibleModules.length > 0 ? (

@@ -3,6 +3,10 @@ const ROLE_PERMISSIONS = {
   admin: [
     "admin.sessions",
     "admin.users",
+    // Opening the app as another user, to check what their roles actually see.
+    // Deliberately not given to tau: admin.users is broad enough already, and
+    // wearing someone else's account is a separate decision.
+    "admin.viewAs",
     "brothers.read",
     "brothers.write",
     "dues.read",

@@ -30,6 +30,7 @@ import { logout } from "../../services/authService";
 import { useAuth } from "../../context/authContext";
 import { APP_MODULES } from "../navigation/modules";
 import { getNotifications } from "../../services/notificationsService";
+import ViewAsBanner from "../ViewAsBanner";
 
 const drawerWidth = 260;
 
@@ -221,6 +222,9 @@ export function AppShell(props: { title: string; children: React.ReactNode }) {
           mt: "64px",
         }}
       >
+        {/* Inside main, directly under the fixed header — it sticks there while
+            the page scrolls, so a "view as" session is never off screen. */}
+        <ViewAsBanner top="64px" />
         {props.children}
       </Box>
     </Box>

@@ -60,6 +60,54 @@ export function setAccessToken(token: string | null) {
   else window.localStorage.setItem(ACCESS_TOKEN_KEY, token);
 }
 
+// A "view as" session lives in sessionStorage, not localStorage: it belongs to
+// this tab, ends with it, and never outlives the browser session. The admin's
+// own token stays untouched in localStorage the whole time, so leaving the
+// session is instant and needs no round trip.
+const VIEW_AS_TOKEN_KEY = "pks_view_as_token";
+const VIEW_AS_USER_KEY = "pks_view_as_user";
+
+export type ViewAsUser = {
+  id: number;
+  email: string;
+  first_name?: string | null;
+  last_name?: string | null;
+};
+
+export function getViewAsToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.sessionStorage.getItem(VIEW_AS_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function getViewAsUser(): ViewAsUser | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(VIEW_AS_USER_KEY);
+    return raw ? (JSON.parse(raw) as ViewAsUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setViewAs(token: string | null, user: ViewAsUser | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (!token || !user) {
+      window.sessionStorage.removeItem(VIEW_AS_TOKEN_KEY);
+      window.sessionStorage.removeItem(VIEW_AS_USER_KEY);
+      return;
+    }
+    window.sessionStorage.setItem(VIEW_AS_TOKEN_KEY, token);
+    window.sessionStorage.setItem(VIEW_AS_USER_KEY, JSON.stringify(user));
+  } catch {
+    // Private browsing with storage disabled: the session simply won't persist.
+  }
+}
+
 let refreshPromise: Promise<string | null> | null = null;
 
 async function refreshAccessToken(): Promise<string | null> {
@@ -87,7 +135,9 @@ export function redirectToLogin(reason: "expired" | "unauthorized" = "unauthoriz
 }
 
 apiClient.interceptors.request.use((config) => {
-  const token = getAccessToken();
+  // While viewing as someone, every request goes out as them — otherwise the
+  // page would show one identity and act as another.
+  const token = getViewAsToken() ?? getAccessToken();
   if (token) {
     config.headers = config.headers ?? {};
     (config.headers as any).Authorization = `Bearer ${token}`;
@@ -111,6 +161,15 @@ apiClient.interceptors.response.use(
     // The refresh/logout calls must never re-enter the refresh flow: doing so would
     // await the very request whose handler is running, and hang forever.
     if (url.startsWith("/auth/refresh") || url.startsWith("/auth/logout")) {
+      return Promise.reject(error);
+    }
+
+    // A view-as token cannot be refreshed — the refresh cookie belongs to the
+    // admin, so refreshing would quietly hand the page back to them while the
+    // banner still claimed otherwise. Expiring ends the session instead.
+    if (status === 401 && getViewAsToken()) {
+      setViewAs(null, null);
+      if (typeof window !== "undefined") window.location.reload();
       return Promise.reject(error);
     }
 

@@ -1,5 +1,10 @@
 import * as React from "react";
-import { me as fetchMe, type AuthUser } from "../services/authService";
+import {
+  me as fetchMe,
+  startViewAs as startViewAsRequest,
+  stopViewAs as stopViewAsRequest,
+  type AuthUser,
+} from "../services/authService";
 import { getAccessToken } from "../services/apiClient";
 
 type AuthState = {
@@ -9,6 +14,12 @@ type AuthState = {
   refresh: () => Promise<void>;
   can: (permission: string) => boolean;
   canAny: (permissions: string[]) => boolean;
+  // The admin behind a "view as" session, or null in a normal one. Read from
+  // /me rather than from what the client stored, so the banner can never
+  // disagree with the identity the server is actually applying.
+  viewingAs: { id: number; email: string } | null;
+  startViewAs: (userId: number) => Promise<{ ok: boolean; error?: string }>;
+  stopViewAs: () => Promise<void>;
 };
 
 const AuthContext = React.createContext<AuthState | undefined>(undefined);
@@ -50,6 +61,21 @@ export function AuthProvider(props: { children: React.ReactNode }) {
     void refresh();
   }, [refresh]);
 
+  // A full reload on entering and leaving: every page holds data fetched as
+  // whoever was active, and re-running one query while stale lists sit around
+  // is a worse lie than a brief flash.
+  const startViewAs = React.useCallback(async (userId: number) => {
+    const res = await startViewAsRequest(userId);
+    if (!res.ok) return { ok: false, error: res.error };
+    window.location.assign("/");
+    return { ok: true };
+  }, []);
+
+  const stopViewAs = React.useCallback(async () => {
+    await stopViewAsRequest();
+    window.location.assign("/");
+  }, []);
+
   const can = React.useCallback(
     (permission: string) => {
       return permissions.includes(permission);
@@ -67,8 +93,18 @@ export function AuthProvider(props: { children: React.ReactNode }) {
   );
 
   const value = React.useMemo<AuthState>(
-    () => ({ loading, user, permissions, refresh, can, canAny }),
-    [loading, user, permissions, refresh, can, canAny]
+    () => ({
+      loading,
+      user,
+      permissions,
+      refresh,
+      can,
+      canAny,
+      viewingAs: user?.impersonator ?? null,
+      startViewAs,
+      stopViewAs,
+    }),
+    [loading, user, permissions, refresh, can, canAny, startViewAs, stopViewAs]
   );
 
   return <AuthContext.Provider value={value}>{props.children}</AuthContext.Provider>;

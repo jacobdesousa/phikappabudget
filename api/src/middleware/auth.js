@@ -29,6 +29,31 @@ function makeAccessToken(userId) {
   return signHs256({ sub: userId, iat: now, exp }, env.auth.jwtAccessSecret);
 }
 
+// How long a "view as" session lasts before it has to be re-minted.
+const VIEW_AS_TTL_SECONDS = 30 * 60;
+
+// A token that *is* the target user, with the admin who opened it recorded as
+// the actor.
+//
+// `sub` is the target, so every permission check, query and page behaves
+// exactly as it does for them — which is the whole point, and means nothing
+// else in the app needs to know this is happening. `act` is the delegation
+// claim: the audit log reads it instead of `sub`, so an action taken while
+// viewing as someone is attributed to the admin who really took it.
+//
+// No refresh token is issued. This expires on its own and cannot be renewed
+// into a real session for the target.
+function makeViewAsToken(targetUserId, actorUserId) {
+  const now = Math.floor(Date.now() / 1000);
+  return {
+    token: signHs256(
+      { sub: targetUserId, act: actorUserId, iat: now, exp: now + VIEW_AS_TTL_SECONDS },
+      env.auth.jwtAccessSecret
+    ),
+    expires_in: VIEW_AS_TTL_SECONDS,
+  };
+}
+
 function requireAuth(req, res, next) {
   const auth = String(req.headers.authorization ?? "");
   const m = auth.match(/^Bearer\s+(.+)$/i);
@@ -38,7 +63,12 @@ function requireAuth(req, res, next) {
   if (!result.ok) return res.status(401).json({ error: { message: "Unauthorized" } });
   const userId = Number(result.payload?.sub);
   if (!Number.isFinite(userId) || userId <= 0) return res.status(401).json({ error: { message: "Unauthorized" } });
-  req.auth = { userId };
+  // `act` is present only on a "view as" token: the admin actually driving.
+  const actorUserId = Number(result.payload?.act);
+  req.auth = {
+    userId,
+    actorUserId: Number.isFinite(actorUserId) && actorUserId > 0 ? actorUserId : null,
+  };
   next();
 }
 
@@ -115,12 +145,28 @@ async function loadAuthContext(req) {
 
   const permissions = computePermissions({ roles, overrides, rolePermissions: effectiveRolePerms });
 
+  // The admin behind a "view as" session. Everything else on the context is the
+  // target's, so the app behaves as it does for them; this is what the audit
+  // log attributes actions to.
+  let impersonator = null;
+  if (req.auth?.actorUserId && req.auth.actorUserId !== u.id) {
+    const actorRes = await pool.query(
+      `SELECT id, email, status FROM users WHERE id = $1`,
+      [req.auth.actorUserId]
+    );
+    const actor = actorRes.rows?.[0];
+    // An admin who has since been deactivated cannot keep driving a session.
+    if (!actor || actor.status !== "active") return null;
+    impersonator = { id: actor.id, email: actor.email };
+  }
+
   req.user = {
     id: u.id,
     email: u.email,
     brother_id: u.brother_id,
     roles,
     permissions,
+    impersonator,
   };
   return req.user;
 }
@@ -192,6 +238,8 @@ function clearRefreshCookie(res) {
 
 module.exports = {
   requireAuth,
+  makeViewAsToken,
+  VIEW_AS_TTL_SECONDS,
   requirePermission,
   loadAuthContext,
   makeAccessToken,

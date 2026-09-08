@@ -11,6 +11,7 @@ const {
   clearRefreshCookie,
   hashToken,
   loadAuthContext,
+  makeViewAsToken,
 } = require("../middleware/auth");
 const { auditAuthEvent, auditAdminEvent } = require("../utils/auditEvents");
 const { sendMail } = require("../utils/mailer");
@@ -150,7 +151,95 @@ async function me(req, res) {
     brother_first_name = bRes.rows[0]?.first_name ?? null;
     brother_last_name = bRes.rows[0]?.last_name ?? null;
   }
-  return res.status(200).json({ id: ctx.id, email: ctx.email, roles: ctx.roles, permissions: ctx.permissions, brother_id: ctx.brother_id, brother_first_name, brother_last_name });
+  return res.status(200).json({
+    id: ctx.id,
+    email: ctx.email,
+    roles: ctx.roles,
+    permissions: ctx.permissions,
+    brother_id: ctx.brother_id,
+    brother_first_name,
+    brother_last_name,
+    // Present only inside a "view as" session: everything above is the target's,
+    // this is the admin driving it. The banner keys off this rather than
+    // anything the client stores, so it cannot get out of step with the token.
+    impersonator: ctx.impersonator ?? null,
+  });
+}
+
+// Open the app as another user, to see what their roles actually give them.
+//
+// Mints a token that is the target, carrying this admin as the actor claim, and
+// no refresh token — so it expires on its own and can never become a real
+// session for them. Writes are allowed: a permission set you cannot exercise is
+// not really being tested. They are attributed to the admin in the audit log.
+async function startViewAs(req, res) {
+  const ctx = await loadAuthContext(req);
+  if (!ctx) return res.status(401).json({ error: { message: "Unauthorized" } });
+
+  // No nesting: a view-as session cannot open another one, which would make the
+  // actor chain ambiguous.
+  if (ctx.impersonator) {
+    return res.status(409).json({ error: { message: "Already viewing as another user." } });
+  }
+  if (!ctx.permissions.includes("admin.viewAs")) {
+    return res.status(403).json({ error: { message: "Forbidden" } });
+  }
+
+  const targetId = Number(req.body?.user_id);
+  if (!Number.isFinite(targetId) || targetId <= 0) {
+    return res.status(400).json({ error: { message: "user_id is required." } });
+  }
+  if (targetId === ctx.id) {
+    return res.status(400).json({ error: { message: "You are already yourself." } });
+  }
+
+  const targetRes = await pool.query(
+    `SELECT u.id, u.email, u.status, b.first_name, b.last_name
+     FROM users u LEFT JOIN brothers b ON b.id = u.brother_id
+     WHERE u.id = $1`,
+    [targetId]
+  );
+  const target = targetRes.rows?.[0];
+  if (!target) return res.status(404).json({ error: { message: "User not found." } });
+  if (target.status !== "active") {
+    return res.status(400).json({ error: { message: "That user's account is not active." } });
+  }
+
+  const { token, expires_in } = makeViewAsToken(target.id, ctx.id);
+  await auditAdminEvent(req, res, {
+    action: "admin.view_as.start",
+    target_type: "user",
+    target_id: String(target.id),
+    details: { target_email: target.email },
+  });
+
+  return res.status(200).json({
+    access_token: token,
+    expires_in,
+    user: {
+      id: target.id,
+      email: target.email,
+      first_name: target.first_name ?? null,
+      last_name: target.last_name ?? null,
+    },
+  });
+}
+
+// Ending a session is a client-side matter — it drops the token and goes back to
+// its own. This exists so the audit log records the end as well as the start.
+async function stopViewAs(req, res) {
+  const ctx = await loadAuthContext(req);
+  if (!ctx) return res.status(401).json({ error: { message: "Unauthorized" } });
+  if (!ctx.impersonator) {
+    return res.status(400).json({ error: { message: "Not viewing as another user." } });
+  }
+  await auditAdminEvent(req, res, {
+    action: "admin.view_as.stop",
+    target_type: "user",
+    target_id: String(ctx.id),
+    details: { target_email: ctx.email },
+  });
+  return res.status(200).json({ ok: true });
 }
 
 async function inviteUser(req, res) {
@@ -395,6 +484,8 @@ async function getInviteInfo(req, res) {
 }
 
 module.exports = {
+  startViewAs,
+  stopViewAs,
   login,
   refresh,
   logout,

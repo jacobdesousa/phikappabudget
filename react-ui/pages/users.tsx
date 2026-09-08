@@ -35,6 +35,7 @@ import {
   type PermissionOverrideRow,
 } from "../services/authService";
 import { useAuth } from "../context/authContext";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import {
   Dialog,
   DialogActions,
@@ -44,7 +45,8 @@ import {
 } from "@mui/material";
 
 export default function UsersPage() {
-  const { can } = useAuth();
+  const { can, user, startViewAs } = useAuth();
+  const canViewAs = can("admin.viewAs");
   const isAdmin = can("admin.users");
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -56,6 +58,10 @@ export default function UsersPage() {
   const [userSearch, setUserSearch] = React.useState("");
   const [updatingUserId, setUpdatingUserId] = React.useState<number | null>(null);
   const [permOpen, setPermOpen] = React.useState(false);
+  // Confirmed rather than immediate: the session writes as this person, so the
+  // click that starts it should be deliberate.
+  const [viewAsTarget, setViewAsTarget] = React.useState<AdminUserRow | null>(null);
+  const [viewAsBusy, setViewAsBusy] = React.useState(false);
   const [permUser, setPermUser] = React.useState<AdminUserRow | null>(null);
   const [confirmDisableOpen, setConfirmDisableOpen] = React.useState(false);
   const [confirmDisableUser, setConfirmDisableUser] = React.useState<AdminUserRow | null>(null);
@@ -264,6 +270,19 @@ export default function UsersPage() {
                       </Box>
                       <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, textAlign: "right" }}>
                         <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          {/* Seeing the permission list answers what a role
+                              grants; opening the app as them answers what it
+                              actually looks like, which is usually the question. */}
+                          {canViewAs && !disabled && u.id !== user?.id ? (
+                            <Button
+                              variant="outlined"
+                              startIcon={<VisibilityOutlinedIcon />}
+                              disabled={busy}
+                              onClick={() => setViewAsTarget(u)}
+                            >
+                              View as
+                            </Button>
+                          ) : null}
                           <Button
                             variant="outlined"
                             disabled={busy}
@@ -711,6 +730,47 @@ export default function UsersPage() {
       ) : null}
 
       {/* Permissions dialog */}
+      <Dialog open={Boolean(viewAsTarget)} onClose={() => setViewAsTarget(null)} fullWidth maxWidth="sm">
+        <DialogTitle>View as {viewAsTarget?.email}?</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            The app will open exactly as this user sees it — their pages, their permissions, their
+            data.
+          </Typography>
+          <Alert severity="warning">
+            This is not a preview. Anything you do is real and takes effect on their behalf. Every
+            action is recorded in the audit log against your account, noting it was taken while
+            viewing as them.
+          </Alert>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: "block" }}>
+            The session lasts 30 minutes, or until you leave it from the banner at the top.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={() => setViewAsTarget(null)} disabled={viewAsBusy}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            disabled={viewAsBusy}
+            onClick={async () => {
+              if (!viewAsTarget) return;
+              setError(null);
+              setViewAsBusy(true);
+              const res = await startViewAs(viewAsTarget.id);
+              setViewAsBusy(false);
+              if (!res.ok) {
+                setViewAsTarget(null);
+                setError(res.error ?? "Could not start the session.");
+              }
+            }}
+          >
+            {viewAsBusy ? "Starting…" : "View as this user"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={permOpen} onClose={() => setPermOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Effective permissions</DialogTitle>
         <DialogContent dividers>

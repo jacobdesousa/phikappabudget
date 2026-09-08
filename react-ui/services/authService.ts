@@ -1,4 +1,4 @@
-import { apiClient, parseApiError, setAccessToken } from "./apiClient";
+import { apiClient, parseApiError, setAccessToken, setViewAs, type ViewAsUser } from "./apiClient";
 
 export type AuthUser = {
   id: number;
@@ -8,6 +8,9 @@ export type AuthUser = {
   brother_id?: number | null;
   brother_first_name?: string | null;
   brother_last_name?: string | null;
+  // Set only inside a "view as" session: everything above is the user being
+  // viewed, this is the admin driving it.
+  impersonator?: { id: number; email: string } | null;
 };
 
 export type InviteListItem = {
@@ -83,6 +86,10 @@ export async function login(email: string, password: string): Promise<{ ok: true
 }
 
 export async function logout(): Promise<void> {
+  // Drop any "view as" session first, so the logout request goes out on the
+  // admin's own token and no orphaned session token is left behind for the next
+  // page load to pick up.
+  setViewAs(null, null);
   try {
     await apiClient.post("/auth/logout");
   } finally {
@@ -272,3 +279,30 @@ export async function adminDeleteOffice(officeKey: string): Promise<{ ok: true }
 }
 
 
+
+// Open the app as another user. The returned token replaces the admin's own for
+// as long as the session lasts; their token is left in place so leaving is
+// immediate.
+export async function startViewAs(
+  userId: number
+): Promise<{ ok: true; user: ViewAsUser } | { ok: false; status: number; error: string }> {
+  try {
+    const res = await apiClient.post("/auth/view-as", { user_id: userId });
+    setViewAs(res.data?.access_token ?? null, res.data?.user ?? null);
+    return { ok: true, user: res.data?.user as ViewAsUser };
+  } catch (e) {
+    const err = parseApiError(e);
+    return { ok: false, status: err.status, error: err.message };
+  }
+}
+
+// Tell the server the session ended, then drop the token. The audit entry is
+// best effort — the session is over locally either way.
+export async function stopViewAs(): Promise<void> {
+  try {
+    await apiClient.post("/auth/view-as/stop");
+  } catch {
+    // Already expired or revoked; nothing to record.
+  }
+  setViewAs(null, null);
+}
