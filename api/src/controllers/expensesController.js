@@ -416,6 +416,34 @@ async function deleteExpense(req, res) {
   return res.status(204).send();
 }
 
+// Everything the public submission form needs, in one unauthenticated call.
+//
+// The form used to load its dropdowns from /expenses/category and /brothers,
+// both of which require permissions — so an anonymous visitor was bounced to
+// login, and the page was public in name only. This exposes exactly the two
+// lists it renders and nothing else: category names, and the names of brothers
+// who could plausibly be owed money.
+async function getExpenseSubmitOptions(req, res) {
+  const year = currentSchoolYearStart();
+  const [categories, brothers] = await Promise.all([
+    // The year's own categories, so the form offers what the budget expects.
+    categoryYears.listForYear("expense", year),
+    // Actives only. The roster is mostly alumni, and every extra name is one
+    // more chance to pick the wrong one from a long list.
+    pool.query(
+      `SELECT id, first_name, last_name FROM brothers
+       WHERE status = 'Active'
+       ORDER BY first_name ASC, last_name ASC`
+    ),
+  ]);
+
+  return res.status(200).json({
+    school_year: year,
+    categories: categories.map((c) => ({ id: c.id, name: c.name })),
+    brothers: brothers.rows,
+  });
+}
+
 async function submitExpense(req, res) {
   // This is a public endpoint that accepts a receipt upload (multer).
   const payload = expenseSubmissionSchema.parse(req.body);
@@ -669,6 +697,7 @@ async function rejectExpense(req, res) {
 }
 
 module.exports = {
+  getExpenseSubmitOptions,
   listExpenseCategoryYear,
   addExpenseCategoryToYear,
   removeExpenseCategoryFromYear,

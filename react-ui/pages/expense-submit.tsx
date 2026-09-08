@@ -12,16 +12,14 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { getExpenseCategories } from "../services/expenseCategoryService";
-import { getAllBrothers } from "../services/brotherService";
-import { IBrother, IExpenseCategory } from "../interfaces/api.interface";
+import { getExpenseSubmitOptions, type ExpenseSubmitOptions } from "../services/expensesService";
 import { normalizeMoneyInput, roundMoney } from "../utils/money";
 import { submitExpenseWithReceipt } from "../services/expenseWorkflowService";
 
 export default function ExpenseSubmitPage() {
   const [loading, setLoading] = useState(true);
-  const [categories, setCategories] = useState<IExpenseCategory[]>([]);
-  const [brothers, setBrothers] = useState<IBrother[]>([]);
+  const [categories, setCategories] = useState<ExpenseSubmitOptions["categories"]>([]);
+  const [brothers, setBrothers] = useState<ExpenseSubmitOptions["brothers"]>([]);
 
   const [submitterBrotherId, setSubmitterBrotherId] = useState<number | "">("");
   const [categoryId, setCategoryId] = useState<number | "">("");
@@ -36,10 +34,16 @@ export default function ExpenseSubmitPage() {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([getExpenseCategories(), getAllBrothers()])
-      .then(([cats, bros]) => {
-        setCategories(cats);
-        setBrothers(bros);
+    // One public call: the permission-gated category and brother endpoints
+    // would 401 an anonymous visitor straight into the login page.
+    getExpenseSubmitOptions()
+      .then((opts) => {
+        setCategories(opts.categories);
+        setBrothers(opts.brothers);
+      })
+      .catch(() => {
+        setCategories([]);
+        setBrothers([]);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -111,7 +115,7 @@ export default function ExpenseSubmitPage() {
                 disabled={loading}
               >
                 {brothers.map((b) => (
-                  <MenuItem key={b.id ?? `${b.first_name}-${b.last_name}`} value={b.id ?? ""}>
+                  <MenuItem key={b.id} value={b.id}>
                     {b.first_name} {b.last_name}
                   </MenuItem>
                 ))}
@@ -129,7 +133,7 @@ export default function ExpenseSubmitPage() {
                   <em>Uncategorized</em>
                 </MenuItem>
                 {categories.map((c) => (
-                  <MenuItem key={c.id ?? c.name} value={c.id ?? ""}>
+                  <MenuItem key={c.id} value={c.id}>
                     {c.name}
                   </MenuItem>
                 ))}

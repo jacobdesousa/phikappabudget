@@ -107,3 +107,16 @@ export async function deleteExpense(id: number) {
 }
 
 
+
+// The public submission form's dropdowns. Unauthenticated: the form is open to
+// anyone with a receipt, so it cannot depend on permission-gated endpoints.
+export type ExpenseSubmitOptions = {
+  school_year: number;
+  categories: Array<{ id: number; name: string }>;
+  brothers: Array<{ id: number; first_name: string; last_name: string }>;
+};
+
+export async function getExpenseSubmitOptions(): Promise<ExpenseSubmitOptions> {
+  const res = await apiClient.get("/expenses/submit-options");
+  return res.data;
+}

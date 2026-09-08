@@ -54,6 +54,7 @@ const {
   updateExpense,
   deleteExpense,
   submitExpense,
+  getExpenseSubmitOptions,
   approveExpense,
   rejectExpense,
   getOutstandingDisbursements,
@@ -197,6 +198,9 @@ const router = express.Router();
 
 // Public submission endpoint (multipart/form-data with `receipt`)
 router.post("/expenses/submit", uploadReceipt.single("receipt"), asyncHandler(submitExpense));
+// The form's own dropdowns. Public for the same reason the submission is: a
+// brother handing in a receipt does not necessarily have a login.
+router.get("/expenses/submit-options", asyncHandler(getExpenseSubmitOptions));
 
 router.get("/health", (req, res) => res.json({ ok: true }));
 

@@ -43,6 +43,8 @@ import ClearIcon from "@mui/icons-material/Clear";
 import { formatMoney, normalizeMoneyInput, roundMoney, sanitizeMoneyInput } from "../utils/money";
 import { openAuthenticatedFile } from "../utils/openFile";
 import { toDateInputValue } from "../utils/date";
+import Link from "next/link";
+import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import { approveExpense, disburseExpenses, rejectExpense } from "../services/expenseWorkflowService";
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
@@ -459,7 +461,19 @@ export default function ExpensesPage() {
               <Button variant="contained" startIcon={<AddOutlinedIcon />} onClick={() => setAddOpen(true)}>
                 Add expense
               </Button>
-            ) : null}
+            ) : (
+              // Anyone who can see the ledger but not write to it still has
+              // receipts to hand in — send them to the submission form rather
+              // than showing nothing where the action belongs.
+              <Button
+                component={Link}
+                href="/expense-submit"
+                variant="contained"
+                startIcon={<ReceiptLongOutlinedIcon />}
+              >
+                Submit an expense
+              </Button>
+            )}
           </Stack>
         </Stack>
       </Paper>
