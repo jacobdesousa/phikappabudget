@@ -117,3 +117,16 @@ export function ConfigEmpty(props: { children: React.ReactNode }) {
   );
 }
 
+// Page-level guard for a config page.
+//
+// The server gates every one of these endpoints, so an unpermitted visitor was
+// never able to change anything — but reaching the URL directly still rendered
+// the whole page, with each request failing behind it. That reads as broken
+// rather than as "not yours".
+export function ConfigForbidden(props: { what: string }) {
+  return (
+    <Alert severity="error">
+      You don&apos;t have permission to manage {props.what}.
+    </Alert>
+  );
+}

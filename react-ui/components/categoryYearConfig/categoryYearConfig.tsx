@@ -26,13 +26,16 @@ import type { ICategoryYearRow, ICategoryYearState } from "../../interfaces/api.
 import SchoolYearSelector from "../SchoolYearSelector";
 import { schoolYearLabel, schoolYearStartForDate } from "../../utils/schoolYear";
 import { formatMoney } from "../../utils/money";
-import { ConfigEmpty, ConfigPageLayout, ConfigSection } from "../config/configLayout";
+import { ConfigEmpty, ConfigForbidden, ConfigPageLayout, ConfigSection } from "../config/configLayout";
+import { useAuth } from "../../context/authContext";
 
 type Result = { ok: boolean; error?: { message?: string } };
 
 interface Props {
   title: string;
   description: string;
+  // The permission the server gates this ledger's category writes on.
+  permission: string;
   // The ledger's own name, for the copy that has to say which entries move.
   entryNoun: string;
   fetchYear: (year: number) => Promise<ICategoryYearState>;
@@ -55,6 +58,8 @@ const MISC = "Misc";
 // entries move to Misc, which is why each row shows what it is carrying before
 // anything is clicked.
 export default function CategoryYearConfig(props: Props) {
+  const { can } = useAuth();
+  const canConfig = can(props.permission);
   const [schoolYear, setSchoolYear] = useState(schoolYearStartForDate(new Date()));
   const [state, setState] = useState<ICategoryYearState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,8 +91,12 @@ export default function CategoryYearConfig(props: Props) {
   );
 
   useEffect(() => {
+    if (!canConfig) {
+      setLoading(false);
+      return;
+    }
     load(schoolYear);
-  }, [load, schoolYear]);
+  }, [load, schoolYear, canConfig]);
 
   async function run(action: () => Promise<Result>, fallback: string) {
     setError(undefined);
@@ -104,6 +113,8 @@ export default function CategoryYearConfig(props: Props) {
   const offered = rows.filter((c) => c.in_year || c.name === MISC);
   // Import sources: any other year that already has a list.
   const importYears = (state?.years ?? []).filter((y) => y !== schoolYear);
+
+  if (!canConfig) return <ConfigForbidden what={props.title.toLowerCase()} />;
 
   return (
     <ConfigPageLayout

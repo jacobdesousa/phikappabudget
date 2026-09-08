@@ -28,6 +28,14 @@ import {
 import { useAuth } from "../context/authContext";
 import SaveIndicator from "../components/SaveIndicator";
 
+// Mirrors the server's gate on GET /makeups.
+const MAKEUP_READ_PERMISSIONS = [
+  "workdays.read",
+  "shifts.setup.read",
+  "shifts.cleanup.read",
+  "shifts.party.read",
+];
+
 // One flattened shape for every source, so a row renders and saves the same way
 // whether it came from a workday, a setup/cleanup roster or a party duty slot.
 interface MakeupRow {
@@ -223,13 +231,18 @@ function Section({ title, rows, canWrite, onPatch }: SectionProps) {
 }
 
 export default function MakeupsPage() {
-  const { can } = useAuth();
+  const { can, canAny } = useAuth();
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [data, setData] = React.useState<IAllMakeups | null>(null);
   const [search, setSearch] = React.useState("");
   const [saving, setSaving] = React.useState(false);
   const [savedAt, setSavedAt] = React.useState<Date | null>(null);
+
+  // Same set the server gates the list on. Without this, someone reaching the
+  // URL directly gets "Failed to load makeups" from a 403, which reads like a
+  // broken page rather than a permission they do not have.
+  const canRead = canAny(MAKEUP_READ_PERMISSIONS);
 
   // Writing any one kind is enough to show the fields; the server still checks
   // each row against the permission for its own workday or shift type.
@@ -250,9 +263,13 @@ export default function MakeupsPage() {
   }, []);
 
   React.useEffect(() => {
+    if (!canRead) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     load().finally(() => setLoading(false));
-  }, [load]);
+  }, [load, canRead]);
 
   const onPatch = React.useCallback<RowProps["onPatch"]>(
     async (row, patch) => {
@@ -307,6 +324,10 @@ export default function MakeupsPage() {
   }, [data, q]);
 
   const totalOutstanding = workdays.length + parties.length + setups.length + cleanups.length;
+
+  if (!canRead) {
+    return <Alert severity="error">You don&apos;t have permission to view makeups.</Alert>;
+  }
 
   return (
     <Stack spacing={2}>

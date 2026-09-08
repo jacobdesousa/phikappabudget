@@ -157,7 +157,10 @@ export const APP_MODULES: AppModule[] = [
     href: "/makeups",
     label: "Makeups",
     description: "All unresolved absences requiring makeup.",
-    anyPermissions: [],
+    // Draws on both workdays and shifts, so anyone who can read either sees it.
+    // It was the only module open to every signed-in account, which meant an
+    // alumni-side login saw the whole chapter's absence list.
+    anyPermissions: ["workdays.read", "shifts.setup.read", "shifts.cleanup.read", "shifts.party.read"],
     icon: <AssignmentLateIcon />,
   },
   {
@@ -179,6 +182,9 @@ export const APP_MODULES: AppModule[] = [
       "house.config",
       "chores.config",
       "donations.config",
+      // Users, offices and role permissions live here too, and an admin may
+      // hold none of the config keys above.
+      "admin.users",
     ],
     icon: <SettingsIcon />,
   },

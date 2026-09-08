@@ -14,6 +14,7 @@ export default function RevenueConfigPage() {
     <CategoryYearConfig
       title="Revenue Config"
       description="Which revenue categories each school year offers."
+      permission="revenue.config"
       entryNoun="entry"
       fetchYear={getRevenueCategoryYear}
       addToYear={addRevenueCategoryToYear}

@@ -54,6 +54,15 @@ function ConfigCard(props: {
 export default function ConfigPage() {
   const { can } = useAuth();
   const isAdmin = can("admin.users");
+  // Each card is gated on the permission its own page actually needs, matching
+  // what the server enforces. The first four were open to anyone who could
+  // reach this page at all.
+  const canDuesConfig = can("dues.config");
+  const canRevenueConfig = can("revenue.config");
+  // Expense categories are gated on expenses.write server-side, not a
+  // separate .config key.
+  const canExpensesConfig = can("expenses.write");
+  const canBonusConfig = can("chapterBonus.config");
   const canHouseConfig = can("house.config");
   const canChoresConfig = can("chores.config");
   const canDonationsConfig = can("donations.config");
@@ -63,41 +72,49 @@ export default function ConfigPage() {
 
       <Box sx={{ width: "100%" }}>
         <Grid container spacing={2} alignItems="stretch">
-          <Grid item xs={12} md={4} sx={{ display: "flex" }}>
-            <ConfigCard
-              href="/dues-config"
-              title="Dues Config"
-              description="Configure regular vs neophyte dues and instalment schedules."
-              icon={<PaymentsIcon />}
-            />
-          </Grid>
+          {canDuesConfig ? (
+            <Grid item xs={12} md={4} sx={{ display: "flex" }}>
+              <ConfigCard
+                href="/dues-config"
+                title="Dues Config"
+                description="Configure regular vs neophyte dues and instalment schedules."
+                icon={<PaymentsIcon />}
+              />
+            </Grid>
+          ) : null}
 
-          <Grid item xs={12} md={4} sx={{ display: "flex" }}>
-            <ConfigCard
-              href="/revenue-config"
-              title="Revenue Config"
-              description="Manage revenue categories."
-              icon={<TrendingUpIcon />}
-            />
-          </Grid>
+          {canRevenueConfig ? (
+            <Grid item xs={12} md={4} sx={{ display: "flex" }}>
+              <ConfigCard
+                href="/revenue-config"
+                title="Revenue Config"
+                description="Manage revenue categories."
+                icon={<TrendingUpIcon />}
+              />
+            </Grid>
+          ) : null}
 
-          <Grid item xs={12} md={4} sx={{ display: "flex" }}>
-            <ConfigCard
-              href="/expenses-config"
-              title="Expenses Config"
-              description="Manage expense categories."
-              icon={<ReceiptLongIcon />}
-            />
-          </Grid>
+          {canExpensesConfig ? (
+            <Grid item xs={12} md={4} sx={{ display: "flex" }}>
+              <ConfigCard
+                href="/expenses-config"
+                title="Expenses Config"
+                description="Manage expense categories."
+                icon={<ReceiptLongIcon />}
+              />
+            </Grid>
+          ) : null}
 
-          <Grid item xs={12} md={4} sx={{ display: "flex" }}>
-            <ConfigCard
-              href="/chapter-bonus-config"
-              title="Chapter Bonus Config"
-              description="Configure violation penalties and stacking tiers."
-              icon={<GavelIcon />}
-            />
-          </Grid>
+          {canBonusConfig ? (
+            <Grid item xs={12} md={4} sx={{ display: "flex" }}>
+              <ConfigCard
+                href="/chapter-bonus-config"
+                title="Chapter Bonus Config"
+                description="Configure violation penalties and stacking tiers."
+                icon={<GavelIcon />}
+              />
+            </Grid>
+          ) : null}
 
           {canHouseConfig ? (
             <Grid item xs={12} md={4} sx={{ display: "flex" }}>

@@ -12,7 +12,8 @@ import {getDuesConfig, upsertDuesConfig} from "../services/duesConfigService";
 import {schoolYearLabel, schoolYearStartForDate} from "../utils/schoolYear";
 import { normalizeMoneyInput, sanitizeMoneyInput } from "../utils/money";
 import SchoolYearSelector from "../components/SchoolYearSelector";
-import { ConfigPageLayout, ConfigSection } from "../components/config/configLayout";
+import { ConfigForbidden, ConfigPageLayout, ConfigSection } from "../components/config/configLayout";
+import { useAuth } from "../context/authContext";
 
 type InstalmentDraft = {
     label: string;
@@ -21,6 +22,9 @@ type InstalmentDraft = {
 };
 
 export default function DuesConfigPage() {
+    const { can } = useAuth();
+    const canConfig = can("dues.config");
+
 
     const currentYear = useMemo(() => schoolYearStartForDate(new Date()), []);
     const [year, setYear] = useState<number>(currentYear);
@@ -193,6 +197,8 @@ export default function DuesConfigPage() {
             </Stack>
         );
     }
+
+    if (!canConfig) return <ConfigForbidden what="dues configuration" />;
 
     return (
         <ConfigPageLayout

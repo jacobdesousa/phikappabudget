@@ -17,16 +17,20 @@ import {
 import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import { ConfigEmpty, ConfigPageLayout, ConfigSection } from "../components/config/configLayout";
+import { ConfigEmpty, ConfigForbidden, ConfigPageLayout, ConfigSection } from "../components/config/configLayout";
 import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
 import CloseIcon from "@mui/icons-material/Close";
 import type { IChapterBonusRule } from "../interfaces/api.interface";
 import { deleteBonusRule, getBonusRules, upsertBonusRule } from "../services/chapterBonusService";
 import { normalizeMoneyInput } from "../utils/money";
+import { useAuth } from "../context/authContext";
 
 type TierDraft = { tier_number: number; amount: string };
 
 export default function ChapterBonusConfigPage() {
+  const { can } = useAuth();
+  const canConfig = can("chapterBonus.config");
+
 
   const [loading, setLoading] = React.useState(true);
   const [rules, setRules] = React.useState<IChapterBonusRule[]>([]);
@@ -80,6 +84,8 @@ export default function ChapterBonusConfigPage() {
     );
     setOpen(true);
   }
+
+  if (!canConfig) return <ConfigForbidden what="chapter bonus configuration" />;
 
   return (
     <ConfigPageLayout

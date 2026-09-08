@@ -25,7 +25,7 @@ import { IDonationCampaign } from "../interfaces/api.interface";
 import { getDonationConfig, saveDonationConfig } from "../services/donationsService";
 import { formatMoney } from "../utils/money";
 import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
-import { ConfigPageLayout, ConfigSection } from "../components/config/configLayout";
+import { ConfigForbidden, ConfigPageLayout, ConfigSection } from "../components/config/configLayout";
 import { HEAD_SX, INPUT_CELL_SX, TABLE_CONTAINER_SX } from "../components/config/configTable";
 
 // Rows of inputs, so they use the input cell padding rather than the text one.
@@ -45,7 +45,10 @@ function emptyCampaign(): IDonationCampaign {
 
 export default function DonationsConfigPage() {
   const { can } = useAuth();
-  const canWrite = can("donations.config");
+  // Same permission gates viewing and writing here: there is nothing on this
+  // page useful to read but not to change.
+  const canConfig = can("donations.config");
+  const canWrite = canConfig;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -105,6 +108,8 @@ export default function DonationsConfigPage() {
       setSaving(false);
     }
   }
+
+  if (!canConfig) return <ConfigForbidden what="donations configuration" />;
 
   return (
     <ConfigPageLayout

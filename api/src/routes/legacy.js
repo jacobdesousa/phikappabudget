@@ -122,7 +122,7 @@ const {
   deletePartyDuty,
 } = require("../controllers/shiftsController");
 const { getNotifications } = require("../controllers/notificationsController");
-const { getAllMakeups, updateMakeup } = require("../controllers/makeupsController");
+const { getAllMakeups, updateMakeup, MAKEUP_READ_PERMISSIONS } = require("../controllers/makeupsController");
 const { getStandings, getLegacyAdjustments, addLegacyAdjustment, deleteLegacyAdjustment } = require("../controllers/roomDrawController");
 const {
   getBudgetSummary,
@@ -187,7 +187,7 @@ const {
   getDonationConfig,
   saveDonationConfig,
 } = require("../controllers/donationsController");
-const { requireAuth, requirePermission } = require("../middleware/auth");
+const { requireAuth, requirePermission, requireAnyPermission } = require("../middleware/auth");
 const { auditWrites } = require("../middleware/audit");
 const { pool } = require("../db/pool");
 const { streamFromS3 } = require("../utils/s3");
@@ -353,7 +353,10 @@ router.put("/shift-duties/:dutyId", asyncHandler(updatePartyDuty));
 router.delete("/shift-duties/:dutyId", asyncHandler(deletePartyDuty));
 
 router.get("/notifications", asyncHandler(getNotifications));
-router.get("/makeups", asyncHandler(getAllMakeups));
+// Spans workdays and shifts, so anyone who can read either can see the list.
+// Writing is resolved per row inside the controller: a workday row needs
+// workdays.write, a shift or party row the write permission for its own type.
+router.get("/makeups", requireAnyPermission(MAKEUP_READ_PERMISSIONS), asyncHandler(getAllMakeups));
 // Permission depends on the row: workdays.write, or shifts.<type>.write.
 router.patch("/makeups/:kind/:id", asyncHandler(updateMakeup));
 

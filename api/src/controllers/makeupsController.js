@@ -6,6 +6,16 @@ const { makeupUpdateSchema } = require("../validation/makeups");
 // list is capped at the most recently completed rather than going back forever.
 const COMPLETED_LIMIT = 200;
 
+// Reading the makeups list means reading absences recorded on workdays and
+// shifts, so it is gated on being able to read either rather than on a
+// permission of its own.
+const MAKEUP_READ_PERMISSIONS = [
+  "workdays.read",
+  "shifts.setup.read",
+  "shifts.cleanup.read",
+  "shifts.party.read",
+];
+
 // Absences that call for a makeup. Workdays treat Excused the same as Missing —
 // the brother still owes the time — which is what the workday page's own makeup
 // field keys off.
@@ -152,4 +162,4 @@ async function updateMakeup(req, res) {
   return res.json(rows[0]);
 }
 
-module.exports = { getAllMakeups, updateMakeup };
+module.exports = { getAllMakeups, updateMakeup, MAKEUP_READ_PERMISSIONS };

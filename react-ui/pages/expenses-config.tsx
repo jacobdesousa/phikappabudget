@@ -14,6 +14,7 @@ export default function ExpensesConfigPage() {
     <CategoryYearConfig
       title="Expenses Config"
       description="Which expense categories each school year offers."
+      permission="expenses.write"
       entryNoun="expense"
       fetchYear={getExpenseCategoryYear}
       addToYear={addExpenseCategoryToYear}

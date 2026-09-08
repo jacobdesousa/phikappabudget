@@ -182,6 +182,21 @@ function requirePermission(permissionKey) {
   };
 }
 
+// Any one of the listed permissions is enough. Some pages span more than one
+// module — the makeups list draws on both workdays and shifts — and gating them
+// on a single key would either lock out people who can see the underlying data
+// or invent a permission that means nothing on its own.
+function requireAnyPermission(permissionKeys) {
+  return async function anyPermissionMiddleware(req, res, next) {
+    const ctx = await loadAuthContext(req);
+    if (!ctx) return res.status(401).json({ error: { message: "Unauthorized" } });
+    if (!permissionKeys.some((key) => ctx.permissions.includes(key))) {
+      return res.status(403).json({ error: { message: "Forbidden" } });
+    }
+    next();
+  };
+}
+
 async function issueRefreshToken({ userId, userAgent, ip }) {
   const raw = crypto.randomBytes(32).toString("hex");
   const token_hash = hashToken(raw);
@@ -238,6 +253,7 @@ function clearRefreshCookie(res) {
 
 module.exports = {
   requireAuth,
+  requireAnyPermission,
   makeViewAsToken,
   VIEW_AS_TTL_SECONDS,
   requirePermission,
