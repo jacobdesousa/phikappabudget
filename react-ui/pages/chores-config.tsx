@@ -32,11 +32,14 @@ import {
   IChoreDuty,
   IChoreSettings,
 } from "../interfaces/api.interface";
+import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
+import { ConfigHeader } from "../components/config/configLayout";
+import { HEAD_SX, INPUT_CELL_SX, TABLE_CONTAINER_SX } from "../components/config/configTable";
 
-const CELL_SX = { py: 0.5 };
-const HEAD_SX = { py: 1, fontWeight: 700, whiteSpace: "nowrap" as const };
+// Rows of editable cells, so they take the input cell padding.
+const CELL_SX = INPUT_CELL_SX;
 // Tables scroll inside their own box; the page itself never scrolls sideways.
-const SCROLL_BOX_SX = { overflowX: "auto" as const, maxWidth: "100%" };
+const SCROLL_BOX_SX = TABLE_CONTAINER_SX;
 const PANEL_SX = {
   border: "1px solid",
   borderColor: "divider",
@@ -346,29 +349,19 @@ export default function ChoresConfigPage() {
 
   return (
     <Stack spacing={2} sx={{ minWidth: 0 }}>
-      <Paper elevation={0} sx={{ ...PANEL_SX, p: 2 }}>
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={2}
-          alignItems={{ sm: "center" }}
-          justifyContent="space-between"
-        >
-          <Box>
-            <Typography variant="h5">Chores Config</Typography>
-            <Typography variant="body2" color="text.secondary">
-              The duty list and the schedule itself: one duty per bedroom per
-              half-month, exactly as the printed sheet lays it out.
-            </Typography>
-          </Box>
-        </Stack>
-      </Paper>
+      <ConfigHeader
+        title="Chores Config"
+        description="The duty list and the schedule itself: one duty per bedroom per half-month, exactly as the printed sheet lays it out."
+      />
 
       {error && <Alert severity="error">{error}</Alert>}
       {notice && <Alert severity="success">{notice}</Alert>}
       {!canWrite && <Alert severity="info">You have read-only access to this page.</Alert>}
 
       {loading || !settings ? (
-        <CircularProgress />
+        <Stack alignItems="center" sx={{ py: 4 }}>
+          <CircularProgress />
+        </Stack>
       ) : (
         <>
           {config && !config.is_configured && (
@@ -376,7 +369,7 @@ export default function ChoresConfigPage() {
               severity="info"
               action={
                 canWrite && (
-                  <Button size="small" onClick={() => handleSeed(false)} disabled={saving}>
+                  <Button size="small" variant="outlined" onClick={() => handleSeed(false)} disabled={saving}>
                     Load printed schedule
                   </Button>
                 )
@@ -389,7 +382,7 @@ export default function ChoresConfigPage() {
           {/* ── Duties ────────────────────────────────────────────────────── */}
           <Paper elevation={0} sx={PANEL_SX}>
             <Box sx={{ p: 2, pb: 0 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              <Typography variant="h6">
                 Duties
               </Typography>
               <Typography variant="body2" color="text.secondary">
@@ -476,7 +469,7 @@ export default function ChoresConfigPage() {
           {/* ── The schedule grid ─────────────────────────────────────────── */}
           <Paper elevation={0} sx={PANEL_SX}>
             <Box sx={{ p: 2, pb: 1 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              <Typography variant="h6">
                 Schedule
               </Typography>
               <Typography variant="body2" color="text.secondary">
@@ -584,7 +577,7 @@ export default function ChoresConfigPage() {
 
           {/* ── Calendar & manager notes ──────────────────────────────────── */}
           <Paper elevation={0} sx={{ ...PANEL_SX, p: 2 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>
               Calendar &amp; House Manager
             </Typography>
             <TextField
@@ -613,7 +606,7 @@ export default function ChoresConfigPage() {
           {/* ── Captains ──────────────────────────────────────────────────── */}
           <Paper elevation={0} sx={PANEL_SX}>
             <Box sx={{ p: 2, pb: 0 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              <Typography variant="h6">
                 Captains
               </Typography>
               <Typography variant="body2" color="text.secondary">
@@ -697,14 +690,14 @@ export default function ChoresConfigPage() {
           {canWrite && (
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               <Tooltip title="Replace the duties, bedroom order, schedule, and captains with the printed sheet">
-                <Button variant="outlined" color="warning" onClick={() => handleSeed(true)} disabled={saving}>
+                <Button size="small" variant="outlined" color="warning" onClick={() => handleSeed(true)} disabled={saving}>
                   Reset to printed schedule
                 </Button>
               </Tooltip>
-              <Button variant="outlined" onClick={load} disabled={saving}>
+              <Button size="small" variant="outlined" onClick={load} disabled={saving}>
                 Discard changes
               </Button>
-              <Button variant="contained" onClick={handleSave} disabled={saving}>
+              <Button size="small" variant="contained" startIcon={<SaveOutlinedIcon />} onClick={handleSave} disabled={saving}>
                 Save
               </Button>
             </Stack>

@@ -11,6 +11,12 @@ import {
   Paper,
   Select,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
@@ -35,6 +41,9 @@ import {
   type PermissionOverrideRow,
 } from "../services/authService";
 import { useAuth } from "../context/authContext";
+import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
+import { ConfigEmpty, ConfigPageLayout, ConfigSection } from "../components/config/configLayout";
+import { CELL_SX, HEAD_SX, TABLE_CONTAINER_SX, TABLE_SX } from "../components/config/configTable";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import {
   Dialog,
@@ -164,20 +173,16 @@ export default function UsersPage() {
   }
 
   return (
-    <Stack spacing={2}>
-      <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} justifyContent="space-between">
-          <Box>
-            <Typography variant="h5">Users</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Invite-only accounts. In dev mode, invites generate a link you can copy and send manually.
-            </Typography>
-          </Box>
+    <ConfigPageLayout
+      title="User Settings"
+      description="Invite-only accounts, their effective permissions, and access. In dev mode, invites generate a link you can copy and send manually."
+      error={error}
+    >
+      {loading ? (
+        <Stack alignItems="center" sx={{ py: 4 }}>
+          <CircularProgress />
         </Stack>
-      </Paper>
-
-      {loading ? <CircularProgress /> : null}
-      {error ? <Alert severity="error">{error}</Alert> : null}
+      ) : null}
 
       {!isAdmin ? (
         <Alert severity="info">
@@ -186,15 +191,11 @@ export default function UsersPage() {
       ) : null}
 
       {isAdmin ? (
-        <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="space-between" alignItems={{ sm: "center" }}>
-            <Box>
-              <Typography variant="h6">Users</Typography>
-              <Typography variant="body2" color="text.secondary">
-                View accounts, last login, effective permissions, and enable/disable access.
-              </Typography>
-            </Box>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }}>
+        <ConfigSection
+          title="Accounts"
+          description="Last login, effective permissions, and whether the account can sign in."
+          actions={
+            <>
               <TextField
                 size="small"
                 label="Search"
@@ -203,39 +204,32 @@ export default function UsersPage() {
                 placeholder="email, name, office"
                 sx={{ minWidth: { xs: "100%", sm: 260 } }}
               />
-              <Button variant="outlined" onClick={() => refreshAdminUsers()} disabled={adminUsersLoading}>
+              <Button size="small" variant="outlined" startIcon={<RefreshOutlinedIcon />} onClick={() => refreshAdminUsers()} disabled={adminUsersLoading}>
                 Refresh
               </Button>
+            </>
+          }
+        >
+          {adminUsersLoading ? (
+            <Stack alignItems="center" sx={{ py: 3 }}>
+              <CircularProgress />
             </Stack>
-          </Stack>
-
-          <Divider sx={{ my: 2 }} />
-
-          {adminUsersLoading ? <CircularProgress /> : null}
+          ) : null}
 
           {filteredAdminUsers.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              No users found.
-            </Typography>
+            <ConfigEmpty>No users found.</ConfigEmpty>
           ) : (
-            <Box component="table" sx={{ width: "100%", borderCollapse: "collapse" }}>
-              <Box component="thead">
-                <Box component="tr">
-                  <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
-                    User
-                  </Box>
-                  <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2, width: 160 }}>
-                    Status
-                  </Box>
-                  <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2, width: 220 }}>
-                    Last login
-                  </Box>
-                  <Box component="th" sx={{ textAlign: "right", borderBottom: "1px solid", borderColor: "divider", py: 1, width: 320 }}>
-                    Actions
-                  </Box>
-                </Box>
-              </Box>
-              <Box component="tbody">
+            <TableContainer sx={TABLE_CONTAINER_SX}>
+              <Table size="small" sx={{ ...TABLE_SX, minWidth: 780 }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={HEAD_SX}>User</TableCell>
+                    <TableCell sx={{ ...HEAD_SX, width: 110 }}>Status</TableCell>
+                    <TableCell sx={{ ...HEAD_SX, width: 180 }}>Last login</TableCell>
+                    <TableCell sx={{ ...HEAD_SX, width: 320 }} align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
                 {filteredAdminUsers.map((u) => {
                   const linkedName = u.brother_last_name
                     ? `${u.brother_first_name ?? ""} ${u.brother_last_name}`.trim()
@@ -248,33 +242,34 @@ export default function UsersPage() {
                   const overridesCount = u.overrides_count ?? 0;
                   const busy = updatingUserId === u.id;
                   return (
-                    <Box component="tr" key={u.id}>
-                      <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
-                        <Typography sx={{ fontWeight: 800 }}>{u.email}</Typography>
-                        <Typography variant="body2" color="text.secondary">
+                    <TableRow key={u.id} hover>
+                      <TableCell sx={{ ...CELL_SX, whiteSpace: "normal", overflow: "hidden" }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{u.email}</Typography>
+                        <Typography variant="caption" color="text.secondary" display="block">
                           {linkedName} • Office: {u.brother_office ?? "—"}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                           Permissions: {permsCount} • Overrides: {overridesCount}
                         </Typography>
-                      </Box>
-                      <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
+                      </TableCell>
+                      <TableCell sx={{ ...CELL_SX, width: 110 }}>
                         {disabled ? (
                           <Chip label="Disabled" color="error" size="small" />
                         ) : (
                           <Chip label="Active" color="success" size="small" />
                         )}
-                      </Box>
-                      <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
+                      </TableCell>
+                      <TableCell sx={{ ...CELL_SX, width: 180, color: "text.secondary" }}>
                         {fmtDate(u.last_login_at)}
-                      </Box>
-                      <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, textAlign: "right" }}>
+                      </TableCell>
+                      <TableCell sx={{ ...CELL_SX, width: 320 }} align="right">
                         <Stack direction="row" spacing={1} justifyContent="flex-end">
                           {/* Seeing the permission list answers what a role
                               grants; opening the app as them answers what it
                               actually looks like, which is usually the question. */}
                           {canViewAs && !disabled && u.id !== user?.id ? (
                             <Button
+            size="small"
                               variant="outlined"
                               startIcon={<VisibilityOutlinedIcon />}
                               disabled={busy}
@@ -284,6 +279,7 @@ export default function UsersPage() {
                             </Button>
                           ) : null}
                           <Button
+            size="small"
                             variant="outlined"
                             disabled={busy}
                             onClick={() => {
@@ -295,6 +291,7 @@ export default function UsersPage() {
                           </Button>
                           {disabled ? (
                             <Button
+            size="small"
                               variant="contained"
                               disabled={busy}
                               onClick={async () => {
@@ -313,6 +310,7 @@ export default function UsersPage() {
                             </Button>
                           ) : (
                             <Button
+            size="small"
                               variant="contained"
                               color="error"
                               disabled={busy}
@@ -325,24 +323,21 @@ export default function UsersPage() {
                             </Button>
                           )}
                         </Stack>
-                      </Box>
-                    </Box>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </Box>
-            </Box>
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
-        </Paper>
+        </ConfigSection>
       ) : null}
 
-      <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-        <Typography variant="h6">Send invite</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Select a brother to invite. Permissions are derived from that brother&apos;s <b>Office</b> (single source of truth).
-        </Typography>
-
-        <Divider sx={{ my: 2 }} />
-
+      <ConfigSection
+        title="Send invite"
+        description="Pick a brother to invite. Their permissions come from the Office on their brother record — there is nothing to set here."
+      >
         <Stack spacing={2}>
           <FormControl fullWidth required>
             <InputLabel id="invite-brother-label">Brother</InputLabel>
@@ -383,6 +378,7 @@ export default function UsersPage() {
 
           <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
             <Button
+            size="small"
               variant="contained"
               startIcon={<AddOutlinedIcon />}
               disabled={submitting}
@@ -419,6 +415,7 @@ export default function UsersPage() {
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }}>
                 <TextField value={inviteUrl} fullWidth size="small" inputProps={{ readOnly: true }} />
                 <Button
+            size="small"
                   variant="outlined"
                   startIcon={<ContentCopyIcon />}
                   onClick={async () => {
@@ -437,48 +434,37 @@ export default function UsersPage() {
             </>
           )}
         </Stack>
-      </Paper>
+      </ConfigSection>
 
-      <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="space-between" alignItems={{ sm: "center" }}>
-          <Box>
-            <Typography variant="h6">Invites</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Manage outstanding invites (reissue generates a new link and revokes the old one).
-            </Typography>
-          </Box>
-          <Button variant="outlined" onClick={() => refreshInvites()} disabled={invitesLoading}>
+      <ConfigSection
+        title="Invites"
+        description="Outstanding invites. Reissuing generates a new link and revokes the old one."
+        actions={
+          <Button size="small" variant="outlined" startIcon={<RefreshOutlinedIcon />} onClick={() => refreshInvites()} disabled={invitesLoading}>
             Refresh
           </Button>
-        </Stack>
-
-        <Divider sx={{ my: 2 }} />
-
-        {invitesLoading ? <CircularProgress /> : null}
+        }
+      >
+        {invitesLoading ? (
+          <Stack alignItems="center" sx={{ py: 3 }}>
+            <CircularProgress />
+          </Stack>
+        ) : null}
 
         {invites.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            No invites yet.
-          </Typography>
+          <ConfigEmpty>No invites yet.</ConfigEmpty>
         ) : (
-          <Box component="table" sx={{ width: "100%", borderCollapse: "collapse" }}>
-            <Box component="thead">
-              <Box component="tr">
-                <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
-                  Brother
-                </Box>
-                <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
-                  Email
-                </Box>
-                <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2, width: 220 }}>
-                  Status
-                </Box>
-                <Box component="th" sx={{ textAlign: "right", borderBottom: "1px solid", borderColor: "divider", py: 1, width: 220 }}>
-                  Actions
-                </Box>
-              </Box>
-            </Box>
-            <Box component="tbody">
+          <TableContainer sx={TABLE_CONTAINER_SX}>
+            <Table size="small" sx={{ ...TABLE_SX, minWidth: 720 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={HEAD_SX}>Brother</TableCell>
+                  <TableCell sx={{ ...HEAD_SX, width: 220 }}>Email</TableCell>
+                  <TableCell sx={{ ...HEAD_SX, width: 190 }}>Status</TableCell>
+                  <TableCell sx={{ ...HEAD_SX, width: 220 }} align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
               {invites.map((i) => {
                 const now = Date.now();
                 const exp = i.expires_at ? new Date(i.expires_at as any).getTime() : 0;
@@ -491,27 +477,28 @@ export default function UsersPage() {
                     : "—";
 
                 return (
-                  <Box component="tr" key={i.id}>
-                    <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
-                      <Typography sx={{ fontWeight: 700 }}>{brotherName}</Typography>
-                      <Typography variant="body2" color="text.secondary">
+                  <TableRow key={i.id} hover>
+                    <TableCell sx={{ ...CELL_SX, overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{brotherName}</Typography>
+                      <Typography variant="caption" color="text.secondary">
                         Office: {i.brother_office ?? "—"}
                       </Typography>
-                    </Box>
-                    <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
+                    </TableCell>
+                    <TableCell sx={{ ...CELL_SX, width: 220, overflow: "hidden", textOverflow: "ellipsis" }}>
                       {i.email}
-                    </Box>
-                    <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
+                    </TableCell>
+                    <TableCell sx={{ ...CELL_SX, width: 190 }}>
                       {status}
                       {status === "Pending" && i.expires_at ? (
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="caption" color="text.secondary" display="block">
                           Expires {new Date(i.expires_at as any).toLocaleString()}
                         </Typography>
                       ) : null}
-                    </Box>
-                    <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, textAlign: "right" }}>
+                    </TableCell>
+                    <TableCell sx={{ ...CELL_SX, width: 220 }} align="right">
                       <Stack direction="row" spacing={1} justifyContent="flex-end">
                         <Button
+                          size="small"
                           variant="outlined"
                           startIcon={<ReplayIcon />}
                           disabled={Boolean(i.used_at)}
@@ -530,6 +517,7 @@ export default function UsersPage() {
                           Reissue
                         </Button>
                         <Button
+                          size="small"
                           variant="outlined"
                           color="error"
                           startIcon={<DeleteOutlineIcon />}
@@ -547,32 +535,31 @@ export default function UsersPage() {
                           Revoke
                         </Button>
                       </Stack>
-                    </Box>
-                  </Box>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </Box>
-          </Box>
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
-      </Paper>
+      </ConfigSection>
 
       {isAdmin ? (
-        <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="space-between" alignItems={{ sm: "center" }}>
-            <Box>
-              <Typography variant="h6">Permission overrides</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Grant or deny specific permissions for a user (overrides role-based permissions from Office).
-              </Typography>
-            </Box>
-            <Button variant="outlined" onClick={() => refreshAdminUsers()} disabled={adminUsersLoading}>
+        <ConfigSection
+          title="Permission overrides"
+          description="Grant or deny one permission for one user, on top of what their office already gives them."
+          actions={
+            <Button size="small" variant="outlined" startIcon={<RefreshOutlinedIcon />} onClick={() => refreshAdminUsers()} disabled={adminUsersLoading}>
               Refresh users
             </Button>
-          </Stack>
-
-          <Divider sx={{ my: 2 }} />
-
-          {adminUsersLoading ? <CircularProgress /> : null}
+          }
+        >
+          {adminUsersLoading ? (
+            <Stack alignItems="center" sx={{ py: 3 }}>
+              <CircularProgress />
+            </Stack>
+          ) : null}
 
           <Stack spacing={2}>
             <FormControl fullWidth>
@@ -639,6 +626,7 @@ export default function UsersPage() {
                     </Select>
                   </FormControl>
                   <Button
+                    size="small"
                     variant="contained"
                     disabled={savingOverride || !newOverrideKey.trim()}
                     onClick={async () => {
@@ -667,34 +655,32 @@ export default function UsersPage() {
                 {overridesLoading ? <CircularProgress /> : null}
 
                 {overrides.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    No overrides for this user.
-                  </Typography>
+                  <ConfigEmpty>No overrides for this user.</ConfigEmpty>
                 ) : (
-                  <Box component="table" sx={{ width: "100%", borderCollapse: "collapse" }}>
-                    <Box component="thead">
-                      <Box component="tr">
-                        <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
-                          Permission
-                        </Box>
-                        <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2, width: 120 }}>
-                          Effect
-                        </Box>
-                        <Box component="th" sx={{ textAlign: "right", borderBottom: "1px solid", borderColor: "divider", py: 1, width: 120 }}>
-                          Actions
-                        </Box>
-                      </Box>
-                    </Box>
-                    <Box component="tbody">
+                  <TableContainer sx={TABLE_CONTAINER_SX}>
+                    <Table size="small" sx={TABLE_SX}>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={HEAD_SX}>Permission</TableCell>
+                          <TableCell sx={{ ...HEAD_SX, width: 110 }}>Effect</TableCell>
+                          <TableCell sx={{ ...HEAD_SX, width: 130 }} align="right">Actions</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
                       {overrides.map((o) => (
-                        <Box component="tr" key={`${o.user_id}:${o.permission_key}`}>
-                          <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
-                            <Typography sx={{ fontWeight: 700 }}>{o.permission_key}</Typography>
-                          </Box>
-                          <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
-                            {o.effect}
-                          </Box>
-                          <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, textAlign: "right" }}>
+                        <TableRow key={`${o.user_id}:${o.permission_key}`} hover>
+                          <TableCell sx={{ ...CELL_SX, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {o.permission_key}
+                          </TableCell>
+                          <TableCell sx={{ ...CELL_SX, width: 110 }}>
+                            <Chip
+                              size="small"
+                              label={o.effect}
+                              color={o.effect === "deny" ? "error" : "success"}
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell sx={{ ...CELL_SX, width: 130 }} align="right">
                             <Button
                               size="small"
                               variant="outlined"
@@ -713,20 +699,19 @@ export default function UsersPage() {
                             >
                               Remove
                             </Button>
-                          </Box>
-                        </Box>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </Box>
-                  </Box>
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
                 )}
               </>
             ) : (
-              <Typography variant="body2" color="text.secondary">
-                Select a user to manage overrides.
-              </Typography>
+              <ConfigEmpty>Select a user to manage overrides.</ConfigEmpty>
             )}
           </Stack>
-        </Paper>
+        </ConfigSection>
       ) : null}
 
       {/* Permissions dialog */}
@@ -747,10 +732,12 @@ export default function UsersPage() {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button variant="outlined" onClick={() => setViewAsTarget(null)} disabled={viewAsBusy}>
+          <Button
+            size="small" variant="outlined" onClick={() => setViewAsTarget(null)} disabled={viewAsBusy}>
             Cancel
           </Button>
           <Button
+            size="small"
             variant="contained"
             color="warning"
             disabled={viewAsBusy}
@@ -764,6 +751,7 @@ export default function UsersPage() {
                 setViewAsTarget(null);
                 setError(res.error ?? "Could not start the session.");
               }
+              // On success the page navigates; nothing to clean up here.
             }}
           >
             {viewAsBusy ? "Starting…" : "View as this user"}
@@ -812,7 +800,8 @@ export default function UsersPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button variant="outlined" onClick={() => setPermOpen(false)}>
+          <Button
+            size="small" variant="outlined" onClick={() => setPermOpen(false)}>
             Close
           </Button>
         </DialogActions>
@@ -830,10 +819,12 @@ export default function UsersPage() {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button variant="outlined" onClick={() => setConfirmDisableOpen(false)} disabled={updatingUserId === confirmDisableUser?.id}>
+          <Button
+            size="small" variant="outlined" onClick={() => setConfirmDisableOpen(false)} disabled={updatingUserId === confirmDisableUser?.id}>
             Cancel
           </Button>
           <Button
+            size="small"
             variant="contained"
             color="error"
             disabled={!confirmDisableUser?.id || updatingUserId === confirmDisableUser?.id}
@@ -856,7 +847,7 @@ export default function UsersPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Stack>
+    </ConfigPageLayout>
   );
 }
 

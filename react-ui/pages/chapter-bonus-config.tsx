@@ -16,6 +16,8 @@ import {
 } from "@mui/material";
 import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import { ConfigEmpty, ConfigPageLayout, ConfigSection } from "../components/config/configLayout";
 import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
 import CloseIcon from "@mui/icons-material/Close";
 import type { IChapterBonusRule } from "../interfaces/api.interface";
@@ -25,6 +27,7 @@ import { normalizeMoneyInput } from "../utils/money";
 type TierDraft = { tier_number: number; amount: string };
 
 export default function ChapterBonusConfigPage() {
+
   const [loading, setLoading] = React.useState(true);
   const [rules, setRules] = React.useState<IChapterBonusRule[]>([]);
   const [error, setError] = React.useState<string | null>(null);
@@ -79,34 +82,24 @@ export default function ChapterBonusConfigPage() {
   }
 
   return (
-    <Stack spacing={2}>
-      <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="space-between" alignItems={{ sm: "center" }}>
-          <Box>
-            <Typography variant="h5">Chapter Bonus Config</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Configure violation penalties, including stacking tiers (1st, 2nd, 3rd… in the same month).
-            </Typography>
-          </Box>
-          <Button variant="contained" startIcon={<AddOutlinedIcon />} onClick={openNew}>
-            Add rule
-          </Button>
-        </Stack>
-      </Paper>
-
-      {error ? <Alert severity="error">{error}</Alert> : null}
-
+    <ConfigPageLayout
+      title="Chapter Bonus Config"
+      description="Violation penalties, including stacking tiers — 1st, 2nd, 3rd in the same month."
+      error={error}
+      actions={
+        <Button size="small" variant="contained" startIcon={<AddOutlinedIcon />} onClick={openNew}>
+          Add rule
+        </Button>
+      }
+    >
       {loading ? (
-        <CircularProgress />
+        <Stack alignItems="center" sx={{ py: 4 }}>
+          <CircularProgress />
+        </Stack>
       ) : (
-        <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            Rules
-          </Typography>
+        <ConfigSection title="Rules">
           {rules.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              No rules yet. Add one to enable auto-calculated deductions.
-            </Typography>
+            <ConfigEmpty>No rules yet. Add one to enable auto-calculated deductions.</ConfigEmpty>
           ) : (
             <Stack spacing={1}>
               {rules.map((r) => (
@@ -126,11 +119,12 @@ export default function ChapterBonusConfigPage() {
                           .join(" • ")}
                       </Typography>
                     </Box>
-                    <Stack direction="row" spacing={1}>
-                      <Button variant="outlined" onClick={() => openEdit(r)}>
+                    <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+                      <Button size="small" variant="outlined" startIcon={<EditOutlinedIcon />} onClick={() => openEdit(r)}>
                         Edit
                       </Button>
                       <Button
+                        size="small"
                         variant="outlined"
                         color="error"
                         startIcon={<DeleteOutlineIcon />}
@@ -148,7 +142,7 @@ export default function ChapterBonusConfigPage() {
               ))}
             </Stack>
           )}
-        </Paper>
+        </ConfigSection>
       )}
 
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
@@ -161,6 +155,7 @@ export default function ChapterBonusConfigPage() {
         <DialogContent dividers>
           <Stack spacing={2}>
             <TextField
+              size="small"
               label="Violation type"
               value={violationType}
               onChange={(e) => setViolationType(e.target.value)}
@@ -169,7 +164,7 @@ export default function ChapterBonusConfigPage() {
               required
               disabled={Boolean(editing)} // key is violation_type (unique)
             />
-            <TextField label="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} fullWidth />
+            <TextField size="small" label="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} fullWidth />
 
             <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
               Penalty tiers (stacking within the month)
@@ -180,8 +175,9 @@ export default function ChapterBonusConfigPage() {
                 .sort((a, b) => a.tier_number - b.tier_number)
                 .map((t, idx) => (
                   <Stack key={t.tier_number} direction="row" spacing={1} alignItems="center">
-                    <TextField label="Tier" type="number" value={t.tier_number} disabled sx={{ width: 110 }} />
+                    <TextField size="small" label="Tier" type="number" value={t.tier_number} disabled sx={{ width: 110 }} />
                     <TextField
+                      size="small"
                       label="Amount"
                       type="number"
                       value={t.amount}
@@ -197,20 +193,23 @@ export default function ChapterBonusConfigPage() {
                       fullWidth
                     />
                     <IconButton
+                      size="small"
                       aria-label="remove tier"
                       color="error"
                       disabled={tiers.length <= 1}
                       onClick={() => setTiers((prev) => prev.filter((x) => x.tier_number !== t.tier_number))}
                     >
-                      <DeleteOutlineIcon />
+                      <DeleteOutlineIcon fontSize="small" />
                     </IconButton>
                   </Stack>
                 ))}
             </Stack>
 
             <Button
+              size="small"
               variant="outlined"
               startIcon={<AddOutlinedIcon />}
+              sx={{ alignSelf: "flex-start" }}
               onClick={() => {
                 const nextTier = Math.max(...tiers.map((t) => t.tier_number)) + 1;
                 setTiers((prev) => [...prev, { tier_number: nextTier, amount: "0.00" }]);
@@ -221,10 +220,11 @@ export default function ChapterBonusConfigPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button variant="outlined" onClick={() => setOpen(false)}>
+          <Button size="small" variant="outlined" onClick={() => setOpen(false)}>
             Cancel
           </Button>
           <Button
+            size="small"
             variant="contained"
             startIcon={<SaveOutlinedIcon />}
             onClick={async () => {
@@ -264,10 +264,11 @@ export default function ChapterBonusConfigPage() {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button variant="outlined" onClick={() => setDeleteOpen(false)}>
+          <Button size="small" variant="outlined" onClick={() => setDeleteOpen(false)}>
             Cancel
           </Button>
           <Button
+            size="small"
             variant="contained"
             color="error"
             startIcon={<DeleteOutlineIcon />}
@@ -289,7 +290,7 @@ export default function ChapterBonusConfigPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Stack>
+    </ConfigPageLayout>
   );
 }
 

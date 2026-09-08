@@ -22,6 +22,7 @@ import {
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { useAuth } from "../context/authContext";
 import { getHouseConfig, saveHouseConfig, seedHouseConfig } from "../services/houseConfigService";
@@ -32,13 +33,15 @@ import {
   IHouseSession,
 } from "../interfaces/api.interface";
 import SchoolYearSelector from "../components/SchoolYearSelector";
+import { ConfigHeader, ConfigSection } from "../components/config/configLayout";
+import { HEAD_SX, INPUT_CELL_SX, TABLE_CONTAINER_SX } from "../components/config/configTable";
 import HouseSessionSelector from "../components/HouseSessionSelector";
 import { schoolYearLabel, schoolYearStartForDate } from "../utils/schoolYear";
 import { formatMoney, roundMoney } from "../utils/money";
 import { instalmentLabel, sessionLabel } from "../utils/house";
 
-const CELL_SX = { py: 0.5 };
-const HEAD_SX = { py: 1, fontWeight: 700, whiteSpace: "nowrap" as const };
+// Rows of inputs rather than text, so they take the input cell padding.
+const CELL_SX = INPUT_CELL_SX;
 const SESSION_TYPES: HouseSessionType[] = ["winter", "summer"];
 
 function emptySession(sessionType: HouseSessionType): IHouseSession {
@@ -157,32 +160,25 @@ export default function HouseConfigPage() {
 
   return (
     <Stack spacing={2}>
-      <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={2}
-          alignItems={{ sm: "center" }}
-          justifyContent="space-between"
-        >
-          <Box>
-            <Typography variant="h5">House Config</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Rooms, rates, session dates, and instalment schedules for {schoolYearLabel(year)}.
-            </Typography>
-          </Box>
-          <Stack direction="row" spacing={2} alignItems="center">
+      <ConfigHeader
+        title="House Config"
+        description={`Rooms, rates, session dates, and instalment schedules for ${schoolYearLabel(year)}.`}
+        actions={
+          <>
             <HouseSessionSelector value={session} onChange={setSession} />
             <SchoolYearSelector value={year} onChange={setYear} />
-          </Stack>
-        </Stack>
-      </Paper>
+          </>
+        }
+      />
 
       {error && <Alert severity="error">{error}</Alert>}
       {notice && <Alert severity="success">{notice}</Alert>}
       {!canWrite && <Alert severity="info">You have read-only access to this page.</Alert>}
 
       {loading ? (
-        <CircularProgress />
+        <Stack alignItems="center" sx={{ py: 4 }}>
+          <CircularProgress />
+        </Stack>
       ) : (
         <>
           {config && !config.is_configured && (
@@ -191,10 +187,10 @@ export default function HouseConfigPage() {
               action={
                 canWrite && (
                   <Stack direction="row" spacing={1}>
-                    <Button size="small" onClick={() => handleSeed()} disabled={saving}>
+                    <Button size="small" variant="outlined" onClick={() => handleSeed()} disabled={saving}>
                       Load defaults
                     </Button>
-                    <Button size="small" onClick={() => handleSeed(year - 1)} disabled={saving}>
+                    <Button size="small" variant="outlined" onClick={() => handleSeed(year - 1)} disabled={saving}>
                       Copy {schoolYearLabel(year - 1)}
                     </Button>
                   </Stack>
@@ -205,10 +201,7 @@ export default function HouseConfigPage() {
             </Alert>
           )}
 
-          <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
-              {sessionLabel(year, session)}
-            </Typography>
+          <ConfigSection title={sessionLabel(year, session)}>
             <Stack spacing={2}>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                 <TextField
@@ -285,7 +278,7 @@ export default function HouseConfigPage() {
               <Divider />
 
               <Stack direction="row" alignItems="center" justifyContent="space-between">
-                <Typography variant="subtitle2">Instalments</Typography>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Instalments</Typography>
                 <Typography
                   variant="caption"
                   color={roundMoney(weightTotal) === 100 ? "text.secondary" : "error.main"}
@@ -366,6 +359,7 @@ export default function HouseConfigPage() {
                 <Box>
                   <Button
                     size="small"
+                    variant="outlined"
                     startIcon={<AddIcon />}
                     onClick={() => {
                       const nextSeq =
@@ -383,11 +377,10 @@ export default function HouseConfigPage() {
                 </Box>
               )}
             </Stack>
-          </Paper>
+          </ConfigSection>
 
-          <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
-            <Box sx={{ p: 2, pb: 0 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Rooms &amp; rates</Typography>
+          <ConfigSection disablePadding title="Rooms &amp; rates">
+            <Box sx={{ px: 2, pb: 1 }}>
               <Typography variant="body2" color="text.secondary">
                 One price per room per 4-month term. For a double it is the price per person, so a
                 buy-out costs twice that. This session is {draftSession.terms ?? 1} term
@@ -395,7 +388,7 @@ export default function HouseConfigPage() {
                 {(draftSession.terms ?? 1) === 1 ? "" : ` \u00d7 ${draftSession.terms}`}.
               </Typography>
             </Box>
-            <TableContainer sx={{ overflowX: "auto" }}>
+            <TableContainer sx={TABLE_CONTAINER_SX}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
@@ -495,12 +488,16 @@ export default function HouseConfigPage() {
                 </TableBody>
               </Table>
             </TableContainer>
-          </Paper>
+          </ConfigSection>
 
           {canWrite && (
             <Stack direction="row" spacing={1} justifyContent="flex-end">
-              <Button variant="outlined" onClick={load} disabled={saving}>Discard changes</Button>
-              <Button variant="contained" onClick={handleSave} disabled={saving}>Save config</Button>
+              <Button size="small" variant="outlined" onClick={load} disabled={saving}>
+                Discard changes
+              </Button>
+              <Button size="small" variant="contained" startIcon={<SaveOutlinedIcon />} onClick={handleSave} disabled={saving}>
+                {saving ? "Saving…" : "Save config"}
+              </Button>
             </Stack>
           )}
         </>

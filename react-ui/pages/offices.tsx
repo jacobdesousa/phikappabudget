@@ -1,19 +1,30 @@
 import * as React from "react";
 import {
   Alert,
-  Box,
   Button,
   CircularProgress,
-  Divider,
-  Paper,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
+import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
 import { useAuth } from "../context/authContext";
 import { adminCreateOffice, adminDeleteOffice, adminGetOffices, type OfficeRow } from "../services/authService";
+import { ConfigEmpty, ConfigPageLayout, ConfigSection } from "../components/config/configLayout";
+import { CELL_SX, HEAD_SX, TABLE_CONTAINER_SX, TABLE_SX } from "../components/config/configTable";
 
 export default function OfficesPage() {
   const { can } = useAuth();
@@ -26,6 +37,7 @@ export default function OfficesPage() {
   const [newKey, setNewKey] = React.useState("");
   const [newName, setNewName] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
+  const [deleting, setDeleting] = React.useState<OfficeRow | null>(null);
 
   const refresh = React.useCallback(async () => {
     setLoading(true);
@@ -49,39 +61,45 @@ export default function OfficesPage() {
   if (!isAdmin) return <Alert severity="error">Forbidden.</Alert>;
 
   return (
-    <Stack spacing={2}>
-      <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-        <Typography variant="h5">Offices</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Configure the list of offices available in the chapter. Office keys are used for permissions.
-        </Typography>
-      </Paper>
-
-      {error ? <Alert severity="error">{error}</Alert> : null}
-
-      <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-        <Typography variant="h6">Add office</Typography>
-        <Divider sx={{ my: 2 }} />
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "flex-end" }}>
+    <ConfigPageLayout
+      title="Offices"
+      description="The offices available in the chapter. Office keys are what permissions are granted to."
+      error={error}
+      actions={
+        <Button size="small" variant="outlined" startIcon={<RefreshOutlinedIcon />} onClick={() => refresh()} disabled={loading}>
+          Refresh
+        </Button>
+      }
+    >
+      <ConfigSection
+        title="Add office"
+        description="Use a short, stable key — it is normalized to lowercase and is what role permissions attach to. The display name is what appears in the UI."
+      >
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "flex-start" }}>
           <TextField
+            size="small"
             label="Office key"
             value={newKey}
             onChange={(e) => setNewKey(e.target.value)}
-            placeholder="e.g., phi, theta, risk"
+            placeholder="e.g. phi, theta, risk"
             fullWidth
           />
           <TextField
+            size="small"
             label="Display name"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="e.g., Phi (VP Finance)"
+            placeholder="e.g. Phi (VP Finance)"
             fullWidth
           />
           <Button
+            size="small"
             variant="contained"
             startIcon={<AddOutlinedIcon />}
             disabled={submitting || !newKey.trim()}
-            sx={{ height: 40, minWidth: 110 }}
+            // No fixed height or width: the button sizes to its own label
+            // rather than clipping it.
+            sx={{ flexShrink: 0, alignSelf: { xs: "flex-start", sm: "center" } }}
             onClick={async () => {
               setError(null);
               setSubmitting(true);
@@ -96,81 +114,90 @@ export default function OfficesPage() {
               void refresh();
             }}
           >
-            Add
+            Add office
           </Button>
         </Stack>
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
-          Tip: use a short, stable key (normalized to lowercase). Display name is what shows in the UI.
-        </Typography>
-      </Paper>
+      </ConfigSection>
 
-      <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="space-between" alignItems={{ sm: "center" }}>
-          <Typography variant="h6">Existing offices</Typography>
-          <Button variant="outlined" onClick={() => refresh()} disabled={loading}>
-            Refresh
-          </Button>
-        </Stack>
-
-        <Divider sx={{ my: 2 }} />
-
-        {loading ? <CircularProgress /> : null}
-
-        {offices.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            No offices yet.
-          </Typography>
+      <ConfigSection title="Existing offices">
+        {loading ? (
+          <Stack alignItems="center" sx={{ py: 3 }}>
+            <CircularProgress />
+          </Stack>
+        ) : offices.length === 0 ? (
+          <ConfigEmpty>No offices yet.</ConfigEmpty>
         ) : (
-          <Box component="table" sx={{ width: "100%", borderCollapse: "collapse" }}>
-            <Box component="thead">
-              <Box component="tr">
-                <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
-                  Display name
-                </Box>
-                <Box component="th" sx={{ textAlign: "left", borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2, width: 220 }}>
-                  Key
-                </Box>
-                <Box component="th" sx={{ textAlign: "right", borderBottom: "1px solid", borderColor: "divider", py: 1, width: 160 }}>
-                  Actions
-                </Box>
-              </Box>
-            </Box>
-            <Box component="tbody">
-              {offices.map((o) => (
-                <Box component="tr" key={o.office_key}>
-                  <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
-                    <Typography sx={{ fontWeight: 700 }}>{o.display_name}</Typography>
-                  </Box>
-                  <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, pr: 2 }}>
-                    <Typography variant="body2">{o.office_key}</Typography>
-                  </Box>
-                  <Box component="td" sx={{ borderBottom: "1px solid", borderColor: "divider", py: 1, textAlign: "right" }}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="error"
-                      startIcon={<DeleteOutlineIcon />}
-                      onClick={async () => {
-                        setError(null);
-                        const res = await adminDeleteOffice(o.office_key);
-                        if (!res.ok) {
-                          setError(res.error);
-                          return;
-                        }
-                        void refresh();
-                      }}
-                    >
-                      Remove
-                    </Button>
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-          </Box>
+          <TableContainer sx={TABLE_CONTAINER_SX}>
+            <Table size="small" sx={TABLE_SX}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={HEAD_SX}>Display name</TableCell>
+                  <TableCell sx={{ ...HEAD_SX, width: 200 }}>Key</TableCell>
+                  <TableCell sx={{ ...HEAD_SX, width: 120 }} align="right">
+                    Actions
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {offices.map((o) => (
+                  <TableRow key={o.office_key} hover>
+                    <TableCell sx={{ ...CELL_SX, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {o.display_name}
+                    </TableCell>
+                    <TableCell sx={{ ...CELL_SX, width: 200, color: "text.secondary" }}>{o.office_key}</TableCell>
+                    <TableCell sx={{ ...CELL_SX, width: 120 }} align="right">
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="error"
+                        startIcon={<DeleteOutlineIcon />}
+                        onClick={() => setDeleting(o)}
+                      >
+                        Remove
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
-      </Paper>
-    </Stack>
+      </ConfigSection>
+
+      {/* Removing an office was immediate, unlike every other destructive
+          action on the config pages. */}
+      <Dialog open={Boolean(deleting)} onClose={() => setDeleting(null)} fullWidth maxWidth="sm">
+        <DialogTitle>Remove {deleting?.display_name}?</DialogTitle>
+        <DialogContent dividers>
+          <DialogContentText sx={{ fontSize: "0.875rem" }}>
+            Any permissions granted to <b>{deleting?.office_key}</b> go with it, and brothers holding this
+            office lose what it granted them.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button size="small" variant="outlined" onClick={() => setDeleting(null)}>
+            Cancel
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            color="error"
+            onClick={async () => {
+              if (!deleting) return;
+              setError(null);
+              const res = await adminDeleteOffice(deleting.office_key);
+              setDeleting(null);
+              if (!res.ok) {
+                setError(res.error);
+                return;
+              }
+              void refresh();
+            }}
+          >
+            Remove office
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </ConfigPageLayout>
   );
 }
-
-

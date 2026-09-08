@@ -1,20 +1,18 @@
 import * as React from "react";
 import {
   Alert,
-  Box,
   Button,
   CircularProgress,
   Checkbox,
-  Divider,
-  Paper,
   Stack,
-  Typography,
   Autocomplete,
   Chip,
   ListItemText,
   TextField,
 } from "@mui/material";
 import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
+import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
+import { ConfigPageLayout, ConfigSection } from "../components/config/configLayout";
 import { adminGetRolePermissions, adminUpdateRolePermissions } from "../services/authService";
 import { useAuth } from "../context/authContext";
 
@@ -58,43 +56,35 @@ export default function RolePermissionsPage() {
   }
 
   return (
-    <Stack spacing={2}>
-      <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} justifyContent="space-between">
-          <Box>
-            <Typography variant="h5">Role permissions</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Configure which permissions each role grants. These changes affect all users whose office maps to that role.
-            </Typography>
-          </Box>
-          <Button variant="outlined" onClick={() => refresh()} disabled={loading}>
-            Refresh
-          </Button>
+    <ConfigPageLayout
+      title="Role permissions"
+      description="What each office grants. Changes apply to every user holding that office."
+      error={error}
+      actions={
+        <Button size="small" variant="outlined" startIcon={<RefreshOutlinedIcon />} onClick={() => refresh()} disabled={loading}>
+          Refresh
+        </Button>
+      }
+    >
+      {loading ? (
+        <Stack alignItems="center" sx={{ py: 4 }}>
+          <CircularProgress />
         </Stack>
-      </Paper>
-
-      {error ? <Alert severity="error">{error}</Alert> : null}
-      {loading ? <CircularProgress /> : null}
+      ) : null}
 
       {!loading ? (
-        <Box sx={{ width: "100%", maxWidth: 1100, mx: "auto" }}>
-          <Stack spacing={2}>
+        <Stack spacing={2} sx={{ minWidth: 0 }}>
           {offices.map((o) => {
             const roleKey = o.office_key;
             const value = rolePerms[roleKey] ?? [];
             return (
-              <Paper key={roleKey} elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-                <Stack spacing={1.5}>
-                  <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} justifyContent="space-between">
-                    <Box>
-                      <Typography variant="h6">
-                        {o.display_name}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Key: <b>{roleKey}</b> • {value.length} permissions
-                      </Typography>
-                    </Box>
+              <ConfigSection
+                key={roleKey}
+                title={o.display_name}
+                description={`Key: ${roleKey} • ${value.length} permission${value.length === 1 ? "" : "s"}`}
+                actions={
                     <Button
+                      size="small"
                       variant="contained"
                       startIcon={<SaveOutlinedIcon />}
                       disabled={savingRole === roleKey}
@@ -110,13 +100,12 @@ export default function RolePermissionsPage() {
                         void refresh();
                       }}
                     >
-                      Save
+                      {savingRole === roleKey ? "Saving…" : "Save"}
                     </Button>
-                  </Stack>
-
-                  <Divider />
-
+                }
+              >
                   <Autocomplete
+                    size="small"
                     multiple
                     options={permissionKeys}
                     value={value}
@@ -149,14 +138,12 @@ export default function RolePermissionsPage() {
                     )}
                     ListboxProps={{ style: { maxHeight: 360 } }}
                   />
-                </Stack>
-              </Paper>
+              </ConfigSection>
             );
           })}
-          </Stack>
-        </Box>
+        </Stack>
       ) : null}
-    </Stack>
+    </ConfigPageLayout>
   );
 }
 

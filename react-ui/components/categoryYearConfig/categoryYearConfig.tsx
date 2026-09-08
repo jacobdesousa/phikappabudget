@@ -26,6 +26,7 @@ import type { ICategoryYearRow, ICategoryYearState } from "../../interfaces/api.
 import SchoolYearSelector from "../SchoolYearSelector";
 import { schoolYearLabel, schoolYearStartForDate } from "../../utils/schoolYear";
 import { formatMoney } from "../../utils/money";
+import { ConfigEmpty, ConfigPageLayout, ConfigSection } from "../config/configLayout";
 
 type Result = { ok: boolean; error?: { message?: string } };
 
@@ -105,60 +106,55 @@ export default function CategoryYearConfig(props: Props) {
   const importYears = (state?.years ?? []).filter((y) => y !== schoolYear);
 
   return (
-    <Stack spacing={2}>
-      <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="space-between">
-          <Stack spacing={0.5}>
-            <Typography variant="h5">{props.title}</Typography>
-            <Typography variant="body2" color="text.secondary">
-              {props.description}
-            </Typography>
-          </Stack>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <SchoolYearSelector value={schoolYear} onChange={setSchoolYear} />
-            <Button
-              variant="outlined"
-              startIcon={<DownloadOutlinedIcon />}
-              disabled={importYears.length === 0}
-              onClick={() => {
-                setImportFrom(importYears[0] ?? "");
-                setImportOpen(true);
-              }}
-            >
-              Import
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<AddOutlinedIcon />}
-              onClick={() => {
-                setName("");
-                setError(undefined);
-                setAddOpen(true);
-              }}
-            >
-              Add category
-            </Button>
-          </Stack>
-        </Stack>
-      </Paper>
-
-      {error && <Alert severity="error">{error}</Alert>}
-
+    <ConfigPageLayout
+      title={props.title}
+      description={props.description}
+      error={error}
+      actions={
+        <>
+          <SchoolYearSelector value={schoolYear} onChange={setSchoolYear} />
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<DownloadOutlinedIcon />}
+            disabled={importYears.length === 0}
+            onClick={() => {
+              setImportFrom(importYears[0] ?? "");
+              setImportOpen(true);
+            }}
+          >
+            Import
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<AddOutlinedIcon />}
+            onClick={() => {
+              setName("");
+              setError(undefined);
+              setAddOpen(true);
+            }}
+          >
+            Add category
+          </Button>
+        </>
+      }
+    >
       {loading ? (
-        <CircularProgress />
+        <Stack alignItems="center" sx={{ py: 4 }}>
+          <CircularProgress />
+        </Stack>
       ) : (
-        <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-          <Stack direction="row" alignItems="baseline" justifyContent="space-between" sx={{ mb: 1 }}>
-            <Typography variant="h6">Categories for {schoolYearLabel(schoolYear)}</Typography>
+        <ConfigSection
+          title={`Categories for ${schoolYearLabel(schoolYear)}`}
+          actions={
             <Typography variant="caption" color="text.secondary">
               {offered.length} of {rows.length} offered
             </Typography>
-          </Stack>
-
+          }
+        >
           {rows.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              No categories yet.
-            </Typography>
+            <ConfigEmpty>No categories yet.</ConfigEmpty>
           ) : (
             <Stack spacing={1}>
               {rows.map((c) => {
@@ -247,7 +243,7 @@ export default function CategoryYearConfig(props: Props) {
               })}
             </Stack>
           )}
-        </Paper>
+        </ConfigSection>
       )}
 
       {/* Add */}
@@ -257,11 +253,12 @@ export default function CategoryYearConfig(props: Props) {
           <DialogContentText sx={{ mb: 2, fontSize: "0.875rem" }}>
             Added to {schoolYearLabel(schoolYear)}. Other years are unaffected.
           </DialogContentText>
-          <TextField label="Category name" value={name} onChange={(e) => setName(e.target.value)} fullWidth required />
+          <TextField size="small" label="Category name" value={name} onChange={(e) => setName(e.target.value)} fullWidth required />
         </DialogContent>
         <DialogActions>
-          <Button variant="outlined" onClick={() => setAddOpen(false)}>Cancel</Button>
+          <Button size="small" variant="outlined" onClick={() => setAddOpen(false)}>Cancel</Button>
           <Button
+            size="small"
             variant="contained"
             disabled={!name.trim()}
             onClick={async () => {
@@ -283,11 +280,12 @@ export default function CategoryYearConfig(props: Props) {
           <DialogContentText sx={{ mb: 2, fontSize: "0.875rem" }}>
             The name changes everywhere, in every year.
           </DialogContentText>
-          <TextField label="Category name" value={name} onChange={(e) => setName(e.target.value)} fullWidth required />
+          <TextField size="small" label="Category name" value={name} onChange={(e) => setName(e.target.value)} fullWidth required />
         </DialogContent>
         <DialogActions>
-          <Button variant="outlined" onClick={() => setEditing(null)}>Cancel</Button>
+          <Button size="small" variant="outlined" onClick={() => setEditing(null)}>Cancel</Button>
           <Button
+            size="small"
             variant="contained"
             disabled={!name.trim()}
             onClick={async () => {
@@ -326,8 +324,9 @@ export default function CategoryYearConfig(props: Props) {
           )}
         </DialogContent>
         <DialogActions>
-          <Button variant="outlined" onClick={() => setRemoving(null)}>Cancel</Button>
+          <Button size="small" variant="outlined" onClick={() => setRemoving(null)}>Cancel</Button>
           <Button
+            size="small"
             variant="contained"
             color="warning"
             onClick={async () => {
@@ -353,8 +352,9 @@ export default function CategoryYearConfig(props: Props) {
           </Alert>
         </DialogContent>
         <DialogActions>
-          <Button variant="outlined" onClick={() => setDeleting(null)}>Cancel</Button>
+          <Button size="small" variant="outlined" onClick={() => setDeleting(null)}>Cancel</Button>
           <Button
+            size="small"
             variant="contained"
             color="error"
             onClick={async () => {
@@ -378,6 +378,7 @@ export default function CategoryYearConfig(props: Props) {
             already offered here are left alone, and nothing is removed.
           </DialogContentText>
           <TextField
+            size="small"
             select
             label="Copy from"
             value={importFrom}
@@ -392,8 +393,9 @@ export default function CategoryYearConfig(props: Props) {
           </TextField>
         </DialogContent>
         <DialogActions>
-          <Button variant="outlined" onClick={() => setImportOpen(false)}>Cancel</Button>
+          <Button size="small" variant="outlined" onClick={() => setImportOpen(false)}>Cancel</Button>
           <Button
+            size="small"
             variant="contained"
             disabled={importFrom === ""}
             onClick={async () => {
@@ -407,6 +409,6 @@ export default function CategoryYearConfig(props: Props) {
           </Button>
         </DialogActions>
       </Dialog>
-    </Stack>
+    </ConfigPageLayout>
   );
 }

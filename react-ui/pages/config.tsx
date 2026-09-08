@@ -20,6 +20,7 @@ import HomeWorkOutlinedIcon from "@mui/icons-material/HomeWorkOutlined";
 import CleaningServicesOutlinedIcon from "@mui/icons-material/CleaningServicesOutlined";
 import VolunteerActivismOutlinedIcon from "@mui/icons-material/VolunteerActivismOutlined";
 import { useAuth } from "../context/authContext";
+import { ConfigHeader } from "../components/config/configLayout";
 
 const CARD_MIN_HEIGHT = 124;
 
@@ -58,14 +59,9 @@ export default function ConfigPage() {
   const canDonationsConfig = can("donations.config");
   return (
     <Stack spacing={2}>
-      <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-        <Typography variant="h5">Config</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Central place for chapter configuration.
-        </Typography>
-      </Paper>
+      <ConfigHeader title="Config" description="Central place for chapter configuration." />
 
-      <Box sx={{ width: "100%", maxWidth: 1100, mx: "auto" }}>
+      <Box sx={{ width: "100%" }}>
         <Grid container spacing={2} alignItems="stretch">
           <Grid item xs={12} md={4} sx={{ display: "flex" }}>
             <ConfigCard

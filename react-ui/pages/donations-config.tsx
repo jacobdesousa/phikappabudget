@@ -24,9 +24,12 @@ import { useAuth } from "../context/authContext";
 import { IDonationCampaign } from "../interfaces/api.interface";
 import { getDonationConfig, saveDonationConfig } from "../services/donationsService";
 import { formatMoney } from "../utils/money";
+import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
+import { ConfigPageLayout, ConfigSection } from "../components/config/configLayout";
+import { HEAD_SX, INPUT_CELL_SX, TABLE_CONTAINER_SX } from "../components/config/configTable";
 
-const CELL_SX = { py: 0.5 };
-const HEAD_SX = { py: 1, fontWeight: 700, whiteSpace: "nowrap" as const };
+// Rows of inputs, so they use the input cell padding rather than the text one.
+const CELL_SX = INPUT_CELL_SX;
 
 function emptyCampaign(): IDonationCampaign {
   return {
@@ -104,54 +107,59 @@ export default function DonationsConfigPage() {
   }
 
   return (
-    <Stack spacing={2}>
-      <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-        <Typography variant="h5">Donations Config</Typography>
-        <Typography variant="body2" color="text.secondary">
-          The price a new alumni bond opens at, and the campaigns donations can be pinned to.
-        </Typography>
-      </Paper>
-
-      {error ? <Alert severity="error">{error}</Alert> : null}
+    <ConfigPageLayout
+      title="Donations Config"
+      description="The price a new alumni bond opens at, and the campaigns donations can be pinned to."
+      error={error}
+      actions={
+        canWrite ? (
+          <Button size="small" variant="contained" startIcon={<SaveOutlinedIcon />} onClick={handleSave} disabled={saving || loading}>
+            {saving ? "Saving…" : "Save config"}
+          </Button>
+        ) : undefined
+      }
+    >
       {notice ? <Alert severity="success">{notice}</Alert> : null}
 
       {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+        <Stack alignItems="center" sx={{ py: 4 }}>
           <CircularProgress />
-        </Box>
+        </Stack>
       ) : (
         <>
-          <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-            <Typography variant="h6" sx={{ mb: 1 }}>
-              Bond price
-            </Typography>
+          <ConfigSection
+            title="Bond price"
+            description="Applies to bonds opened from now on. Bonds already opened keep the price they were opened at — changing this does not re-indebt anyone."
+          >
             <TextField
+              size="small"
               label="Current bond price"
               type="number"
               value={bondPrice}
               onChange={(e) => setBondPrice(e.target.value)}
               disabled={!canWrite}
               InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-              helperText={`Applies to bonds opened from now on. Bonds already opened keep the price they were opened at — changing this does not re-indebt anyone.`}
               sx={{ maxWidth: 360 }}
             />
-          </Paper>
+          </ConfigSection>
 
-          <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-              <Typography variant="h6">Campaigns</Typography>
-              {canWrite ? (
+          <ConfigSection
+            title="Campaigns"
+            description="Removing a campaign keeps its donations — they simply stop being pinned to it."
+            actions={
+              canWrite ? (
                 <Button
                   size="small"
+                  variant="outlined"
                   startIcon={<AddIcon />}
                   onClick={() => setCampaigns((prev) => [...prev, emptyCampaign()])}
                 >
                   Add campaign
                 </Button>
-              ) : null}
-            </Stack>
-
-            <TableContainer sx={{ overflowX: "auto" }}>
+              ) : undefined
+            }
+          >
+            <TableContainer sx={TABLE_CONTAINER_SX}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
@@ -256,20 +264,9 @@ export default function DonationsConfigPage() {
                 </TableBody>
               </Table>
             </TableContainer>
-            <Typography variant="caption" color="text.secondary">
-              Removing a campaign keeps its donations — they simply stop being pinned to it.
-            </Typography>
-          </Paper>
-
-          {canWrite ? (
-            <Stack direction="row" justifyContent="flex-end">
-              <Button variant="contained" onClick={handleSave} disabled={saving}>
-                Save config
-              </Button>
-            </Stack>
-          ) : null}
+          </ConfigSection>
         </>
       )}
-    </Stack>
+    </ConfigPageLayout>
   );
 }
