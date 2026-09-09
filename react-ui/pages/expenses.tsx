@@ -42,7 +42,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Clear";
 import { formatMoney, normalizeMoneyInput, roundMoney, sanitizeMoneyInput } from "../utils/money";
 import { openAuthenticatedFile } from "../utils/openFile";
-import { toDateInputValue } from "../utils/date";
+import { formatDateOnly, toDateInputValue } from "../utils/date";
 import Link from "next/link";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import { approveExpense, disburseExpenses, rejectExpense } from "../services/expenseWorkflowService";
@@ -562,7 +562,8 @@ export default function ExpensesPage() {
                           <Typography sx={{ fontWeight: 600 }}>{e.description}</Typography>
                           <Typography variant="body2" color="text.secondary">
                             {e.submitted_by_name ? `Submitted by: ${e.submitted_by_name} • ` : ""}
-                            {(e.category_name ?? "Uncategorized")} • {new Date(e.date).toDateString()}
+                            {(e.category_name ?? "Uncategorized")} •{" "}
+                            {formatDateOnly(e.date, { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
                           </Typography>
                           {e.receipt_url && (
                             <Typography variant="body2" color="text.secondary">
@@ -639,7 +640,8 @@ export default function ExpensesPage() {
                             <Box>
                               <Typography sx={{ fontWeight: 600 }}>{e.description}</Typography>
                               <Typography variant="body2" color="text.secondary">
-                                {(e.category_name ?? "Uncategorized")} • {new Date(e.date).toDateString()} • Reimburse:{" "}
+                                {(e.category_name ?? "Uncategorized")} •{" "}
+                            {formatDateOnly(e.date, { weekday: "short", month: "short", day: "numeric", year: "numeric" })} • Reimburse:{" "}
                                 {e.reimburse_first_name && e.reimburse_last_name
                                   ? `${e.reimburse_first_name} ${e.reimburse_last_name}`
                                   : e.reimburse_brother_id

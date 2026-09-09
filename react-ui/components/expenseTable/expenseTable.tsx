@@ -1,5 +1,6 @@
 import {
     Box,
+    Chip,
     Collapse,
     IconButton,
     Link,
@@ -22,6 +23,11 @@ import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import { IExpense } from "../../interfaces/api.interface";
 import { formatMoney } from "../../utils/money";
 import { formatDateOnly } from "../../utils/date";
+import {
+    expenseStatusColor,
+    expenseStatusDescription,
+    expenseStatusLabel,
+} from "../../utils/expenseStatus";
 
 interface Props {
     data: Array<IExpense>;
@@ -183,7 +189,14 @@ function ExpenseTable(props: Props) {
                                                             </Typography>
                                                             <Stack direction="row" gap={1}>
                                                                 <Typography variant="caption" color="text.secondary" sx={{ minWidth: 96 }}>Status</Typography>
-                                                                <Typography variant="caption">{e.status ?? "—"}</Typography>
+                                                                <Chip
+                                                                    size="small"
+                                                                    variant="outlined"
+                                                                    label={expenseStatusLabel(e.status)}
+                                                                    color={expenseStatusColor(e.status)}
+                                                                    title={expenseStatusDescription(e.status)}
+                                                                    sx={{ height: 18, fontSize: "0.68rem" }}
+                                                                />
                                                             </Stack>
                                                             <Stack direction="row" gap={1}>
                                                                 <Typography variant="caption" color="text.secondary" sx={{ minWidth: 96 }}>Reimburse</Typography>
