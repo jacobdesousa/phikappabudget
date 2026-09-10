@@ -115,7 +115,7 @@ export default function DonationsPage() {
     const q = donorSearch.trim().toLowerCase();
     const matches = donors.filter((d) => {
       if (q) {
-        const haystack = [donorName(d), d.pledge_class, d.bond_number, d.status]
+        const haystack = [donorName(d), d.pledge_class, d.status]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
@@ -126,11 +126,6 @@ export default function DonationsPage() {
           return (d.bond_outstanding ?? 0) > 0;
         case "paid":
           return d.has_bond && d.bond_outstanding === 0;
-        case "numbered":
-          return Boolean(d.bond_number);
-        // The follow-up list: bond settled, certificate number still to come.
-        case "unnumbered":
-          return d.has_bond && d.bond_outstanding === 0 && !d.bond_number;
         case "none":
           return !d.has_bond;
         default:
@@ -325,8 +320,6 @@ export default function DonationsPage() {
                   <MenuItem value="">All</MenuItem>
                   <MenuItem value="outstanding">Still owing</MenuItem>
                   <MenuItem value="paid">Paid off</MenuItem>
-                  <MenuItem value="numbered">Has bond number</MenuItem>
-                  <MenuItem value="unnumbered">Paid, no number yet</MenuItem>
                   <MenuItem value="none">No bond</MenuItem>
                 </TextField>
                 <TextField
@@ -353,7 +346,6 @@ export default function DonationsPage() {
                       <TableCell sx={HEAD_SX}>Pledge class</TableCell>
                       <TableCell sx={NUM_SX}>Lifetime</TableCell>
                       <TableCell sx={NUM_SX}>Bond owing</TableCell>
-                      <TableCell sx={HEAD_SX}>Bond no.</TableCell>
                       <TableCell sx={HEAD_SX}>Last gift</TableCell>
                       {canWrite ? <TableCell sx={HEAD_SX} /> : null}
                     </TableRow>
@@ -361,7 +353,7 @@ export default function DonationsPage() {
                   <TableBody>
                     {visibleDonors.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={canWrite ? 8 : 7} sx={CELL_SX}>
+                        <TableCell colSpan={canWrite ? 7 : 6} sx={CELL_SX}>
                           <Typography variant="body2" color="text.secondary">
                             {donors.length === 0
                               ? "No donations recorded yet."
@@ -659,7 +651,7 @@ function DonorRow(props: {
     };
   }, [open, d.brother_id, props.refreshKey]);
 
-  const colSpan = props.canWrite ? 8 : 7;
+  const colSpan = props.canWrite ? 7 : 6;
 
   return (
     <>
@@ -691,13 +683,7 @@ function DonorRow(props: {
             <Chip size="small" label="Paid" color="success" variant="outlined" />
           )}
         </TableCell>
-        <TableCell sx={CELL_SX}>
-          {d.bond_number ?? (
-            <Typography variant="caption" color="text.secondary">
-              {d.has_bond && d.bond_outstanding === 0 ? "Awaiting number" : "—"}
-            </Typography>
-          )}
-        </TableCell>
+
         <TableCell sx={CELL_SX}>{d.last_donation_on ?? "—"}</TableCell>
         {props.canWrite ? (
           <TableCell sx={{ ...CELL_SX, whiteSpace: "nowrap" }}>

@@ -1466,19 +1466,16 @@ async function setupTables() {
       brother_id  INTEGER NOT NULL UNIQUE REFERENCES brothers(id) ON DELETE CASCADE,
       bond_price  NUMERIC(10,2) NOT NULL,
       opened_on   DATE,
-      -- The certificate number, which is issued once the bond is paid off and
-      -- often is not known at the time of the donation. Nullable and filled in
-      -- later; unique so the same certificate cannot be recorded twice.
-      bond_number TEXT,
       notes       TEXT
     );
   `);
 
-  await addColumnIfMissing("alumni_bonds", "bond_number", "TEXT");
-  await createIndexIfMissing(
-    "idx_alumni_bonds_number",
-    `CREATE UNIQUE INDEX idx_alumni_bonds_number ON alumni_bonds (bond_number) WHERE bond_number IS NOT NULL;`
-  );
+  // Bond certificate numbers are gone. They came from a previous secretary's
+  // own numbering, were never issued to everyone, and appeared against people
+  // who had not paid for a bond at all — so the column recorded something the
+  // chapter does not actually have. brothers.id already numbers every person.
+  await pool.query(`DROP INDEX IF EXISTS idx_alumni_bonds_number;`);
+  await pool.query(`ALTER TABLE alumni_bonds DROP COLUMN IF EXISTS bond_number;`);
 
   // The balance owing on a bond is derived (price less the 'bond' rows), never
   // stored, so the ledger and the balance cannot drift apart.

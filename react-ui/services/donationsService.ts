@@ -60,7 +60,6 @@ export async function updateBond(
   payload: {
     bond_price: number;
     opened_on?: string | null;
-    bond_number?: string | null;
     notes?: string | null;
   }
 ): Promise<IBondState> {

@@ -946,7 +946,6 @@ export interface IBondState {
     opened_on: string | null;
     // The certificate number, issued once the bond is paid off. Often not known
     // when the donation is entered, so it is filled in later.
-    bond_number: string | null;
     notes: string | null;
 }
 
@@ -959,7 +958,6 @@ export interface IDonorSummary {
     has_bond: boolean;
     bond_price: number | null;
     bond_opened_on: string | null;
-    bond_number: string | null;
     bond_paid: number;
     bond_outstanding: number | null;
     lifetime_total: number;

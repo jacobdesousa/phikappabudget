@@ -31,7 +31,6 @@ export default function BondDialog(props: Props) {
   const [state, setState] = useState<IBondState | null>(null);
   const [bondPrice, setBondPrice] = useState("");
   const [openedOn, setOpenedOn] = useState("");
-  const [bondNumber, setBondNumber] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +43,6 @@ export default function BondDialog(props: Props) {
         setState(s);
         setBondPrice(String(s.bond_price));
         setOpenedOn(s.opened_on ?? "");
-        setBondNumber(s.bond_number ?? "");
         setNotes(s.notes ?? "");
       })
       .catch((e: any) => {
@@ -67,7 +65,6 @@ export default function BondDialog(props: Props) {
       await updateBond(props.brotherId, {
         bond_price: price,
         opened_on: openedOn || null,
-        bond_number: bondNumber.trim() || null,
         notes: notes || null,
       });
       props.onSaved();
@@ -111,17 +108,7 @@ export default function BondDialog(props: Props) {
             InputLabelProps={{ shrink: true }}
             fullWidth
           />
-          <TextField
-            label="Bond number"
-            value={bondNumber}
-            onChange={(e) => setBondNumber(e.target.value)}
-            helperText={
-              state && state.bond_outstanding > 0
-                ? "Issued when the bond is paid off — leave blank until then."
-                : "The certificate number for this bond."
-            }
-            fullWidth
-          />
+
           <TextField
             label="Notes"
             value={notes}

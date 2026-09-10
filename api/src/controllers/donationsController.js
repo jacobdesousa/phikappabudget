@@ -76,7 +76,7 @@ async function loadCampaigns(client = pool) {
 async function loadBondState(brotherId, client = pool) {
   const [bondRes, paidRes] = await Promise.all([
     client.query(
-      `SELECT id, bond_price, opened_on::text AS opened_on, bond_number, notes
+      `SELECT id, bond_price, opened_on::text AS opened_on, notes
        FROM alumni_bonds WHERE brother_id = $1`,
       [brotherId]
     ),
@@ -98,7 +98,6 @@ async function loadBondState(brotherId, client = pool) {
     bond_paid: roundMoney(paid),
     bond_outstanding: roundMoney(Math.max(0, bondPrice - paid)),
     opened_on: bond?.opened_on ?? null,
-    bond_number: bond?.bond_number ?? null,
     notes: bond?.notes ?? null,
   };
 }
@@ -176,7 +175,6 @@ async function getDonationSummary(req, res) {
       `SELECT b.id AS brother_id, b.first_name, b.last_name, b.pledge_class, b.status,
               bo.bond_price,
               bo.opened_on::text AS bond_opened_on,
-              bo.bond_number,
               COALESCE(SUM(d.amount), 0) AS lifetime_total,
               COALESCE(SUM(d.amount) FILTER (WHERE d.kind = 'bond'), 0) AS bond_paid,
               COUNT(d.id)::int AS donation_count,
@@ -186,7 +184,7 @@ async function getDonationSummary(req, res) {
        LEFT JOIN donations d ON d.brother_id = b.id
        WHERE bo.id IS NOT NULL OR d.id IS NOT NULL
        GROUP BY b.id, b.first_name, b.last_name, b.pledge_class, b.status,
-                bo.bond_price, bo.opened_on, bo.bond_number
+                bo.bond_price, bo.opened_on
        ORDER BY b.last_name ASC, b.first_name ASC`
     ),
     loadCampaigns(),
@@ -218,7 +216,6 @@ async function getDonationSummary(req, res) {
       has_bond: price !== null,
       bond_price: price,
       bond_opened_on: r.bond_opened_on,
-      bond_number: r.bond_number ?? null,
       bond_paid: roundMoney(paid),
       bond_outstanding: price === null ? null : roundMoney(Math.max(0, price - paid)),
       lifetime_total: roundMoney(Number(r.lifetime_total)),
@@ -418,32 +415,15 @@ async function updateBond(req, res) {
     });
   }
 
-  try {
-    await pool.query(
-      `INSERT INTO alumni_bonds (brother_id, bond_price, opened_on, bond_number, notes)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (brother_id) DO UPDATE SET
-         bond_price = EXCLUDED.bond_price,
-         opened_on = EXCLUDED.opened_on,
-         bond_number = EXCLUDED.bond_number,
-         notes = EXCLUDED.notes`,
-      [
-        brotherId,
-        price,
-        payload.opened_on ?? null,
-        payload.bond_number ?? null,
-        payload.notes ?? null,
-      ]
-    );
-  } catch (e) {
-    // One certificate, one holder — the unique index on bond_number.
-    if (e?.code === "23505") {
-      return res.status(409).json({
-        error: { message: `Bond number ${payload.bond_number} is already on another brother.` },
-      });
-    }
-    throw e;
-  }
+  await pool.query(
+    `INSERT INTO alumni_bonds (brother_id, bond_price, opened_on, notes)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (brother_id) DO UPDATE SET
+       bond_price = EXCLUDED.bond_price,
+       opened_on = EXCLUDED.opened_on,
+       notes = EXCLUDED.notes`,
+    [brotherId, price, payload.opened_on ?? null, payload.notes ?? null]
+  );
 
   res.status(200).json(await loadBondState(brotherId));
 }

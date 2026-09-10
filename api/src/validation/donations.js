@@ -64,7 +64,6 @@ const bondUpdateSchema = z.object({
   bond_price: z.coerce.number().min(0),
   opened_on: optionalDate,
   // The certificate number, usually not known until the bond is paid off.
-  bond_number: z.preprocess(emptyToUndefined, z.string().max(50).optional()),
   notes: optionalText,
 });
 
