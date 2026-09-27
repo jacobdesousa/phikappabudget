@@ -27,6 +27,7 @@ import {
   IDonationCampaign,
 } from "../../interfaces/api.interface";
 import { formatMoney, roundMoney } from "../../utils/money";
+import { groupForBrother } from "../../utils/brotherGroups";
 import {
   createDonation,
   getBondState,
@@ -44,7 +45,7 @@ interface Props {
 }
 
 function brotherLabel(b: IBrother) {
-  const name = `${b.last_name ?? ""}, ${b.first_name ?? ""}`.replace(/^, |, $/g, "");
+  const name = `${b.first_name ?? ""} ${b.last_name ?? ""}`.trim();
   return b.pledge_class ? `${name} (${b.pledge_class})` : name;
 }
 
@@ -73,6 +74,20 @@ export default function DonationDialog(props: Props) {
     () => props.brothers.find((b) => b.id === brotherId) ?? null,
     [props.brothers, brotherId]
   );
+
+  // Donations come from actives and alumni; pledges and the rarer statuses only
+  // add noise to the list. An existing donation's donor stays selectable even
+  // if their status has since moved them out of those two groups.
+  const donorOptions = useMemo(() => {
+    const list = props.brothers.filter((b) => {
+      const group = groupForBrother(b);
+      return group === "active" || group === "alumni";
+    });
+    if (selectedBrother && !list.some((b) => b.id === selectedBrother.id)) {
+      return [selectedBrother, ...list];
+    }
+    return list;
+  }, [props.brothers, selectedBrother]);
 
   // The split proposal comes from the server's view of the bond, so it stays
   // right even if someone else entered a donation a minute ago.
@@ -159,7 +174,7 @@ export default function DonationDialog(props: Props) {
           {error ? <Alert severity="error">{error}</Alert> : null}
 
           <Autocomplete
-            options={props.brothers}
+            options={donorOptions}
             value={selectedBrother}
             disabled={Boolean(existing)}
             getOptionLabel={brotherLabel}
