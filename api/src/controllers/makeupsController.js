@@ -19,6 +19,10 @@ const MAKEUP_READ_PERMISSIONS = [
 // Absences that call for a makeup. Workdays treat Excused the same as Missing —
 // the brother still owes the time — which is what the workday page's own makeup
 // field keys off.
+//
+// Nothing is owed until the event has actually happened: a roster filled in
+// ahead of a workday next week is a plan, not a list of absences, so rows dated
+// in the future are left out until the day arrives.
 const WORKDAY_MAKEUP_STATUSES = ["Missing", "Excused"];
 
 async function getAllMakeups(req, res) {
@@ -36,6 +40,7 @@ async function getAllMakeups(req, res) {
        JOIN workdays w ON w.id = wa.workday_id
        JOIN brothers b ON b.id = wa.brother_id
        WHERE wa.status = ANY($1::text[])
+         AND w.workday_date <= CURRENT_DATE
          AND (wa.makeup_completed_at IS NULL OR wa.id IN (
            SELECT id FROM workday_attendance
            WHERE makeup_completed_at IS NOT NULL
@@ -52,6 +57,7 @@ async function getAllMakeups(req, res) {
        JOIN shift_events se ON se.id = sa.shift_event_id
        JOIN brothers b ON b.id = sa.brother_id
        WHERE sa.status = 'absent'
+         AND se.event_date <= CURRENT_DATE
          AND (sa.makeup_completed_at IS NULL OR sa.id IN (
            SELECT id FROM shift_assignments
            WHERE makeup_completed_at IS NOT NULL
@@ -72,6 +78,7 @@ async function getAllMakeups(req, res) {
        JOIN shift_party_duties spd ON spd.id = sps.duty_id
        JOIN brothers b ON b.id = sps.brother_id
        WHERE sps.status = 'absent'
+         AND se.event_date <= CURRENT_DATE
          AND (sps.makeup_completed_at IS NULL OR sps.id IN (
            SELECT id FROM shift_party_slots
            WHERE makeup_completed_at IS NOT NULL
