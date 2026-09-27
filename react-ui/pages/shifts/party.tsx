@@ -28,6 +28,7 @@ import dayjs from "dayjs";
 import type { IShiftEvent, IShiftBrotherCount } from "../../interfaces/api.interface";
 import { listShifts, createShift, deleteShift, getBrotherCounts } from "../../services/shiftsService";
 import { useAuth } from "../../context/authContext";
+import { endsNextDay, formatTimeRange } from "../../utils/partyTime";
 import SchoolYearSelector from "../../components/SchoolYearSelector";
 import PageLoader from "../../components/PageLoader";
 
@@ -57,8 +58,10 @@ export default function PartyShiftsPage() {
   const [newDate, setNewDate] = React.useState(todayIso());
   const [newTitle, setNewTitle] = React.useState("");
   const [newNotes, setNewNotes] = React.useState("");
+  // Clock times, not hours-past-midnight: an end earlier than the start simply
+  // means the party runs into the next day, which the API already handles.
   const [newStartTime, setNewStartTime] = React.useState("20:00");
-  const [newEndTime, setNewEndTime] = React.useState("24:00");
+  const [newEndTime, setNewEndTime] = React.useState("02:00");
   const [duties, setDuties] = React.useState<string[]>(["Door", "Bar", "Floor"]);
   const [addError, setAddError] = React.useState<string | null>(null);
 
@@ -147,7 +150,7 @@ export default function PartyShiftsPage() {
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         {s.party_start_time && s.party_end_time
-                          ? `${s.party_start_time} – ${s.party_end_time}`
+                          ? formatTimeRange(s.party_start_time, s.party_end_time)
                           : "Time TBD"}
                       </Typography>
                     </Box>
@@ -216,18 +219,25 @@ export default function PartyShiftsPage() {
             <Stack direction="row" spacing={2}>
               <TextField
                 label="Start time"
+                type="time"
                 value={newStartTime}
                 onChange={(e) => setNewStartTime(e.target.value)}
-                placeholder="20:00"
-                helperText="24h, e.g. 20:00"
+                InputLabelProps={{ shrink: true }}
+                inputProps={{ step: 1800 }}
                 fullWidth
               />
               <TextField
                 label="End time"
+                type="time"
                 value={newEndTime}
                 onChange={(e) => setNewEndTime(e.target.value)}
-                placeholder="24:00"
-                helperText="Use 24+ for overnight, e.g. 26:00 = 2am"
+                InputLabelProps={{ shrink: true }}
+                inputProps={{ step: 1800 }}
+                helperText={
+                  endsNextDay(newStartTime, newEndTime)
+                    ? "Ends the next day"
+                    : "Ends the same night"
+                }
                 fullWidth
               />
             </Stack>

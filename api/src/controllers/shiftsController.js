@@ -194,6 +194,42 @@ async function updateShift(req, res) {
        payload.party_start_time ?? null, payload.party_end_time ?? null, id]
     );
 
+    // The grid has to match the hours: extending to 2am adds the rows to assign
+    // people to, and narrowing drops the rows past the new end. Dropping takes
+    // assignments with it, which is why the page confirms a narrower window
+    // before saving it.
+    if (
+      event.shift_type === "party" &&
+      (payload.party_start_time != null || payload.party_end_time != null)
+    ) {
+      const start = payload.party_start_time ?? event.party_start_time;
+      const end = payload.party_end_time ?? event.party_end_time;
+      // The page saves the times on every edit, so only rebuild when they moved.
+      const timesChanged = start !== event.party_start_time || end !== event.party_end_time;
+      if (start && end && timesChanged) {
+        const slots = generateSlots(start, end);
+        const duties = await client.query(
+          `SELECT id FROM shift_party_duties WHERE shift_event_id = $1`,
+          [id]
+        );
+        for (const duty of duties.rows) {
+          for (const slot of slots) {
+            await client.query(
+              `INSERT INTO shift_party_slots (shift_event_id, duty_id, slot_start)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (shift_event_id, duty_id, slot_start) DO NOTHING`,
+              [id, duty.id, slot]
+            );
+          }
+        }
+        await client.query(
+          `DELETE FROM shift_party_slots
+           WHERE shift_event_id = $1 AND slot_start <> ALL($2::text[])`,
+          [id, slots]
+        );
+      }
+    }
+
     if (event.shift_type === "party" && payload.slots) {
       for (const slot of payload.slots) {
         await client.query(

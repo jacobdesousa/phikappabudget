@@ -20,6 +20,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
@@ -40,6 +41,9 @@ import { getAllBrothers } from "../../services/brotherService";
 import type { IShiftBrotherCount } from "../../interfaces/api.interface";
 import SaveIndicator from "../../components/SaveIndicator";
 import { useAuth } from "../../context/authContext";
+import { endsNextDay, formatSlotRange, generateSlotStarts, toClockTime } from "../../utils/partyTime";
+import PartyTimetableShare from "../../components/shifts/PartyTimetableShare";
+import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import PageLoader from "../../components/PageLoader";
 
 type AttendanceStatus = "assigned" | "present" | "absent";
@@ -53,13 +57,6 @@ const STATUS_COLOR: Record<AttendanceStatus, "default" | "success" | "error"> = 
 function nextStatus(s: AttendanceStatus): AttendanceStatus {
   const i = STATUS_CYCLE.indexOf(s);
   return STATUS_CYCLE[(i + 1) % STATUS_CYCLE.length];
-}
-
-function formatSlotStart(slot: string): string {
-  const [hStr, m] = slot.split(":");
-  const h = parseInt(hStr, 10);
-  if (h < 24) return `${String(h).padStart(2, "0")}:${m}`;
-  return `${String(h - 24).padStart(2, "0")}:${m} (+1)`;
 }
 
 export default function ShiftDetailPage() {
@@ -86,6 +83,24 @@ export default function ShiftDetailPage() {
   const [draftSlots, setDraftSlots] = React.useState<IShiftPartySlot[]>([]);
   // Duties (party)
   const [duties, setDuties] = React.useState<IShiftPartyDuty[]>([]);
+  // Which way round the timetable reads. Remembered per person, since it is a
+  // preference rather than a property of the party.
+  const [dutyRows, setDutyRows] = React.useState(true);
+  React.useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("pks-party-duty-rows");
+      if (saved !== null) setDutyRows(saved === "1");
+    } catch {
+      // ignore
+    }
+  }, []);
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem("pks-party-duty-rows", dutyRows ? "1" : "0");
+    } catch {
+      // ignore
+    }
+  }, [dutyRows]);
 
   const [saving, setSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
@@ -157,6 +172,15 @@ export default function ShiftDetailPage() {
     };
   }, []);
 
+  // Narrowing the party window clears the slots past the new end, so the save
+  // waits on a confirmation naming what would go. Keyed by the window itself,
+  // so confirming once doesn't wave through a later change.
+  const [shrinkConfirm, setShrinkConfirm] = React.useState<
+    { start: string; end: string; dropped: IShiftPartySlot[] } | null
+  >(null);
+  const confirmedWindowRef = React.useRef<string | null>(null);
+  const [confirmToken, setConfirmToken] = React.useState(0);
+
   // Mark initial state as saved after first load
   React.useEffect(() => {
     if (!shift || loading || autosaveReady) return;
@@ -175,6 +199,22 @@ export default function ShiftDetailPage() {
     if (!autosaveReady || !shift || !Number.isFinite(id) || id <= 0) return;
     const hash = buildHash();
     if (hash === lastHashRef.current) return;
+
+    // A party whose hours shrank loses the slots past the new end. Ask first,
+    // and name the brothers who would come off the grid.
+    if (shift.shift_type === "party" && draftStartTime && draftEndTime) {
+      const windowKey = `${draftStartTime}|${draftEndTime}`;
+      const kept = new Set(generateSlotStarts(draftStartTime, draftEndTime));
+      const dropped = draftSlots.filter((sl) => !kept.has(sl.slot_start));
+      const assignedDropped = dropped.filter((sl) => sl.brother_id);
+      if (assignedDropped.length > 0 && confirmedWindowRef.current !== windowKey) {
+        // Drop any save already queued from an earlier keystroke, or it would
+        // fire behind the dialog.
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        setShrinkConfirm({ start: draftStartTime, end: draftEndTime, dropped: assignedDropped });
+        return;
+      }
+    }
 
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(async () => {
@@ -215,6 +255,21 @@ export default function ShiftDetailPage() {
       lastHashRef.current = hash;
       setSavedAt(new Date());
       setShift(res.data!);
+      // Changing the party hours adds or removes slot rows server-side, so the
+      // grid has to pick those up. Existing rows keep whatever is in the draft,
+      // since the user may have kept editing while the save was in flight.
+      if (res.data?.shift_type === "party") {
+        const serverSlots = res.data.slots ?? [];
+        setDraftSlots((prev) => {
+          const keyOf = (sl: IShiftPartySlot) => `${sl.duty_id}|${sl.slot_start}`;
+          const prevKeys = new Set(prev.map(keyOf));
+          const sameShape =
+            prev.length === serverSlots.length && serverSlots.every((sl) => prevKeys.has(keyOf(sl)));
+          if (sameShape) return prev;
+          const byKey = new Map(prev.map((sl) => [keyOf(sl), sl]));
+          return serverSlots.map((sl) => byKey.get(keyOf(sl)) ?? sl);
+        });
+      }
       // Re-fetch server counts so optimistic deltas stay near zero
       if (res.data?.shift_type && res.data?.school_year) {
         getBrotherCounts(res.data.shift_type, res.data.school_year).then(setCounts);
@@ -225,7 +280,7 @@ export default function ShiftDetailPage() {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autosaveReady, draftDate, draftTitle, draftNotes, draftStartTime, draftEndTime, draftAssignments, draftSlots]);
+  }, [autosaveReady, draftDate, draftTitle, draftNotes, draftStartTime, draftEndTime, draftAssignments, draftSlots, confirmToken]);
 
   // --- Helpers ---
   const assignedBrotherIds = new Set(draftAssignments.map((a) => a.brother_id));
@@ -253,6 +308,22 @@ export default function ShiftDetailPage() {
     setDraftAssignments((prev) =>
       prev.map((a) => (a.brother_id === brotherId ? { ...a, makeup_completed_at: val || null } : a))
     );
+  }
+
+  function cancelShrink() {
+    // Put the hours back the way the server has them; nothing was saved.
+    setDraftStartTime(shift?.party_start_time ?? "");
+    setDraftEndTime(shift?.party_end_time ?? "");
+    setShrinkConfirm(null);
+  }
+
+  function confirmShrink() {
+    if (shrinkConfirm) {
+      confirmedWindowRef.current = `${shrinkConfirm.start}|${shrinkConfirm.end}`;
+    }
+    setShrinkConfirm(null);
+    // Re-run the autosave effect now that the window is approved.
+    setConfirmToken((t) => t + 1);
   }
 
   // Party slot helpers
@@ -391,17 +462,25 @@ export default function ShiftDetailPage() {
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                   <TextField
                     label="Start time"
-                    value={draftStartTime}
+                    type="time"
+                    value={toClockTime(draftStartTime)}
                     onChange={(e) => setDraftStartTime(e.target.value)}
-                    placeholder="20:00"
+                    InputLabelProps={{ shrink: true }}
+                    inputProps={{ step: 1800 }}
                     disabled={!canWritePerm}
                   />
                   <TextField
                     label="End time"
-                    value={draftEndTime}
+                    type="time"
+                    value={toClockTime(draftEndTime)}
                     onChange={(e) => setDraftEndTime(e.target.value)}
-                    placeholder="24:00"
-                    helperText="Use hours > 24 for overnight (e.g. 26:00 = 2am)"
+                    InputLabelProps={{ shrink: true }}
+                    inputProps={{ step: 1800 }}
+                    helperText={
+                      endsNextDay(draftStartTime, draftEndTime)
+                        ? "Ends the next day"
+                        : "Ends the same night"
+                    }
                     disabled={!canWritePerm}
                   />
                 </Stack>
@@ -527,9 +606,40 @@ export default function ShiftDetailPage() {
                     </Stack>
                   </Paper>
 
-              {/* Party timetable grid */}
+              {/* Party timetable grid. Axes are swappable: time down the side
+                  reads like a schedule, duties down the side reads like a
+                  roster, and which one is easier depends on the party. */}
               <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-                <Typography variant="h6" sx={{ mb: 2 }}>Party Timetable</Typography>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  justifyContent="space-between"
+                  sx={{ mb: 2 }}
+                >
+                  <Typography variant="h6">Party Timetable</Typography>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Tooltip
+                      title={dutyRows ? "Show time down the side" : "Show duties down the side"}
+                    >
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<SwapHorizIcon />}
+                        onClick={() => setDutyRows((p) => !p)}
+                      >
+                        Swap axes
+                      </Button>
+                    </Tooltip>
+                    <PartyTimetableShare
+                      shift={shift}
+                      duties={duties}
+                      slots={draftSlots}
+                      slotStarts={uniqueSlotStarts}
+                      dutyRows={dutyRows}
+                    />
+                  </Stack>
+                </Stack>
                 {uniqueSlotStarts.length === 0 || duties.length === 0 ? (
                   <Typography variant="body2" color="text.secondary">No time slots. Add duties and set start/end times.</Typography>
                 ) : (
@@ -537,29 +647,44 @@ export default function ShiftDetailPage() {
                     <Table size="small" sx={{ minWidth: 500 }}>
                       <TableHead>
                         <TableRow>
-                          <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>Time</TableCell>
-                          {duties.map((d) => (
-                            <TableCell key={d.id} sx={{ fontWeight: 700, minWidth: 160 }}>{d.name}</TableCell>
+                          <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>
+                            {dutyRows ? "Duty" : "Time"}
+                          </TableCell>
+                          {(dutyRows ? uniqueSlotStarts : duties.map((d) => d.id)).map((col) => (
+                            <TableCell
+                              key={String(col)}
+                              sx={{ fontWeight: 700, minWidth: 160, whiteSpace: "nowrap" }}
+                            >
+                              {dutyRows
+                                ? formatSlotRange(String(col))
+                                : duties.find((d) => d.id === col)?.name}
+                            </TableCell>
                           ))}
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {uniqueSlotStarts.map((slotStart) => (
-                          <TableRow key={slotStart}>
-                            <TableCell sx={{ fontWeight: 600, whiteSpace: "nowrap" }}>{formatSlotStart(slotStart)}</TableCell>
-                            {duties.map((d) => {
-                              const slot = getSlot(d.id, slotStart);
-                              if (!slot) return <TableCell key={d.id} />;
+                        {(dutyRows ? duties.map((d) => d.id) : uniqueSlotStarts).map((row) => (
+                          <TableRow key={String(row)}>
+                            <TableCell sx={{ fontWeight: 600, whiteSpace: "nowrap" }}>
+                              {dutyRows
+                                ? duties.find((d) => d.id === row)?.name
+                                : formatSlotRange(String(row))}
+                            </TableCell>
+                            {(dutyRows ? uniqueSlotStarts : duties.map((d) => d.id)).map((col) => {
+                              const dutyId = dutyRows ? (row as number) : (col as number);
+                              const slotStart = dutyRows ? String(col) : String(row);
+                              const slot = getSlot(dutyId, slotStart);
+                              if (!slot) return <TableCell key={String(col)} />;
                               return (
-                                <TableCell key={d.id} sx={{ verticalAlign: "top", py: 1.5 }}>
+                                <TableCell key={String(col)} sx={{ verticalAlign: "top", py: 1.5 }}>
                                   {slot.brother_id ? (
                                     <Stack spacing={1}>
                                       <Chip
                                         label={`${slot.first_name} ${slot.last_name}`}
                                         size="small"
                                         color={STATUS_COLOR[slot.status as AttendanceStatus] ?? "default"}
-                                        onClick={canWritePerm ? () => cycleSlotStatus(d.id, slotStart) : undefined}
-                                        onDelete={canWritePerm ? () => assignSlotBrother(d.id, slotStart, null) : undefined}
+                                        onClick={canWritePerm ? () => cycleSlotStatus(dutyId, slotStart) : undefined}
+                                        onDelete={canWritePerm ? () => assignSlotBrother(dutyId, slotStart, null) : undefined}
                                         sx={{ cursor: canWritePerm ? "pointer" : "default", textTransform: "capitalize", maxWidth: 160 }}
                                       />
                                       {slot.status === "absent" && canWritePerm && (
@@ -567,7 +692,7 @@ export default function ShiftDetailPage() {
                                           type="date"
                                           size="small"
                                           value={slot.makeup_completed_at ? dayjs(slot.makeup_completed_at).format("YYYY-MM-DD") : ""}
-                                          onChange={(e) => setSlotMakeup(d.id, slotStart, e.target.value)}
+                                          onChange={(e) => setSlotMakeup(dutyId, slotStart, e.target.value)}
                                           InputLabelProps={{ shrink: true }}
                                           label="Makeup Completed"
                                           sx={{ width: 170 }}
@@ -578,7 +703,7 @@ export default function ShiftDetailPage() {
                                     <Autocomplete
                                       options={activeBrothers}
                                       getOptionLabel={(b) => `${b.first_name} ${b.last_name}`}
-                                      onChange={(_, val) => { if (val) assignSlotBrother(d.id, slotStart, val); }}
+                                      onChange={(_, val) => { if (val) assignSlotBrother(dutyId, slotStart, val); }}
                                       renderInput={(params) => <TextField {...params} size="small" placeholder="Assign" sx={{ minWidth: 130 }} />}
                                       value={null}
                                       clearOnBlur
@@ -654,6 +779,37 @@ export default function ShiftDetailPage() {
       )}
 
       {/* Add duty dialog */}
+      {/* Narrowing the hours clears the slots past the new end — say which. */}
+      <Dialog open={Boolean(shrinkConfirm)} onClose={() => cancelShrink()} fullWidth maxWidth="xs">
+        <DialogTitle>Shorten the party?</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" sx={{ mb: 1.5 }}>
+            Ending at {shrinkConfirm ? toClockTime(shrinkConfirm.end) : ""} removes the slots after
+            that time. {shrinkConfirm?.dropped.length} assigned{" "}
+            {shrinkConfirm?.dropped.length === 1 ? "slot" : "slots"} will be cleared:
+          </Typography>
+          <Stack spacing={0.5}>
+            {(shrinkConfirm?.dropped ?? []).slice(0, 8).map((sl) => (
+              <Typography key={`${sl.duty_id}-${sl.slot_start}`} variant="body2" color="text.secondary">
+                {formatSlotRange(sl.slot_start)} · {sl.duty_name ?? "Duty"} ·{" "}
+                {[sl.first_name, sl.last_name].filter(Boolean).join(" ") || "Assigned"}
+              </Typography>
+            ))}
+            {(shrinkConfirm?.dropped.length ?? 0) > 8 ? (
+              <Typography variant="body2" color="text.secondary">
+                and {(shrinkConfirm?.dropped.length ?? 0) - 8} more
+              </Typography>
+            ) : null}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => cancelShrink()}>Keep the old hours</Button>
+          <Button color="error" variant="contained" onClick={() => confirmShrink()}>
+            Clear and save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={dutyDialogOpen} onClose={() => setDutyDialogOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           Add duty

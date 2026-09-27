@@ -26,6 +26,7 @@ import {
 } from "../services/notificationsService";
 import { useAuth } from "../context/authContext";
 import SaveIndicator from "../components/SaveIndicator";
+import { formatSlotRange } from "../utils/partyTime";
 import PageLoader from "../components/PageLoader";
 
 // Mirrors the server's gate on GET /makeups.
@@ -109,7 +110,7 @@ function partyRow(r: AllMakeupsParty): MakeupRow {
     date: r.event_date,
     href: `/shifts/${r.shift_id}`,
     label: r.title ?? "Party",
-    detail: `${r.duty_name} · ${r.slot_start}`,
+    detail: `${r.duty_name} · ${formatSlotRange(r.slot_start)}`,
     status: "Absent",
     makeup_completed_at: r.makeup_completed_at,
     makeup_assignment: r.makeup_assignment,
