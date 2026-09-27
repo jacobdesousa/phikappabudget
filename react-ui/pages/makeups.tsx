@@ -5,13 +5,19 @@ import {
   AccordionSummary,
   Alert,
   Box,
+  Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   Paper,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import dayjs from "dayjs";
 import Link from "next/link";
@@ -130,12 +136,13 @@ interface RowProps {
   row: MakeupRow;
   canWrite: boolean;
   onPatch: (row: MakeupRow, patch: { makeup_completed_at?: string | null; makeup_assignment?: string | null }) => void;
+  onComplete: (row: MakeupRow) => void;
 }
 
 // A single makeup, editable in place. The whole point of the page is to work
 // through a list of these without opening the workday or shift each one came
 // from, so both fields save from here.
-function MakeupRowView({ row, canWrite, onPatch }: RowProps) {
+function MakeupRowView({ row, canWrite, onPatch, onComplete }: RowProps) {
   const [assignment, setAssignment] = React.useState(row.makeup_assignment ?? "");
 
   // Follow the server's value when the list reloads, but never while the field
@@ -189,16 +196,19 @@ function MakeupRowView({ row, canWrite, onPatch }: RowProps) {
         onBlur={() => dirty && onPatch(row, { makeup_assignment: assignment })}
         sx={{ minWidth: 240, flexGrow: 1 }}
       />
-      <TextField
+      {/* A date field here saved on every keystroke, and the first digit was
+          enough to complete the makeup and drop the row off the list. The date
+          is picked in a dialog and saved once. */}
+      <Button
         size="small"
-        type="date"
-        label="Completed"
-        value={dateInputValue(row.makeup_completed_at)}
+        variant={row.makeup_completed_at ? "text" : "outlined"}
+        startIcon={row.makeup_completed_at ? undefined : <CheckCircleOutlineIcon />}
         disabled={!canWrite}
-        onChange={(e) => onPatch(row, { makeup_completed_at: e.target.value || null })}
-        InputLabelProps={{ shrink: true }}
-        sx={{ width: 170 }}
-      />
+        onClick={() => onComplete(row)}
+        sx={{ width: 170, flexShrink: 0, justifyContent: "center" }}
+      >
+        {row.makeup_completed_at ? fmtDate(row.makeup_completed_at) : "Mark complete"}
+      </Button>
     </Stack>
   );
 }
@@ -208,9 +218,10 @@ interface SectionProps {
   rows: MakeupRow[];
   canWrite: boolean;
   onPatch: RowProps["onPatch"];
+  onComplete: RowProps["onComplete"];
 }
 
-function Section({ title, rows, canWrite, onPatch }: SectionProps) {
+function Section({ title, rows, canWrite, onPatch, onComplete }: SectionProps) {
   return (
     <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
       <Typography variant="h6" sx={{ mb: 1 }}>
@@ -223,7 +234,7 @@ function Section({ title, rows, canWrite, onPatch }: SectionProps) {
       ) : (
         <Stack spacing={0} divider={<Divider />}>
           {rows.map((r) => (
-            <MakeupRowView key={r.key} row={r} canWrite={canWrite} onPatch={onPatch} />
+            <MakeupRowView key={r.key} row={r} canWrite={canWrite} onPatch={onPatch} onComplete={onComplete} />
           ))}
         </Stack>
       )}
@@ -272,6 +283,16 @@ export default function MakeupsPage() {
     load().finally(() => setLoading(false));
   }, [load, canRead]);
 
+  // Completing a makeup is a deliberate act with a date attached, so it runs
+  // through a dialog: the row only leaves the list once the date is saved.
+  const [completeTarget, setCompleteTarget] = React.useState<MakeupRow | null>(null);
+  const [completeDate, setCompleteDate] = React.useState("");
+
+  const openComplete = React.useCallback((row: MakeupRow) => {
+    setCompleteTarget(row);
+    setCompleteDate(dateInputValue(row.makeup_completed_at) || dayjs().format("YYYY-MM-DD"));
+  }, []);
+
   const onPatch = React.useCallback<RowProps["onPatch"]>(
     async (row, patch) => {
       setSaving(true);
@@ -301,6 +322,26 @@ export default function MakeupsPage() {
     },
     [load]
   );
+
+  const onComplete = openComplete;
+
+  function closeComplete() {
+    setCompleteTarget(null);
+  }
+
+  function saveComplete() {
+    if (!completeTarget || !completeDate) return;
+    const row = completeTarget;
+    closeComplete();
+    void onPatch(row, { makeup_completed_at: completeDate });
+  }
+
+  function reopenMakeup() {
+    if (!completeTarget) return;
+    const row = completeTarget;
+    closeComplete();
+    void onPatch(row, { makeup_completed_at: null });
+  }
 
   const q = search.trim().toLowerCase();
 
@@ -368,10 +409,10 @@ export default function MakeupsPage() {
           {/* Workdays are their own thing — a whole missed day rather than a
               shift at an event — so they lead, separate from the three shift
               categories. */}
-          <Section title="Workday Makeups" rows={workdays} canWrite={canWrite} onPatch={onPatch} />
-          <Section title="Party Makeups" rows={parties} canWrite={canWrite} onPatch={onPatch} />
-          <Section title="Setup Makeups" rows={setups} canWrite={canWrite} onPatch={onPatch} />
-          <Section title="Cleanup Makeups" rows={cleanups} canWrite={canWrite} onPatch={onPatch} />
+          <Section title="Workday Makeups" rows={workdays} canWrite={canWrite} onPatch={onPatch} onComplete={onComplete} />
+          <Section title="Party Makeups" rows={parties} canWrite={canWrite} onPatch={onPatch} onComplete={onComplete} />
+          <Section title="Setup Makeups" rows={setups} canWrite={canWrite} onPatch={onPatch} onComplete={onComplete} />
+          <Section title="Cleanup Makeups" rows={cleanups} canWrite={canWrite} onPatch={onPatch} onComplete={onComplete} />
 
           {/* Collapsed by default: finished makeups are for looking things up,
               not for working through. Clearing the date here sends one back to
@@ -388,7 +429,7 @@ export default function MakeupsPage() {
               ) : (
                 <Stack spacing={0} divider={<Divider />}>
                   {completed.map((r) => (
-                    <MakeupRowView key={r.key} row={r} canWrite={canWrite} onPatch={onPatch} />
+                    <MakeupRowView key={r.key} row={r} canWrite={canWrite} onPatch={onPatch} onComplete={onComplete} />
                   ))}
                 </Stack>
               )}
@@ -396,6 +437,54 @@ export default function MakeupsPage() {
           </Accordion>
         </>
       )}
+
+      <Dialog open={Boolean(completeTarget)} onClose={closeComplete} fullWidth maxWidth="xs">
+        <DialogTitle>
+          {completeTarget?.makeup_completed_at ? "Edit completion date" : "Mark makeup complete"}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ pt: 0.5 }}>
+            <Box>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                {completeTarget?.name}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {completeTarget?.label}
+                {completeTarget?.detail ? ` · ${completeTarget.detail}` : ""}
+              </Typography>
+              {completeTarget?.makeup_assignment ? (
+                <Typography variant="body2" color="text.secondary">
+                  Assigned: {completeTarget.makeup_assignment}
+                </Typography>
+              ) : null}
+            </Box>
+            <TextField
+              type="date"
+              label="Completed on"
+              value={completeDate}
+              onChange={(e) => setCompleteDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              fullWidth
+              autoFocus
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: "space-between" }}>
+          <Box>
+            {completeTarget?.makeup_completed_at ? (
+              <Button color="error" onClick={reopenMakeup}>
+                Mark outstanding
+              </Button>
+            ) : null}
+          </Box>
+          <Box>
+            <Button onClick={closeComplete}>Cancel</Button>
+            <Button variant="contained" onClick={saveComplete} disabled={!completeDate}>
+              Save
+            </Button>
+          </Box>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }
