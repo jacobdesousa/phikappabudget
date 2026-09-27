@@ -27,7 +27,9 @@ function createApp() {
     cors({
       origin: env.corsOrigins,
       credentials: true,
-      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      // PATCH is used by the makeups page; without it here the browser blocks
+      // the preflight and the request surfaces as a network error.
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Accept", "Origin", "X-Requested-With", "Authorization"],
     })
   );
