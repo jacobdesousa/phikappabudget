@@ -918,6 +918,26 @@ async function setupTables() {
     `CREATE INDEX meeting_vote_options_vote_idx ON meeting_vote_options (vote_id, display_order);`
   );
 
+  // Abstaining is always allowed, so every vote carries an Abstain option the
+  // Sigma doesn't have to remember to add. The flag marks it so the UI can keep
+  // it last and read it as "no position" rather than as a choice.
+  await addColumnIfMissing("meeting_vote_options", "is_abstain", "BOOLEAN NOT NULL DEFAULT false");
+
+  // Votes created before this existed: give the still-open ones an Abstain
+  // option so brothers can use it. Closed votes are a record of what was on the
+  // ballot at the time and are left alone.
+  await pool.query(`
+    INSERT INTO meeting_vote_options (vote_id, option_text, display_order, is_abstain)
+    SELECT v.id, 'Abstain', COALESCE(MAX(o.display_order) + 1, 0), true
+    FROM meeting_votes v
+    LEFT JOIN meeting_vote_options o ON o.vote_id = v.id
+    WHERE v.status = 'open'
+      AND NOT EXISTS (
+        SELECT 1 FROM meeting_vote_options a WHERE a.vote_id = v.id AND a.is_abstain
+      )
+    GROUP BY v.id;
+  `);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS meeting_vote_responses (
       id         SERIAL PRIMARY KEY,

@@ -41,6 +41,11 @@ export default function CreateVoteDialog({ meetingId, onCreated, onClose }: Prop
             setError("At least 2 non-empty options are required");
             return;
         }
+        // The server adds Abstain to every vote, so a typed one would duplicate it.
+        if (filledOptions.some((o) => o.toLowerCase() === "abstain")) {
+            setError("Abstain is added to every vote — remove it from your options.");
+            return;
+        }
         setSubmitting(true);
         setError(null);
         const result = await createVote(meetingId, {
@@ -113,6 +118,9 @@ export default function CreateVoteDialog({ meetingId, onCreated, onClose }: Prop
                         <Button variant="outlined" startIcon={<AddIcon />} onClick={addOption} sx={{ alignSelf: "flex-start" }}>
                             Add option
                         </Button>
+                        <Typography variant="caption" color="text.secondary">
+                            Abstain is added to every vote automatically.
+                        </Typography>
                     </Stack>
                     <FormControlLabel
                         control={<Switch checked={allowMultiple} onChange={(e) => setAllowMultiple(e.target.checked)} />}

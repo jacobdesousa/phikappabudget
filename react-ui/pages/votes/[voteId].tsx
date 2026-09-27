@@ -112,13 +112,19 @@ export default function VotingPage() {
 
     function toggleOption(optId: number) {
         if (!vote) return;
-        if (vote.allow_multiple) {
-            setSelected((prev) =>
-                prev.includes(optId) ? prev.filter((id) => id !== optId) : [...prev, optId]
-            );
-        } else {
+        if (!vote.allow_multiple) {
             setSelected([optId]);
+            return;
         }
+        // Abstaining is taking no position, so it can't be paired with a choice
+        // even when several selections are allowed: picking it clears the rest, and
+        // picking anything else clears it.
+        const abstainId = vote.options.find((o) => o.is_abstain)?.id;
+        setSelected((prev) => {
+            if (prev.includes(optId)) return prev.filter((id) => id !== optId);
+            if (optId === abstainId) return [optId];
+            return [...prev.filter((id) => id !== abstainId), optId];
+        });
     }
 
     const totalVotes = React.useMemo(() => {

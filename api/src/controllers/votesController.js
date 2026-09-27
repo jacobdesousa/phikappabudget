@@ -3,6 +3,11 @@ const { idParamSchema } = require("../validation/common");
 const { voteCreateSchema, voteRespondSchema } = require("../validation/votes");
 const { loadAuthContext } = require("../middleware/auth");
 
+// Every vote gets one of these appended, so abstaining is never something the
+// Sigma has to remember to offer.
+const ABSTAIN_TEXT = "Abstain";
+const isAbstainText = (text) => String(text ?? "").trim().toLowerCase() === "abstain";
+
 async function createVote(req, res) {
   const { id: meetingId } = idParamSchema.parse(req.params);
   const { question, options, allow_multiple, is_anonymous } = voteCreateSchema.parse(req.body);
@@ -27,14 +32,27 @@ async function createVote(req, res) {
     );
     const vote = voteRes.rows[0];
 
+    // A hand-typed "Abstain" would otherwise sit alongside the one added below.
+    const choices = options.filter((o) => !isAbstainText(o));
+
     const insertedOptions = [];
-    for (let i = 0; i < options.length; i++) {
+    for (let i = 0; i < choices.length; i++) {
       const optRes = await client.query(
-        `INSERT INTO meeting_vote_options (vote_id, option_text, display_order) VALUES ($1, $2, $3) RETURNING id, option_text, display_order`,
-        [vote.id, options[i], i]
+        `INSERT INTO meeting_vote_options (vote_id, option_text, display_order, is_abstain)
+         VALUES ($1, $2, $3, false)
+         RETURNING id, option_text, display_order, is_abstain`,
+        [vote.id, choices[i], i]
       );
       insertedOptions.push(optRes.rows[0]);
     }
+
+    const abstainRes = await client.query(
+      `INSERT INTO meeting_vote_options (vote_id, option_text, display_order, is_abstain)
+       VALUES ($1, $2, $3, true)
+       RETURNING id, option_text, display_order, is_abstain`,
+      [vote.id, ABSTAIN_TEXT, choices.length]
+    );
+    insertedOptions.push(abstainRes.rows[0]);
 
     await client.query("COMMIT");
     return res.status(201).json({ ...vote, options: insertedOptions, my_response: null });
@@ -60,7 +78,7 @@ async function listVotesForMeeting(req, res) {
 
   const voteIds = votes.map((v) => v.id);
   const optionsRes = await pool.query(
-    `SELECT id, vote_id, option_text, display_order FROM meeting_vote_options WHERE vote_id = ANY($1) ORDER BY vote_id, display_order`,
+    `SELECT id, vote_id, option_text, display_order, is_abstain FROM meeting_vote_options WHERE vote_id = ANY($1) ORDER BY vote_id, display_order`,
     [voteIds]
   );
 
@@ -84,7 +102,12 @@ async function listVotesForMeeting(req, res) {
   const optionsByVoteId = {};
   for (const opt of optionsRes.rows ?? []) {
     if (!optionsByVoteId[opt.vote_id]) optionsByVoteId[opt.vote_id] = [];
-    optionsByVoteId[opt.vote_id].push({ id: opt.id, option_text: opt.option_text, display_order: opt.display_order });
+    optionsByVoteId[opt.vote_id].push({
+      id: opt.id,
+      option_text: opt.option_text,
+      display_order: opt.display_order,
+      is_abstain: opt.is_abstain,
+    });
   }
 
   const result = votes.map((v) => ({
@@ -111,7 +134,7 @@ async function getVote(req, res) {
   if (!vote) return res.status(404).json({ error: { message: "Vote not found" } });
 
   const optionsRes = await pool.query(
-    `SELECT id, option_text, display_order FROM meeting_vote_options WHERE vote_id = $1 ORDER BY display_order`,
+    `SELECT id, option_text, display_order, is_abstain FROM meeting_vote_options WHERE vote_id = $1 ORDER BY display_order`,
     [voteId]
   );
 
@@ -151,11 +174,11 @@ async function getResults(req, res) {
   if (!vote) return res.status(404).json({ error: { message: "Vote not found" } });
 
   const countsRes = await pool.query(
-    `SELECT o.id, o.option_text, o.display_order, COUNT(s.id)::int AS count
+    `SELECT o.id, o.option_text, o.display_order, o.is_abstain, COUNT(s.id)::int AS count
      FROM meeting_vote_options o
      LEFT JOIN meeting_vote_response_selections s ON s.option_id = o.id
      WHERE o.vote_id = $1
-     GROUP BY o.id, o.option_text, o.display_order
+     GROUP BY o.id, o.option_text, o.display_order, o.is_abstain
      ORDER BY o.display_order`,
     [voteId]
   );
@@ -165,7 +188,12 @@ async function getResults(req, res) {
     question: vote.question,
     is_anonymous: vote.is_anonymous,
     status: vote.status,
-    options: countsRes.rows.map((r) => ({ id: r.id, option_text: r.option_text, count: r.count })),
+    options: countsRes.rows.map((r) => ({
+      id: r.id,
+      option_text: r.option_text,
+      count: r.count,
+      is_abstain: r.is_abstain,
+    })),
   };
 
   if (!vote.is_anonymous) {
@@ -234,11 +262,20 @@ async function submitResponse(req, res) {
 
   // Verify all option_ids belong to this vote
   const optCheck = await pool.query(
-    `SELECT COUNT(*)::int AS c FROM meeting_vote_options WHERE id = ANY($1) AND vote_id = $2`,
+    `SELECT id, is_abstain FROM meeting_vote_options WHERE id = ANY($1) AND vote_id = $2`,
     [option_ids, voteId]
   );
-  if ((optCheck.rows?.[0]?.c ?? 0) !== option_ids.length) {
+  if ((optCheck.rowCount ?? 0) !== option_ids.length) {
     return res.status(400).json({ error: { message: "One or more option IDs are invalid for this vote" } });
+  }
+
+  // Abstaining means taking no position, so it cannot be paired with a choice
+  // even on a multi-select vote.
+  const abstained = optCheck.rows.some((o) => o.is_abstain);
+  if (abstained && option_ids.length > 1) {
+    return res
+      .status(400)
+      .json({ error: { message: "Abstain cannot be combined with other options" } });
   }
 
   const client = await pool.connect();

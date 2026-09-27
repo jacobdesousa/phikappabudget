@@ -297,6 +297,8 @@ export interface IVoteOption {
     id: number;
     option_text: string;
     display_order: number;
+    // Every vote carries exactly one of these, always last.
+    is_abstain?: boolean;
 }
 
 export interface IVote {
@@ -318,7 +320,7 @@ export interface IVoteResult {
     question: string;
     is_anonymous: boolean;
     status: 'open' | 'closed';
-    options: Array<{ id: number; option_text: string; count: number }>;
+    options: Array<{ id: number; option_text: string; count: number; is_abstain?: boolean }>;
     voters?: Array<{ option_id: number; user_id: number; email: string; first_name: string | null; last_name: string | null }>;
     voters_anon?: Array<{ user_id: number; email: string; first_name: string | null; last_name: string | null }>;
 }
