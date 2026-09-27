@@ -4,7 +4,6 @@ import {
   Button,
   Checkbox,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -28,6 +27,7 @@ import { schoolYearLabel, schoolYearStartForDate } from "../../utils/schoolYear"
 import { formatMoney } from "../../utils/money";
 import { ConfigEmpty, ConfigForbidden, ConfigPageLayout, ConfigSection } from "../config/configLayout";
 import { useAuth } from "../../context/authContext";
+import PageLoader from "../PageLoader";
 
 type Result = { ok: boolean; error?: { message?: string } };
 
@@ -152,9 +152,7 @@ export default function CategoryYearConfig(props: Props) {
       }
     >
       {loading ? (
-        <Stack alignItems="center" sx={{ py: 4 }}>
-          <CircularProgress />
-        </Stack>
+        <PageLoader py={4} />
       ) : (
         <ConfigSection
           title={`Categories for ${schoolYearLabel(schoolYear)}`}

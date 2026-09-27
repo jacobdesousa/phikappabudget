@@ -5,7 +5,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -29,6 +28,7 @@ import type { IShiftEvent, IShiftBrotherCount } from "../../interfaces/api.inter
 import { listShifts, createShift, deleteShift, getBrotherCounts } from "../../services/shiftsService";
 import { useAuth } from "../../context/authContext";
 import SchoolYearSelector from "../../components/SchoolYearSelector";
+import PageLoader from "../../components/PageLoader";
 
 const SHIFT_TYPE = "setup";
 const CURRENT_SCHOOL_YEAR = (() => {
@@ -103,7 +103,7 @@ export default function SetupShiftsPage() {
       {error && <Alert severity="error">{error}</Alert>}
 
       {loading ? (
-        <CircularProgress />
+        <PageLoader />
       ) : (
         <Box sx={{ display: "flex", gap: 2, alignItems: "flex-start", flexDirection: { xs: "column", md: "row" } }}>
           <Stack spacing={1} sx={{ flex: 1, minWidth: 0 }}>

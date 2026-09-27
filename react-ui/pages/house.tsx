@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -39,6 +38,7 @@ import HouseSessionSelector from "../components/HouseSessionSelector";
 import AssignResidentDialog from "../components/houseAssignment/assignResidentDialog";
 import { schoolYearStartForDate } from "../utils/schoolYear";
 import { formatPhoneForDisplay } from "../utils/phone";
+import PageLoader from "../components/PageLoader";
 import {
   bedVacancies,
   roomTypeLabel,
@@ -234,7 +234,7 @@ export default function HousePage() {
         )}
 
         {loading ? (
-          <CircularProgress />
+          <PageLoader />
         ) : (
           roster &&
           roster.session && (

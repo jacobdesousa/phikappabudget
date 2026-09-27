@@ -5,7 +5,7 @@ import {useEffect, useState} from "react";
 import AddBrotherModalComponent from "../components/addBrother/addBrother";
 import {getAllBrothers} from "../services/brotherService";
 import {IBrother} from "../interfaces/api.interface";
-import {Chip, CircularProgress, InputAdornment, Paper, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography} from "@mui/material";
+import {Chip, InputAdornment, Paper, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography} from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Clear";
 import IconButton from "@mui/material/IconButton";
@@ -15,6 +15,7 @@ import ImportBrothersDialog from "../components/importBrothers/importBrothers";
 import { useAuth } from "../context/authContext";
 import { matchesBrotherSearch } from "../utils/brotherSearch";
 import { BROTHER_GROUPS, BrotherGroup, countByGroup, groupForBrother } from "../utils/brotherGroups";
+import PageLoader from "../components/PageLoader";
 
 export default function BrothersPage() {
     const { can } = useAuth();
@@ -157,7 +158,7 @@ export default function BrothersPage() {
                 </Paper>
 
                 {loading ? (
-                    <CircularProgress />
+                    <PageLoader />
                 ) : (
                     <BrotherTableComponent
                       canWrite={canWrite}

@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Divider,
   Paper,
   Stack,
@@ -11,6 +10,7 @@ import {
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { getSessions, revokeAllSessions, revokeSession, type SessionRow } from "../services/authService";
+import PageLoader from "../components/PageLoader";
 
 function fmtDate(value?: string | Date | null) {
   if (!value) return "—";
@@ -85,7 +85,7 @@ export default function SessionsPage() {
       {error ? <Alert severity="error">{error}</Alert> : null}
 
       {loading ? (
-        <CircularProgress />
+        <PageLoader />
       ) : sessions.length === 0 ? (
         <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
           <Typography variant="body2" color="text.secondary">

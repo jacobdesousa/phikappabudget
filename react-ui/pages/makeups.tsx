@@ -6,7 +6,6 @@ import {
   Alert,
   Box,
   Chip,
-  CircularProgress,
   Divider,
   Paper,
   Stack,
@@ -27,6 +26,7 @@ import {
 } from "../services/notificationsService";
 import { useAuth } from "../context/authContext";
 import SaveIndicator from "../components/SaveIndicator";
+import PageLoader from "../components/PageLoader";
 
 // Mirrors the server's gate on GET /makeups.
 const MAKEUP_READ_PERMISSIONS = [
@@ -354,9 +354,7 @@ export default function MakeupsPage() {
       </Paper>
 
       {loading && (
-        <Box display="flex" justifyContent="center" py={6}>
-          <CircularProgress />
-        </Box>
+        <PageLoader />
       )}
       {error && <Alert severity="error">{error}</Alert>}
 

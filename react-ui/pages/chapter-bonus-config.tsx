@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -24,6 +23,7 @@ import type { IChapterBonusRule } from "../interfaces/api.interface";
 import { deleteBonusRule, getBonusRules, upsertBonusRule } from "../services/chapterBonusService";
 import { normalizeMoneyInput } from "../utils/money";
 import { useAuth } from "../context/authContext";
+import PageLoader from "../components/PageLoader";
 
 type TierDraft = { tier_number: number; amount: string };
 
@@ -99,9 +99,7 @@ export default function ChapterBonusConfigPage() {
       }
     >
       {loading ? (
-        <Stack alignItems="center" sx={{ py: 4 }}>
-          <CircularProgress />
-        </Stack>
+        <PageLoader py={4} />
       ) : (
         <ConfigSection title="Rules">
           {rules.length === 0 ? (

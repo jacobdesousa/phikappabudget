@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Divider,
   FormControl,
   InputLabel,
@@ -45,6 +44,7 @@ import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
 import { ConfigEmpty, ConfigPageLayout, ConfigSection } from "../components/config/configLayout";
 import { CELL_SX, HEAD_SX, TABLE_CONTAINER_SX, TABLE_SX } from "../components/config/configTable";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import PageLoader from "../components/PageLoader";
 import {
   Dialog,
   DialogActions,
@@ -179,9 +179,7 @@ export default function UsersPage() {
       error={error}
     >
       {loading ? (
-        <Stack alignItems="center" sx={{ py: 4 }}>
-          <CircularProgress />
-        </Stack>
+        <PageLoader py={4} />
       ) : null}
 
       {!isAdmin ? (
@@ -211,9 +209,7 @@ export default function UsersPage() {
           }
         >
           {adminUsersLoading ? (
-            <Stack alignItems="center" sx={{ py: 3 }}>
-              <CircularProgress />
-            </Stack>
+            <PageLoader py={3} />
           ) : null}
 
           {filteredAdminUsers.length === 0 ? (
@@ -446,9 +442,7 @@ export default function UsersPage() {
         }
       >
         {invitesLoading ? (
-          <Stack alignItems="center" sx={{ py: 3 }}>
-            <CircularProgress />
-          </Stack>
+          <PageLoader py={3} />
         ) : null}
 
         {invites.length === 0 ? (
@@ -556,9 +550,7 @@ export default function UsersPage() {
           }
         >
           {adminUsersLoading ? (
-            <Stack alignItems="center" sx={{ py: 3 }}>
-              <CircularProgress />
-            </Stack>
+            <PageLoader py={3} />
           ) : null}
 
           <Stack spacing={2}>
@@ -652,7 +644,7 @@ export default function UsersPage() {
 
                 <Divider />
 
-                {overridesLoading ? <CircularProgress /> : null}
+                {overridesLoading ? <PageLoader /> : null}
 
                 {overrides.length === 0 ? (
                   <ConfigEmpty>No overrides for this user.</ConfigEmpty>

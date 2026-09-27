@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Divider,
   FormControlLabel,
   IconButton,
@@ -39,6 +38,7 @@ import HouseSessionSelector from "../components/HouseSessionSelector";
 import { schoolYearLabel, schoolYearStartForDate } from "../utils/schoolYear";
 import { formatMoney, roundMoney } from "../utils/money";
 import { instalmentLabel, sessionLabel } from "../utils/house";
+import PageLoader from "../components/PageLoader";
 
 // Rows of inputs rather than text, so they take the input cell padding.
 const CELL_SX = INPUT_CELL_SX;
@@ -176,9 +176,7 @@ export default function HouseConfigPage() {
       {!canWrite && <Alert severity="info">You have read-only access to this page.</Alert>}
 
       {loading ? (
-        <Stack alignItems="center" sx={{ py: 4 }}>
-          <CircularProgress />
-        </Stack>
+        <PageLoader py={4} />
       ) : (
         <>
           {config && !config.is_configured && (

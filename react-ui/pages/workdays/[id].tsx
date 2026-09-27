@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Checkbox,
-  CircularProgress,
   Paper,
   Stack,
   TextField,
@@ -18,6 +17,7 @@ import { getWorkday, updateWorkday } from "../../services/workdaysService";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import SaveIndicator from "../../components/SaveIndicator";
 import { useAuth } from "../../context/authContext";
+import PageLoader from "../../components/PageLoader";
 
 const STATUS_OPTIONS: Array<IWorkdayAttendanceRow["status"]> = ["Present", "Late", "Excused", "Missing"];
 
@@ -229,9 +229,7 @@ export default function WorkdayDetailPage() {
       {saveError ? <Alert severity="error">{saveError}</Alert> : null}
 
       {loading ? (
-        <Box display="flex" justifyContent="center" py={6}>
-          <CircularProgress />
-        </Box>
+        <PageLoader />
       ) : !workday ? null : (
         <>
           {isEditing ? (

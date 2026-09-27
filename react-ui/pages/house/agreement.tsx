@@ -1,12 +1,13 @@
 import * as React from "react";
 import { useRouter } from "next/router";
 import dayjs from "dayjs";
-import { Alert, Box, CircularProgress } from "@mui/material";
+import { Alert, Box } from "@mui/material";
 import { apiClient, parseApiError } from "../../services/apiClient";
 import { formatMoney } from "../../utils/money";
 import { sessionLabel } from "../../utils/house";
 import { formatPhoneForDisplay } from "../../utils/phone";
 import type { HouseSessionType } from "../../interfaces/api.interface";
+import PageLoader from "../../components/PageLoader";
 
 // ── Types returned by GET /house/agreement ─────────────────────────────────
 
@@ -546,7 +547,7 @@ export default function HouseAgreementPrintPage() {
     return () => clearTimeout(t);
   }, [autoprint, loading, data]);
 
-  if (loading) return <CircularProgress sx={{ m: 4 }} />;
+  if (loading) return <PageLoader />;
   if (error) return <Alert severity="error" sx={{ m: 4 }}>{error}</Alert>;
   if (!data) return null;
 

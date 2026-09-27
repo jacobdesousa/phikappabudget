@@ -2,7 +2,6 @@ import * as React from "react";
 import {
   Alert,
   Button,
-  CircularProgress,
   Checkbox,
   Stack,
   Autocomplete,
@@ -15,6 +14,7 @@ import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
 import { ConfigPageLayout, ConfigSection } from "../components/config/configLayout";
 import { adminGetRolePermissions, adminUpdateRolePermissions } from "../services/authService";
 import { useAuth } from "../context/authContext";
+import PageLoader from "../components/PageLoader";
 
 export default function RolePermissionsPage() {
   const { can } = useAuth();
@@ -67,9 +67,7 @@ export default function RolePermissionsPage() {
       }
     >
       {loading ? (
-        <Stack alignItems="center" sx={{ py: 4 }}>
-          <CircularProgress />
-        </Stack>
+        <PageLoader py={4} />
       ) : null}
 
       {!loading ? (

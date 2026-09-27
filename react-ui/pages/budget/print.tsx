@@ -2,11 +2,12 @@ import * as React from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import dayjs from "dayjs";
-import { Alert, Box, CircularProgress, Divider, Typography } from "@mui/material";
+import { Alert, Box, Divider, Typography } from "@mui/material";
 import type { IBudgetSummary } from "../../interfaces/api.interface";
 import { getBudgetSummary } from "../../services/budgetService";
 import { formatMoney } from "../../utils/money";
 import { schoolYearLabel } from "../../utils/schoolYear";
+import PageLoader from "../../components/PageLoader";
 
 const th: React.CSSProperties = {
   textAlign: "left",
@@ -84,7 +85,7 @@ export default function BudgetPrintPage() {
     return () => { cancelled = true; };
   }, [autoprint, loading, summary]);
 
-  if (!router.isReady || loading) return <CircularProgress />;
+  if (!router.isReady || loading) return <PageLoader />;
   if (error) return <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>;
   if (!summary) return null;
 

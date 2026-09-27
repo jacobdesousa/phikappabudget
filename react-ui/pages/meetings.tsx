@@ -4,7 +4,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -23,6 +22,7 @@ import { createMeeting, deleteMeeting, getMeetings } from "../services/meetingsS
 import type { IMeetingMinutesListItem } from "../interfaces/api.interface";
 import { schoolYearLabel, schoolYearStartForDate } from "../utils/schoolYear";
 import { useAuth } from "../context/authContext";
+import PageLoader from "../components/PageLoader";
 
 export default function MeetingsPage() {
   const router = useRouter();
@@ -79,7 +79,7 @@ export default function MeetingsPage() {
       {error ? <Alert severity="error">{error}</Alert> : null}
 
       {loading ? (
-        <CircularProgress />
+        <PageLoader />
       ) : (
         <Stack spacing={1}>
           {items.length === 0 ? (

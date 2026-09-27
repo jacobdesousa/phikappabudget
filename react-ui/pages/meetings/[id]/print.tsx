@@ -2,12 +2,13 @@ import * as React from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import dayjs from "dayjs";
-import { Alert, Box, CircularProgress, Divider, Typography } from "@mui/material";
+import { Alert, Box, Divider, Typography } from "@mui/material";
 import type { IBrother, IMeetingMinutes, IVoteResult } from "../../../interfaces/api.interface";
 import { getAllBrothers } from "../../../services/brotherService";
 import { getMeeting } from "../../../services/meetingsService";
 import { listVotesForMeeting, getVoteResults } from "../../../services/votesService";
 import { schoolYearLabel, schoolYearStartForDate } from "../../../utils/schoolYear";
+import PageLoader from "../../../components/PageLoader";
 
 function formatArrivalTime(hhmm?: string | null): string {
   if (!hhmm) return "";
@@ -95,7 +96,7 @@ export default function MeetingMinutesPrintPage() {
     return () => clearTimeout(t);
   }, [autoprint, loading, meeting]);
 
-  if (!router.isReady || loading) return <CircularProgress />;
+  if (!router.isReady || loading) return <PageLoader />;
   if (error) return <Alert severity="error">{error}</Alert>;
   if (!meeting) return <Alert severity="error">Meeting not found.</Alert>;
 

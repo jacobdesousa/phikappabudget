@@ -6,7 +6,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Container,
   Paper,
   Stack,
@@ -14,6 +13,7 @@ import {
   Typography,
 } from "@mui/material";
 import { getPasswordResetInfo, resetPassword } from "../../services/authService";
+import PageLoader from "../../components/PageLoader";
 
 // Choosing the new password.
 //
@@ -81,9 +81,7 @@ export default function ResetPasswordPage() {
 
           <Paper elevation={2} sx={{ p: { xs: 2, md: 3 } }}>
             {checking ? (
-              <Stack alignItems="center" sx={{ py: 3 }}>
-                <CircularProgress />
-              </Stack>
+              <PageLoader py={3} />
             ) : done ? (
               <Stack spacing={2}>
                 <Alert severity="success">

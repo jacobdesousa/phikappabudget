@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -41,6 +40,7 @@ import { formatMoney, normalizeMoneyInput } from "../utils/money";
 import { openAuthenticatedFile } from "../utils/openFile";
 import SaveIndicator from "../components/SaveIndicator";
 import { useAuth } from "../context/authContext";
+import PageLoader from "../components/PageLoader";
 
 function currentMonth(): string {
   return dayjs().format("YYYY-MM");
@@ -490,9 +490,7 @@ export default function ChapterBonusPage() {
         </Stack>
         {workdaysError ? <Alert severity="error" sx={{ mt: 2 }}>{workdaysError}</Alert> : null}
         {workdaysLoading ? (
-          <Box display="flex" justifyContent="center" py={4}>
-            <CircularProgress />
-          </Box>
+          <PageLoader py={4} />
         ) : (
           <Box sx={{ mt: 2 }}>
             {workdays.length === 0 ? (
@@ -572,9 +570,7 @@ export default function ChapterBonusPage() {
       </Paper>
 
       {loading ? (
-        <Box display="flex" justifyContent="center" py={6}>
-          <CircularProgress />
-        </Box>
+        <PageLoader />
       ) : (
         <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
           <Typography variant="h6" sx={{ mb: 1 }}>

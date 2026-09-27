@@ -2,9 +2,10 @@ import * as React from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import dayjs from "dayjs";
-import { Alert, Box, CircularProgress, Divider, Typography } from "@mui/material";
+import { Alert, Box, Divider, Typography } from "@mui/material";
 import type { IRoomDrawStanding } from "../../interfaces/api.interface";
 import { getStandings } from "../../services/roomDrawService";
+import PageLoader from "../../components/PageLoader";
 
 export default function RoomDrawPrintPage() {
   const router = useRouter();
@@ -65,7 +66,7 @@ export default function RoomDrawPrintPage() {
     };
   }, [autoprint, loading, error]);
 
-  if (!router.isReady || loading) return <CircularProgress />;
+  if (!router.isReady || loading) return <PageLoader />;
   if (error) return <Alert severity="error">{error}</Alert>;
 
   // Bypasses (alpha/beta/pi) first, then regular, then over-graduation

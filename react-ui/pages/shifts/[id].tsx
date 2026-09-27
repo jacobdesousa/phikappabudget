@@ -6,7 +6,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -41,6 +40,7 @@ import { getAllBrothers } from "../../services/brotherService";
 import type { IShiftBrotherCount } from "../../interfaces/api.interface";
 import SaveIndicator from "../../components/SaveIndicator";
 import { useAuth } from "../../context/authContext";
+import PageLoader from "../../components/PageLoader";
 
 type AttendanceStatus = "assigned" | "present" | "absent";
 const STATUS_CYCLE: AttendanceStatus[] = ["assigned", "present", "absent"];
@@ -363,7 +363,7 @@ export default function ShiftDetailPage() {
       {saveError && <Alert severity="error">{saveError}</Alert>}
 
       {loading ? (
-        <CircularProgress />
+        <PageLoader />
       ) : !shift ? null : (
         <>
           {/* Details — full width */}

@@ -2,12 +2,13 @@ import * as React from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import dayjs from "dayjs";
-import { Alert, Box, CircularProgress, Divider, Typography } from "@mui/material";
+import { Alert, Box, Divider, Typography } from "@mui/material";
 import type { IChapterBonusDeduction } from "../../interfaces/api.interface";
 import { formatMoney } from "../../utils/money";
 import { getBonusDeductions, getBonusSummary, getWorkdayRatesForMonth } from "../../services/chapterBonusService";
 import { getWorkdaysForBonusMonth } from "../../services/workdaysService";
 import { API_BASE_URL } from "../../services/apiClient";
+import PageLoader from "../../components/PageLoader";
 
 function currentMonth(): string {
   return dayjs().format("YYYY-MM");
@@ -131,7 +132,7 @@ export default function ChapterBonusPrintPage() {
     };
   }, [autoprint, loading, error]);
 
-  if (!router.isReady || loading) return <CircularProgress />;
+  if (!router.isReady || loading) return <PageLoader />;
   if (error) return <Alert severity="error">{error}</Alert>;
 
   const monthLabel = dayjs(`${month}-01`).format("MMMM YYYY");

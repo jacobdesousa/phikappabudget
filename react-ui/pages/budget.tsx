@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Collapse,
   IconButton,
   InputAdornment,
@@ -48,6 +47,7 @@ import SchoolYearSelector from "../components/SchoolYearSelector";
 import SaveIndicator from "../components/SaveIndicator";
 import { formatMoney } from "../utils/money";
 import { schoolYearStartForDate } from "../utils/schoolYear";
+import PageLoader from "../components/PageLoader";
 
 const CELL_SX = { py: "3px", px: "6px", fontSize: "0.72rem", whiteSpace: "nowrap" as const };
 const HEAD_SX = { ...CELL_SX, fontWeight: 700 };
@@ -876,9 +876,7 @@ export default function BudgetPage() {
         </Paper>
 
         {loading && (
-          <Box display="flex" justifyContent="center" py={6}>
-            <CircularProgress />
-          </Box>
+          <PageLoader />
         )}
 
         {error && <Alert severity="error">{error}</Alert>}

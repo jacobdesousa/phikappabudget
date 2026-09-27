@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Checkbox,
-  CircularProgress,
   IconButton,
   InputAdornment,
   Paper,
@@ -27,6 +26,7 @@ import { formatMoney } from "../utils/money";
 import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
 import { ConfigForbidden, ConfigPageLayout, ConfigSection } from "../components/config/configLayout";
 import { HEAD_SX, INPUT_CELL_SX, TABLE_CONTAINER_SX } from "../components/config/configTable";
+import PageLoader from "../components/PageLoader";
 
 // Rows of inputs, so they use the input cell padding rather than the text one.
 const CELL_SX = INPUT_CELL_SX;
@@ -127,9 +127,7 @@ export default function DonationsConfigPage() {
       {notice ? <Alert severity="success">{notice}</Alert> : null}
 
       {loading ? (
-        <Stack alignItems="center" sx={{ py: 4 }}>
-          <CircularProgress />
-        </Stack>
+        <PageLoader py={4} />
       ) : (
         <>
           <ConfigSection

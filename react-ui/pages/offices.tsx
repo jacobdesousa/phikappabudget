@@ -2,7 +2,6 @@ import * as React from "react";
 import {
   Alert,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -25,6 +24,7 @@ import { useAuth } from "../context/authContext";
 import { adminCreateOffice, adminDeleteOffice, adminGetOffices, type OfficeRow } from "../services/authService";
 import { ConfigEmpty, ConfigPageLayout, ConfigSection } from "../components/config/configLayout";
 import { CELL_SX, HEAD_SX, TABLE_CONTAINER_SX, TABLE_SX } from "../components/config/configTable";
+import PageLoader from "../components/PageLoader";
 
 export default function OfficesPage() {
   const { can } = useAuth();
@@ -121,9 +121,7 @@ export default function OfficesPage() {
 
       <ConfigSection title="Existing offices">
         {loading ? (
-          <Stack alignItems="center" sx={{ py: 3 }}>
-            <CircularProgress />
-          </Stack>
+          <PageLoader py={3} />
         ) : offices.length === 0 ? (
           <ConfigEmpty>No offices yet.</ConfigEmpty>
         ) : (

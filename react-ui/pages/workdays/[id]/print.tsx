@@ -2,9 +2,10 @@ import * as React from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import dayjs from "dayjs";
-import { Alert, Box, CircularProgress, Divider, Typography } from "@mui/material";
+import { Alert, Box, Divider, Typography } from "@mui/material";
 import type { IWorkday } from "../../../interfaces/api.interface";
 import { getWorkday } from "../../../services/workdaysService";
+import PageLoader from "../../../components/PageLoader";
 
 export default function WorkdayPrintPage() {
   const router = useRouter();
@@ -47,7 +48,7 @@ export default function WorkdayPrintPage() {
     return () => clearTimeout(t);
   }, [autoprint, loading, workday]);
 
-  if (!router.isReady || loading) return <CircularProgress />;
+  if (!router.isReady || loading) return <PageLoader />;
   if (error) return <Alert severity="error">{error}</Alert>;
   if (!workday) return <Alert severity="error">Workday not found.</Alert>;
 

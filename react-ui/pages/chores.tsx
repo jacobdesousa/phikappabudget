@@ -5,7 +5,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Divider,
   IconButton,
   Paper,
@@ -32,6 +31,7 @@ import {
   IChoreSettings,
 } from "../interfaces/api.interface";
 import { schoolYearLabel } from "../utils/schoolYear";
+import PageLoader from "../components/PageLoader";
 
 const CELL_SX = { py: 0.75 };
 const HEAD_SX = { py: 1, fontWeight: 700, whiteSpace: "nowrap" as const };
@@ -317,7 +317,7 @@ export default function ChoresPage() {
       {error && <Alert severity="error">{error}</Alert>}
 
       {loading && !schedule ? (
-        <CircularProgress />
+        <PageLoader />
       ) : (
         <>
           <Paper elevation={0} sx={PANEL_SX}>

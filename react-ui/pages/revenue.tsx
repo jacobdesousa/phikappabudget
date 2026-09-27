@@ -8,7 +8,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -35,6 +34,7 @@ import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
 import EditRevenueDialog from "../components/editRevenue/editRevenue";
 import ConfirmDeleteRevenueDialog from "../components/confirmDeleteRevenue/confirmDeleteRevenue";
 import { useAuth } from "../context/authContext";
+import PageLoader from "../components/PageLoader";
 
 export default function RevenuePage() {
     const { can } = useAuth();
@@ -193,7 +193,7 @@ export default function RevenuePage() {
             </Paper>
 
             {(revenueCategoriesLoading || revenueLoading || summaryLoading) ? (
-                <CircularProgress />
+                <PageLoader />
             ) : (
                 <>
                     {error && <Alert severity="error">{error}</Alert>}

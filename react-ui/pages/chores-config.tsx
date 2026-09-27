@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   IconButton,
   MenuItem,
   Paper,
@@ -35,6 +34,7 @@ import {
 import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
 import { ConfigHeader } from "../components/config/configLayout";
 import { HEAD_SX, INPUT_CELL_SX, TABLE_CONTAINER_SX } from "../components/config/configTable";
+import PageLoader from "../components/PageLoader";
 
 // Rows of editable cells, so they take the input cell padding.
 const CELL_SX = INPUT_CELL_SX;
@@ -359,9 +359,7 @@ export default function ChoresConfigPage() {
       {!canWrite && <Alert severity="info">You have read-only access to this page.</Alert>}
 
       {loading || !settings ? (
-        <Stack alignItems="center" sx={{ py: 4 }}>
-          <CircularProgress />
-        </Stack>
+        <PageLoader py={4} />
       ) : (
         <>
           {config && !config.is_configured && (

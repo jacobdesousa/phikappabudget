@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -49,6 +48,7 @@ import AccountAdjustmentDialog from "../components/houseAccount/accountAdjustmen
 import { schoolYearLabel, schoolYearStartForDate } from "../utils/schoolYear";
 import { sessionLabel } from "../utils/house";
 import { formatMoney } from "../utils/money";
+import PageLoader from "../components/PageLoader";
 
 const CELL_SX = { py: 0.75 };
 const HEAD_SX = { py: 1, fontWeight: 700, whiteSpace: "nowrap" as const };
@@ -351,9 +351,7 @@ export default function HouseAccountPage() {
         ) : null}
 
         {loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-            <CircularProgress />
-          </Box>
+          <PageLoader />
         ) : !account ? null : (
           <>
             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>

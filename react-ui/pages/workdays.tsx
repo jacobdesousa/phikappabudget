@@ -4,7 +4,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -22,6 +21,7 @@ import dayjs from "dayjs";
 import type { IWorkdayListItem } from "../interfaces/api.interface";
 import { createWorkday, deleteWorkday, getWorkdays } from "../services/workdaysService";
 import { useAuth } from "../context/authContext";
+import PageLoader from "../components/PageLoader";
 
 function todayIso(): string {
   return dayjs().format("YYYY-MM-DD");
@@ -83,7 +83,7 @@ export default function WorkdaysPage() {
       {error ? <Alert severity="error">{error}</Alert> : null}
 
       {loading ? (
-        <CircularProgress />
+        <PageLoader />
       ) : (
         <Stack spacing={1}>
           {rows.length === 0 ? (

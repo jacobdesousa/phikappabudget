@@ -6,7 +6,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Divider,
   IconButton,
   MenuItem,
@@ -32,6 +31,7 @@ import SaveIndicator from "../../components/SaveIndicator";
 import CreateVoteDialog from "../../components/createVote/createVote";
 import EmailMinutesDialog from "../../components/minutes/emailMinutesDialog";
 import VoteResultsCard from "../../components/voteResultsCard/voteResultsCard";
+import PageLoader from "../../components/PageLoader";
 
 function renderMinutesBlocks(text?: string | null) {
   const blocks = parseMinutesText(text);
@@ -468,9 +468,7 @@ export default function MeetingMinutesEditor() {
 
   if (!router.isReady || loading) {
     return (
-      <Box display="flex" justifyContent="center" py={6}>
-        <CircularProgress />
-      </Box>
+      <PageLoader />
     );
   }
 

@@ -1,6 +1,6 @@
 import {useEffect, useState} from "react";
 import {getAllBrothers} from "../services/brotherService";
-import {Box, CircularProgress, IconButton, InputAdornment, Paper, Stack, TextField, Typography} from "@mui/material";
+import {Box, IconButton, InputAdornment, Paper, Stack, TextField, Typography} from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Clear";
 import {IBrother, IDuesConfig, IDuesPayment, IDuesSummaryRow} from "../interfaces/api.interface";
@@ -15,6 +15,7 @@ import { matchesBrotherSearch } from "../utils/brotherSearch";
 import EditPaymentDialog from "../components/editPayment/editPayment";
 import ConfirmDeletePaymentDialog from "../components/confirmDeletePayment/confirmDeletePayment";
 import { useAuth } from "../context/authContext";
+import PageLoader from "../components/PageLoader";
 
 export default function DuesPage() {
     const { can } = useAuth();
@@ -186,7 +187,7 @@ export default function DuesPage() {
                 </Paper>
 
                 {brothersLoading || summaryLoading || configLoading ? (
-                    <CircularProgress />
+                    <PageLoader />
                 ) : (
                     <DuesTable
                         brothersData={visibleBrothers}

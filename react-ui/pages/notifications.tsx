@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Chip,
-  CircularProgress,
   Divider,
   Paper,
   Stack,
@@ -12,6 +11,7 @@ import {
 import Link from "next/link";
 import { getNotifications, type UpcomingShift } from "../services/notificationsService";
 import { formatDateOnly } from "../utils/date";
+import PageLoader from "../components/PageLoader";
 
 function fmtDate(d: string) {
   return formatDateOnly(d, { weekday: "short", month: "short", day: "numeric" });
@@ -48,9 +48,7 @@ export default function NotificationsPage() {
       </Paper>
 
       {loading && (
-        <Box display="flex" justifyContent="center" py={6}>
-          <CircularProgress />
-        </Box>
+        <PageLoader />
       )}
       {error && <Alert severity="error">{error}</Alert>}
 

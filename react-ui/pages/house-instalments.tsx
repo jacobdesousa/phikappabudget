@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Collapse,
   Dialog,
   DialogActions,
@@ -57,6 +56,7 @@ import {
   TintColor,
 } from "../utils/house";
 import { formatMoney, roundMoney } from "../utils/money";
+import PageLoader from "../components/PageLoader";
 
 const CELL_SX = { py: 0.75 };
 const HEAD_SX = { py: 1, fontWeight: 700, whiteSpace: "nowrap" as const };
@@ -267,7 +267,7 @@ export default function HouseInstalmentsPage() {
         )}
 
         {loading ? (
-          <CircularProgress />
+          <PageLoader />
         ) : residents.length === 0 ? (
           <Alert severity="info">
             No residents assigned for this session yet. Assign rooms on the House Residents page.

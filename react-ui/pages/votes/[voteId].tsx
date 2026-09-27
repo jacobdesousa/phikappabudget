@@ -22,6 +22,7 @@ import LockIcon from "@mui/icons-material/Lock";
 import { useAuth } from "../../context/authContext";
 import { getVote, getVoteResults, submitVoteResponse } from "../../services/votesService";
 import type { IVote, IVoteResult } from "../../interfaces/api.interface";
+import PageLoader from "../../components/PageLoader";
 
 export default function VotingPage() {
     const router = useRouter();
@@ -133,9 +134,7 @@ export default function VotingPage() {
 
     if (authLoading || (loading && !error)) {
         return (
-            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
-                <CircularProgress />
-            </Box>
+            <PageLoader fullHeight />
         );
     }
 
@@ -161,7 +160,7 @@ export default function VotingPage() {
                             {error ? (
                                 <Alert severity="error">{error}</Alert>
                             ) : !vote ? (
-                                <CircularProgress />
+                                <PageLoader />
                             ) : (
                                 <Stack spacing={2}>
                                     <Stack direction="row" spacing={1} flexWrap="wrap">

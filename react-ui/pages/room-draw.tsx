@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Collapse,
   Dialog,
   DialogActions,
@@ -45,6 +44,7 @@ import {
 import { getAllBrothers } from "../services/brotherService";
 import { formatDateOnly } from "../utils/date";
 import { IBrother } from "../interfaces/api.interface";
+import PageLoader from "../components/PageLoader";
 
 function BreakdownRow({ label, value, color }: { label: string; value: number | string; color?: string }) {
     return (
@@ -284,9 +284,7 @@ export default function RoomDrawPage() {
             )}
 
             {loading ? (
-                <Box display="flex" justifyContent="center" py={6}>
-                    <CircularProgress />
-                </Box>
+                <PageLoader />
             ) : standings.length === 0 ? (
                 <Typography color="text.secondary">No brothers found.</Typography>
             ) : (
@@ -396,9 +394,7 @@ function LegacyDialog({
             <DialogContent dividers>
                 {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
                 {loading ? (
-                    <Box display="flex" justifyContent="center" py={4}>
-                        <CircularProgress />
-                    </Box>
+                    <PageLoader py={4} />
                 ) : (
                     <Stack spacing={3}>
                         <Box>

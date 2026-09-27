@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Checkbox,
-  CircularProgress,
   Divider,
   Dialog,
   DialogActions,
@@ -46,6 +45,7 @@ import { formatDateOnly, toDateInputValue } from "../utils/date";
 import Link from "next/link";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import { approveExpense, disburseExpenses, rejectExpense } from "../services/expenseWorkflowService";
+import PageLoader from "../components/PageLoader";
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
@@ -530,7 +530,7 @@ export default function ExpensesPage() {
       </Dialog>
 
       {loading ? (
-        <CircularProgress />
+        <PageLoader />
       ) : (
         <>
           {error && <Alert severity="error">{error}</Alert>}
