@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   IconButton,
-  MenuItem,
   Paper,
   Stack,
   Table,
@@ -23,6 +23,7 @@ import { SxProps, Theme } from "@mui/material/styles";
 import { useAuth } from "../context/authContext";
 import { getChoreConfig, saveChoreConfig, seedChoreConfig } from "../services/choresService";
 import { getAllBrothers } from "../services/brotherService";
+import { groupForBrother } from "../utils/brotherGroups";
 import {
   IBrother,
   IChoreBed,
@@ -184,25 +185,23 @@ function EditableBrotherCell(props: {
 
   return (
     <TableCell sx={{ py: "1px", px: "2px" }}>
-      <TextField
-        select
-        autoFocus
+      <Autocomplete
+        openOnFocus
+        autoHighlight
         size="small"
-        fullWidth
-        value={props.value ?? ""}
-        SelectProps={{ defaultOpen: true, onClose: () => setEditing(false) }}
-        onChange={(e) => {
-          props.onCommit(e.target.value === "" ? null : Number(e.target.value));
+        options={props.brothers}
+        value={current ?? null}
+        getOptionLabel={brotherName}
+        isOptionEqualToValue={(a, b) => a.id === b.id}
+        onChange={(_e, val) => {
+          props.onCommit(val?.id ?? null);
           setEditing(false);
         }}
-      >
-        <MenuItem value="">Unassigned</MenuItem>
-        {props.brothers.map((b) => (
-          <MenuItem key={b.id} value={b.id}>
-            {brotherName(b)}
-          </MenuItem>
-        ))}
-      </TextField>
+        onBlur={() => setEditing(false)}
+        renderInput={(params) => (
+          <TextField {...params} autoFocus placeholder="Search brothers" />
+        )}
+      />
     </TableCell>
   );
 }
@@ -302,6 +301,26 @@ export default function ChoresConfigPage() {
   function patchDuty(index: number, patch: Partial<IChoreDuty>) {
     setDuties((prev) => prev.map((d, i) => (i === index ? { ...d, ...patch } : d)));
   }
+
+  // Captaincies are held by actives. The full roster is mostly alumni — about
+  // 500 names — which made the picker unusable.
+  const activeBrothers = useMemo(
+    () => brothers.filter((b) => groupForBrother(b) === "active"),
+    [brothers]
+  );
+
+  // Someone who has since graduated stays selectable on the captaincy they
+  // already hold, so the cell shows their name instead of going blank.
+  const captainOptions = useCallback(
+    (assignedId: number | null) => {
+      if (assignedId == null || activeBrothers.some((b) => b.id === assignedId)) {
+        return activeBrothers;
+      }
+      const current = brothers.find((b) => b.id === assignedId);
+      return current ? [current, ...activeBrothers] : activeBrothers;
+    },
+    [activeBrothers, brothers]
+  );
 
   function patchCaptain(index: number, patch: Partial<IChoreCaptain>) {
     setCaptains((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)));
@@ -635,7 +654,7 @@ export default function ChoresConfigPage() {
                       <EditableBrotherCell
                         canWrite={canWrite}
                         value={captain.brother_id ?? null}
-                        brothers={brothers}
+                        brothers={captainOptions(captain.brother_id ?? null)}
                         onCommit={(id) => patchCaptain(idx, { brother_id: id })}
                       />
                       <EditableCell
