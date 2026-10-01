@@ -1,4 +1,5 @@
 const { env } = require("../config/env");
+const { claimEmailLog, settleEmailLog } = require("./emailLog");
 
 let _sesClient = null;
 function getSesClient() {
@@ -24,17 +25,43 @@ function buildFrom() {
  * @param {{
  *   to: string|string[], subject: string, html: string, text?: string,
  *   attachments?: Array<{filename: string, content: Buffer, contentType: string}>,
- *   inlineImages?: Array<{cid: string, content: Buffer, contentType: string}>
+ *   inlineImages?: Array<{cid: string, content: Buffer, contentType: string}>,
+ *   headers?: Record<string, string>,
+ *   kind?: string,
+ *   context?: {brotherId?: number, userId?: number, actorUserId?: number, dedupeKey?: string}
  * }} opts
  */
-async function sendMail({ to, subject, html, text, attachments = [], inlineImages = [] }) {
+async function sendMail({
+  to,
+  subject,
+  html,
+  text,
+  attachments = [],
+  inlineImages = [],
+  headers = {},
+  kind = "other",
+  context = {},
+}) {
   const toList = Array.isArray(to) ? to : [to];
+
+  // Claimed before the send, settled after: every path below ends in a settle,
+  // so the log reflects what the provider actually said rather than what we
+  // intended.
+  const logIds = await claimEmailLog({
+    recipients: toList,
+    subject,
+    kind,
+    bodyText: text ?? html,
+    attachments,
+    context,
+  });
 
   if (env.mail.provider !== "ses") {
     console.log(`[dev-mail] To: ${toList.join(", ")}`);
     console.log(`[dev-mail] Subject: ${subject}`);
     console.log(`[dev-mail] Attachments: ${attachments.map((a) => a.filename).join(", ") || "none"}`);
     console.log(`[dev-mail] Body: ${text ?? "(html only)"}`);
+    await settleEmailLog(logIds, { status: "dev" });
     return;
   }
 
@@ -50,6 +77,8 @@ async function sendMail({ to, subject, html, text, attachments = [], inlineImage
     `From: ${buildFrom()}`,
     `To: ${toList.join(", ")}`,
     `Subject: ${subject}`,
+    // Callers add List-Unsubscribe here; anything else they pass rides along.
+    ...Object.entries(headers).map(([k, v]) => `${k}: ${v}`),
     `MIME-Version: 1.0`,
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
     ``,
@@ -87,11 +116,22 @@ async function sendMail({ to, subject, html, text, attachments = [], inlineImage
 
   const rawMessage = lines.join("\r\n");
 
-  await client.send(
-    new SendRawEmailCommand({
-      RawMessage: { Data: Buffer.from(rawMessage) },
-    })
-  );
+  try {
+    const result = await client.send(
+      new SendRawEmailCommand({
+        RawMessage: { Data: Buffer.from(rawMessage) },
+      })
+    );
+    await settleEmailLog(logIds, {
+      status: "sent",
+      providerMessageId: result?.MessageId ?? null,
+    });
+    return result;
+  } catch (err) {
+    // Record the reason, then let the caller fail exactly as it did before.
+    await settleEmailLog(logIds, { status: "failed", error: err?.message ?? String(err) });
+    throw err;
+  }
 }
 
 module.exports = { sendMail };

@@ -284,6 +284,11 @@ async function inviteUser(req, res) {
     subject: "You're invited to join Phi Kappa Sigma - Alpha Beta",
     html: inviteEmailHtml(inviteUrl, b.first_name),
     text: `${b.first_name ? `Dear ${b.first_name},\n\n` : ""}You've been invited to join Phi Kappa Sigma - Alpha Beta. Accept your invite here: ${inviteUrl}\n\nThis link expires in 7 days.`,
+    kind: "invite",
+    context: {
+      brotherId: brother_id,
+      actorUserId: req.user?.id ?? req.auth?.userId ?? null,
+    },
   });
 
   const payload = { ok: true };
@@ -477,6 +482,9 @@ async function requestPasswordReset(req, res) {
     subject: "Reset your Phi Kappa Sigma - Alpha Beta password",
     html: resetEmailHtml(resetUrl, firstName),
     text: `${firstName ? `Hi ${firstName},\n\n` : ""}Reset your password here: ${resetUrl}\n\nThis link expires in 1 hour. If you did not ask for this, ignore this email.`,
+    kind: "password_reset",
+    // Self-service, so the requester is the subject and there is no actor.
+    context: { userId: u.id, brotherId: u.brother_id ?? null },
   });
 
   // The mailer sends for real only on "ses" and prints for anything else, so
@@ -642,7 +650,12 @@ async function reissueInvite(req, res) {
       subject: "Your Phi Kappa Sigma - Alpha Beta invite has been reissued",
       html: inviteEmailHtml(inviteUrl),
       text: `Your invite link has been reissued. Accept here: ${inviteUrl}\n\nThis link expires in 7 days.`,
-      });
+      kind: "invite",
+      context: {
+        brotherId: Number(inv.brother_id) || null,
+        actorUserId: req.user?.id ?? req.auth?.userId ?? null,
+      },
+    });
   }
 
   const payload = { ok: true };

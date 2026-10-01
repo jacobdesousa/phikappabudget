@@ -366,6 +366,7 @@ async function emailMeetingMinutes(req, res) {
     senderName ? `\n${senderName}\nPhi Kappa Sigma — Alpha Beta` : "",
   ].join("\n");
 
+  const actorUserId = req.user?.id ?? req.auth?.userId ?? null;
   const results = await Promise.allSettled(
     recipients.map((to) =>
       sendMail({
@@ -374,6 +375,8 @@ async function emailMeetingMinutes(req, res) {
         html,
         text,
         attachments: [{ filename, content: Buffer.from(pdfBuffer), contentType: "application/pdf" }],
+        kind: "meeting_minutes",
+        context: { actorUserId },
       })
     )
   );

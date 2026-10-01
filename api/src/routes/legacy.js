@@ -123,6 +123,7 @@ const {
   deletePartyDuty,
 } = require("../controllers/shiftsController");
 const { getNotifications } = require("../controllers/notificationsController");
+const { listEmailLog, getEmailLogEntry } = require("../controllers/emailLogController");
 const { getAllMakeups, updateMakeup, MAKEUP_READ_PERMISSIONS } = require("../controllers/makeupsController");
 const { getStandings, getLegacyAdjustments, addLegacyAdjustment, deleteLegacyAdjustment } = require("../controllers/roomDrawController");
 const {
@@ -357,6 +358,11 @@ router.put("/shift-duties/:dutyId", asyncHandler(updatePartyDuty));
 router.delete("/shift-duties/:dutyId", asyncHandler(deletePartyDuty));
 
 router.get("/notifications", asyncHandler(getNotifications));
+
+// Everything the platform has emailed. Admin-only: the bodies include invite
+// and password-reset links.
+router.get("/admin/email-log", requirePermission("admin.users"), asyncHandler(listEmailLog));
+router.get("/admin/email-log/:id", requirePermission("admin.users"), asyncHandler(getEmailLogEntry));
 // Spans workdays and shifts, so anyone who can read either can see the list.
 // Writing is resolved per row inside the controller: a workday row needs
 // workdays.write, a shift or party row the write permission for its own type.

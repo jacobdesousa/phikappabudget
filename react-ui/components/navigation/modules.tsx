@@ -18,6 +18,7 @@ import AssignmentLateIcon from "@mui/icons-material/AssignmentLate";
 import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
 import VolunteerActivismOutlinedIcon from "@mui/icons-material/VolunteerActivismOutlined";
 import SettingsIcon from "@mui/icons-material/Settings";
+import MarkEmailReadOutlinedIcon from "@mui/icons-material/MarkEmailReadOutlined";
 
 // The one list of modules in the app. The sidebar (pages router) and the home
 // page (app router) both render from this, so a new page appears in both or
@@ -169,6 +170,13 @@ export const APP_MODULES: AppModule[] = [
     description: "Devices you're signed in on, and sign them out.",
     anyPermissions: ["admin.sessions"],
     icon: <SecurityOutlinedIcon />,
+  },
+  {
+    href: "/email-log",
+    label: "Email Log",
+    description: "Every email the platform has sent, and what happened to it.",
+    anyPermissions: ["admin.users"],
+    icon: <MarkEmailReadOutlinedIcon />,
   },
   {
     href: "/config",

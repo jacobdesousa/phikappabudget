@@ -45,6 +45,8 @@ function pageTitle(pathname: string) {
       return "Users";
     case "/sessions":
       return "Sessions";
+    case "/email-log":
+      return "Email Log";
     case "/role-permissions":
       return "Role Permissions";
     case "/offices":

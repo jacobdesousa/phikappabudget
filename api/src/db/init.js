@@ -885,6 +885,45 @@ async function setupTables() {
     `CREATE INDEX audit_log_action_idx ON audit_log (action, occurred_at DESC);`
   );
 
+  // Every email the platform sends, one row per recipient.
+  //
+  // audit_log records that a request happened; this records what actually left
+  // the building — including the dev-mode sends that never leave it, and the
+  // failures, which previously vanished entirely (the minutes fan-out counted
+  // them and threw the reason away). Written from sendMail itself so a new
+  // sender cannot forget to log.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS email_log (
+      id                  BIGSERIAL PRIMARY KEY,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      sent_at             TIMESTAMPTZ,
+      kind                TEXT NOT NULL DEFAULT 'other',
+      to_email            TEXT NOT NULL,
+      subject             TEXT NOT NULL,
+      status              TEXT NOT NULL DEFAULT 'pending',
+      provider_message_id TEXT,
+      error               TEXT,
+      body_text           TEXT,
+      attachments         TEXT,
+      brother_id          INTEGER REFERENCES brothers(id) ON DELETE SET NULL,
+      user_id             INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      actor_user_id       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      dedupe_key          TEXT
+    );
+  `);
+  await createIndexIfMissing(
+    "email_log_created_idx",
+    `CREATE INDEX email_log_created_idx ON email_log (created_at DESC);`
+  );
+  await createIndexIfMissing(
+    "email_log_to_idx",
+    `CREATE INDEX email_log_to_idx ON email_log (to_email, created_at DESC);`
+  );
+  await createIndexIfMissing(
+    "email_log_kind_idx",
+    `CREATE INDEX email_log_kind_idx ON email_log (kind, created_at DESC);`
+  );
+
   // Meeting votes: live in-meeting polls created by the Sigma.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS meeting_votes (
