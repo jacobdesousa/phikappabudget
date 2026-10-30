@@ -127,6 +127,9 @@ const {
   markNotificationsRead,
   markAllNotificationsRead,
   previewNotifications,
+  getNotificationPrefs,
+  updateNotificationPrefs,
+  runNotificationJob,
 } = require("../controllers/notificationsController");
 const { listEmailLog, getEmailLogEntry } = require("../controllers/emailLogController");
 const { accountSummary } = require("../controllers/accountController");
@@ -370,6 +373,14 @@ router.get("/me/account", asyncHandler(accountSummary));
 router.get("/notifications", asyncHandler(getNotifications));
 router.post("/notifications/read", asyncHandler(markNotificationsRead));
 router.post("/notifications/read-all", asyncHandler(markAllNotificationsRead));
+router.get("/notifications/preferences", asyncHandler(getNotificationPrefs));
+router.put("/notifications/preferences", asyncHandler(updateNotificationPrefs));
+// Run a reminder job on demand — dry_run reports who would get what.
+router.post(
+  "/notifications/jobs/:job/run",
+  requirePermission("admin.users"),
+  asyncHandler(runNotificationJob)
+);
 // Someone else's feed, for debugging "I never saw it" — admin only.
 router.get(
   "/notifications/preview",

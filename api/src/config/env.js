@@ -40,6 +40,21 @@ const env = {
     region: String(process.env.AWS_REGION ?? "us-west-2"),
     s3Bucket: process.env.S3_BUCKET ?? null,
   },
+  // Scheduled reminder emails. Off unless explicitly enabled, so a dev box or
+  // a one-off script can never mail the chapter.
+  jobs: {
+    enabled: String(process.env.JOBS_ENABLED ?? "") === "true",
+    timezone: String(process.env.JOBS_TIMEZONE ?? "America/Toronto"),
+    digestCron: String(process.env.DIGEST_CRON ?? "0 8 * * 1"),
+    paymentCron: String(process.env.PAYMENT_CRON ?? "0 9 * * *"),
+    // Which money reminders may send. Dues stays out until the chapter has
+    // confirmed its due dates and amounts — the schedule is configured data,
+    // and emailing the wrong figure is worse than emailing nothing.
+    paymentKinds: String(process.env.PAYMENT_KINDS ?? "house_fee_due")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  },
   bootstrap: {
     adminEmail: process.env.BOOTSTRAP_ADMIN_EMAIL ? String(process.env.BOOTSTRAP_ADMIN_EMAIL) : null,
     adminPassword: process.env.BOOTSTRAP_ADMIN_PASSWORD ? String(process.env.BOOTSTRAP_ADMIN_PASSWORD) : null,

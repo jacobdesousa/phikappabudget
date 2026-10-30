@@ -50,7 +50,7 @@ const KINDS = [
   { value: "meeting_minutes", label: "Meeting minutes" },
   { value: "weekly_digest", label: "Weekly digest" },
   { value: "dues_due", label: "Dues" },
-  { value: "house_fee_due", label: "House fees" },
+  { value: "house_fee_due", label: "Residence fees" },
   { value: "other", label: "Other" },
 ];
 

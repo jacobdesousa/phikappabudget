@@ -5,9 +5,11 @@ import {
   Button,
   Chip,
   Divider,
+  FormControlLabel,
   IconButton,
   Paper,
   Stack,
+  Switch,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -22,11 +24,14 @@ import BuildIcon from "@mui/icons-material/Build";
 import CleaningServicesOutlinedIcon from "@mui/icons-material/CleaningServicesOutlined";
 import AssignmentLateIcon from "@mui/icons-material/AssignmentLate";
 import {
+  getEmailPrefs,
   getNotifications,
   markAllNotificationsRead,
   markNotificationsRead,
+  updateEmailPrefs,
   type FeedItem,
   type FeedKind,
+  type IEmailPrefs,
   type INotifications,
 } from "../services/notificationsService";
 import { formatDateOnly } from "../utils/date";
@@ -65,6 +70,7 @@ export default function NotificationsPage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [prefs, setPrefs] = React.useState<IEmailPrefs | null>(null);
 
   const load = React.useCallback(async () => {
     setError(null);
@@ -79,7 +85,25 @@ export default function NotificationsPage() {
 
   React.useEffect(() => {
     void load();
+    // Preferences are independent of the feed, so a failure here leaves the
+    // switches hidden rather than breaking the page.
+    getEmailPrefs()
+      .then((d) => setPrefs(d.prefs))
+      .catch(() => {});
   }, [load]);
+
+  // Optimistic: a switch should move the moment it is clicked.
+  async function togglePref(kind: keyof IEmailPrefs, enabled: boolean) {
+    const before = prefs;
+    setPrefs((p) => (p ? { ...p, [kind]: enabled } : p));
+    try {
+      const d = await updateEmailPrefs({ [kind]: enabled });
+      setPrefs(d.prefs);
+    } catch (e) {
+      setPrefs(before);
+      setError((e as Error)?.message ?? "Could not save that preference.");
+    }
+  }
 
   // Optimistic: the row should settle the moment it is clicked, not after a
   // round trip. A failed call puts it back.
@@ -247,6 +271,58 @@ export default function NotificationsPage() {
         </Paper>
       )}
 
+      {prefs && (
+        <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
+          <Typography variant="h6" sx={{ mb: 0.5 }}>
+            Email reminders
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Everything above also goes out by email. Turn off anything you&apos;d rather not get.
+          </Typography>
+          <Stack>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={prefs.weekly_digest && prefs.all}
+                  disabled={!prefs.all}
+                  onChange={(e) => void togglePref("weekly_digest", e.target.checked)}
+                />
+              }
+              label="Weekly digest — shifts, workdays, chores and makeups, every Monday"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={prefs.dues_due && prefs.all}
+                  disabled={!prefs.all}
+                  onChange={(e) => void togglePref("dues_due", e.target.checked)}
+                />
+              }
+              label="Dues — when an instalment is coming up or outstanding"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={prefs.house_fee_due && prefs.all}
+                  disabled={!prefs.all}
+                  onChange={(e) => void togglePref("house_fee_due", e.target.checked)}
+                />
+              }
+              label="Residence fees — when an instalment is coming up or outstanding"
+            />
+            <Divider sx={{ my: 1 }} />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={!prefs.all}
+                  onChange={(e) => void togglePref("all", !e.target.checked)}
+                />
+              }
+              label="Pause all reminder emails"
+            />
+          </Stack>
+        </Paper>
+      )}
     </Stack>
   );
 }

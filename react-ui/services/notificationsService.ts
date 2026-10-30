@@ -51,6 +51,28 @@ export async function markAllNotificationsRead(): Promise<void> {
   await apiClient.post("/notifications/read-all");
 }
 
+export type EmailKind = "weekly_digest" | "dues_due" | "house_fee_due";
+
+// Every switch is on unless the brother turns it off; `all` silences the lot.
+export interface IEmailPrefs {
+  all: boolean;
+  weekly_digest: boolean;
+  dues_due: boolean;
+  house_fee_due: boolean;
+}
+
+export async function getEmailPrefs(): Promise<{ brother_id: number | null; prefs: IEmailPrefs | null }> {
+  const res = await apiClient.get("/notifications/preferences");
+  return res.data;
+}
+
+export async function updateEmailPrefs(
+  patch: Partial<IEmailPrefs>
+): Promise<{ brother_id: number; prefs: IEmailPrefs }> {
+  const res = await apiClient.put("/notifications/preferences", patch);
+  return res.data;
+}
+
 // Rows carry both outstanding and completed makeups; a makeup_completed_at
 // value is what makes one completed.
 interface MakeupBase {

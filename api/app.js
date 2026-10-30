@@ -1,6 +1,7 @@
 const { env } = require("./src/config/env");
 const { createApp } = require("./src/app");
 const { setupTables } = require("./src/db/init");
+const { startJobs } = require("./src/jobs");
 
 async function main() {
   // If your Postgres auth method is SCRAM (common default), a password is required.
@@ -14,6 +15,7 @@ async function main() {
 
   await setupTables();
   const app = createApp();
+  const jobs = startJobs();
 
   const server = app.listen(env.port, () => {
     // eslint-disable-next-line no-console
@@ -21,6 +23,7 @@ async function main() {
   });
 
   const shutdown = () => {
+    jobs.stop();
     server.close(() => process.exit(0));
   };
 
