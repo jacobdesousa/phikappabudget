@@ -46,7 +46,9 @@ export function AppShell(props: { title: string; children: React.ReactNode }) {
 
   React.useEffect(() => {
     getNotifications()
-      .then((d) => setNotifCount(d.upcoming_shifts?.length ?? 0))
+      // Unread, not "everything upcoming": a shift three weeks out used to keep
+      // the badge permanently lit, which is the same as having no badge.
+      .then((d) => setNotifCount(d.counts?.unread ?? 0))
       .catch(() => {});
   }, []);
 
@@ -162,7 +164,13 @@ export function AppShell(props: { title: string; children: React.ReactNode }) {
             {props.title}
           </Typography>
           <Box sx={{ flex: 1 }} />
-          <Tooltip title={notifCount > 0 ? `${notifCount} upcoming shift${notifCount === 1 ? "" : "s"}` : "Notifications"}>
+          <Tooltip
+            title={
+              notifCount > 0
+                ? `${notifCount} unread notification${notifCount === 1 ? "" : "s"}`
+                : "Notifications"
+            }
+          >
             <IconButton
               color="inherit"
               aria-label="notifications"

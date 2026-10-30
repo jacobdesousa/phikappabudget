@@ -2,80 +2,251 @@ import * as React from "react";
 import {
   Alert,
   Box,
+  Button,
   Chip,
   Divider,
+  IconButton,
   Paper,
   Stack,
+  Tooltip,
   Typography,
 } from "@mui/material";
-import Link from "next/link";
-import { getNotifications, type UpcomingShift } from "../services/notificationsService";
+import { useRouter } from "next/router";
+import DoneAllIcon from "@mui/icons-material/DoneAll";
+import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
+import MarkEmailUnreadOutlinedIcon from "@mui/icons-material/MarkEmailUnreadOutlined";
+import PaymentsIcon from "@mui/icons-material/Payments";
+import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
+import ConstructionIcon from "@mui/icons-material/Construction";
+import BuildIcon from "@mui/icons-material/Build";
+import CleaningServicesOutlinedIcon from "@mui/icons-material/CleaningServicesOutlined";
+import AssignmentLateIcon from "@mui/icons-material/AssignmentLate";
+import {
+  getNotifications,
+  markAllNotificationsRead,
+  markNotificationsRead,
+  type FeedItem,
+  type FeedKind,
+  type INotifications,
+} from "../services/notificationsService";
 import { formatDateOnly } from "../utils/date";
 import PageLoader from "../components/PageLoader";
 
-function fmtDate(d: string) {
-  return formatDateOnly(d, { weekday: "short", month: "short", day: "numeric" });
-}
+const KIND_ICON: Record<FeedKind, React.ReactNode> = {
+  dues_due: <PaymentsIcon fontSize="small" />,
+  house_fee_due: <AccountBalanceWalletOutlinedIcon fontSize="small" />,
+  shift: <ConstructionIcon fontSize="small" />,
+  workday: <BuildIcon fontSize="small" />,
+  chore_duty: <CleaningServicesOutlinedIcon fontSize="small" />,
+  makeup: <AssignmentLateIcon fontSize="small" />,
+};
 
-function shiftLabel(t: UpcomingShift["shift_type"]) {
-  return t === "setup" ? "Setup" : t === "cleanup" ? "Cleanup" : "Party";
-}
+const SEVERITY_COLOR = {
+  urgent: "error",
+  warning: "warning",
+  info: "default",
+} as const;
 
-function shiftColor(t: UpcomingShift["shift_type"]): "info" | "warning" | "success" {
-  return t === "setup" ? "info" : t === "cleanup" ? "warning" : "success";
+// "In 3 days" reads better than a date you have to subtract from today, but the
+// date still matters for anything more than a week out.
+function whenLabel(item: FeedItem) {
+  const d = item.days_until;
+  if (d === 0) return "Today";
+  if (d === 1) return "Tomorrow";
+  if (d === -1) return "Yesterday";
+  if (d < 0) return `${Math.abs(d)} days ago`;
+  if (d <= 7) return `In ${d} days`;
+  return formatDateOnly(item.date, { weekday: "short", month: "short", day: "numeric" });
 }
 
 export default function NotificationsPage() {
+  const router = useRouter();
+  const [data, setData] = React.useState<INotifications | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [shifts, setShifts] = React.useState<UpcomingShift[]>([]);
+  const [busy, setBusy] = React.useState(false);
+
+  const load = React.useCallback(async () => {
+    setError(null);
+    try {
+      setData(await getNotifications());
+    } catch (e) {
+      setError((e as Error)?.message ?? "Failed to load notifications.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   React.useEffect(() => {
-    setLoading(true);
-    getNotifications()
-      .then((d) => setShifts(d.upcoming_shifts ?? []))
-      .catch((e) => setError(e?.message ?? "Failed to load notifications."))
-      .finally(() => setLoading(false));
-  }, []);
+    void load();
+  }, [load]);
+
+  // Optimistic: the row should settle the moment it is clicked, not after a
+  // round trip. A failed call puts it back.
+  async function setRead(keys: string[], read: boolean) {
+    if (keys.length === 0) return;
+    const before = data;
+    setData((prev) => {
+      if (!prev) return prev;
+      const items = prev.items.map((i) => (keys.includes(i.key) ? { ...i, read } : i));
+      return { ...prev, items, counts: { ...prev.counts, unread: items.filter((i) => !i.read).length } };
+    });
+    try {
+      await markNotificationsRead(keys, read);
+    } catch (e) {
+      setData(before);
+      setError((e as Error)?.message ?? "Could not update that notification.");
+    }
+  }
+
+  async function markAll() {
+    setBusy(true);
+    try {
+      await markAllNotificationsRead();
+      await load();
+    } catch (e) {
+      setError((e as Error)?.message ?? "Could not mark everything read.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Opening an item is the same as reading it.
+  function openItem(item: FeedItem) {
+    if (!item.read) void setRead([item.key], true);
+    void router.push(item.href);
+  }
+
+  const items = data?.items ?? [];
+  const unread = data?.counts.unread ?? 0;
 
   return (
     <Stack spacing={2}>
       <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-        <Typography variant="h5">Notifications</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Your upcoming assigned shifts.
-        </Typography>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          justifyContent="space-between"
+          alignItems={{ sm: "center" }}
+          spacing={1}
+        >
+          <Box>
+            <Typography variant="h5">Notifications</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Shifts, workdays, chore duty, makeups and money — everything that needs you.
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1} alignItems="center">
+            {unread > 0 && <Chip label={`${unread} unread`} color="primary" size="small" />}
+            <Button
+              size="small"
+              startIcon={<DoneAllIcon />}
+              onClick={() => void markAll()}
+              disabled={busy || unread === 0}
+            >
+              Mark all read
+            </Button>
+            <Tooltip title="Refresh">
+              <IconButton onClick={() => void load()} aria-label="refresh">
+                <RefreshOutlinedIcon />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        </Stack>
       </Paper>
 
-      {loading && (
-        <PageLoader />
-      )}
       {error && <Alert severity="error">{error}</Alert>}
 
-      {!loading && !error && (
-        <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider" }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>Upcoming Shifts</Typography>
-          {shifts.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">No upcoming shifts assigned.</Typography>
-          ) : (
-            <Stack spacing={0} divider={<Divider />}>
-              {shifts.map((s) => (
-                <Stack key={s.id} direction="row" spacing={1.5} alignItems="center" sx={{ py: 1 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, minWidth: 80 }}>
-                    {fmtDate(s.event_date)}
+      {loading ? (
+        <PageLoader />
+      ) : data?.brother_id == null ? (
+        <Alert severity="info">
+          Your account isn&apos;t linked to a brother record yet, so there is nothing to show here.
+          Ask the Tau to link it.
+        </Alert>
+      ) : items.length === 0 ? (
+        <Paper elevation={0} sx={{ p: 4, border: "1px solid", borderColor: "divider" }}>
+          <Typography variant="body1" sx={{ textAlign: "center" }}>
+            You&apos;re all caught up.
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", mt: 0.5 }}>
+            Nothing due, nothing owed, nothing scheduled in the next two weeks.
+          </Typography>
+        </Paper>
+      ) : (
+        <Paper elevation={0} sx={{ border: "1px solid", borderColor: "divider" }}>
+          <Stack divider={<Divider />}>
+            {items.map((item) => (
+              <Stack
+                key={item.key}
+                direction="row"
+                spacing={1.5}
+                alignItems="flex-start"
+                onClick={() => openItem(item)}
+                sx={{
+                  px: 2,
+                  py: 1.5,
+                  cursor: "pointer",
+                  // Unread rows carry a little more weight and a marker; read
+                  // rows stay legible rather than greying out entirely.
+                  bgcolor: item.read ? "transparent" : "action.hover",
+                  "&:hover": { bgcolor: "action.selected" },
+                }}
+              >
+                <Box
+                  sx={{
+                    mt: 0.5,
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    flexShrink: 0,
+                    bgcolor: item.read ? "transparent" : "primary.main",
+                  }}
+                />
+                <Box sx={{ color: "text.secondary", mt: 0.25, display: "flex" }}>
+                  {KIND_ICON[item.kind]}
+                </Box>
+
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                  <Typography variant="body2" sx={{ fontWeight: item.read ? 500 : 700 }}>
+                    {item.title}
                   </Typography>
-                  <Chip label={shiftLabel(s.shift_type)} size="small" color={shiftColor(s.shift_type)} />
-                  <Typography variant="body2">
-                    <Link href={`/shifts/${s.id}`} style={{ textDecoration: "underline" }}>
-                      {s.title ?? `${shiftLabel(s.shift_type)} Shift`}
-                    </Link>
-                  </Typography>
+                  {item.detail && (
+                    <Typography variant="body2" color="text.secondary">
+                      {item.detail}
+                    </Typography>
+                  )}
+                </Box>
+
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
+                  <Chip
+                    label={whenLabel(item)}
+                    size="small"
+                    color={SEVERITY_COLOR[item.severity]}
+                    variant={item.severity === "info" ? "outlined" : "filled"}
+                  />
+                  <Tooltip title={item.read ? "Mark as unread" : "Mark as read"}>
+                    <IconButton
+                      size="small"
+                      aria-label={item.read ? "mark as unread" : "mark as read"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void setRead([item.key], !item.read);
+                      }}
+                    >
+                      {item.read ? (
+                        <MarkEmailUnreadOutlinedIcon fontSize="small" />
+                      ) : (
+                        <DoneAllIcon fontSize="small" />
+                      )}
+                    </IconButton>
+                  </Tooltip>
                 </Stack>
-              ))}
-            </Stack>
-          )}
+              </Stack>
+            ))}
+          </Stack>
         </Paper>
       )}
+
     </Stack>
   );
 }

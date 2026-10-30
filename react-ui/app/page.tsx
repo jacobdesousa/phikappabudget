@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Alert,
+  Badge,
   Box,
   Button,
   Card,
@@ -24,10 +25,12 @@ import ViewAsBanner from "../components/ViewAsBanner";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import LogoutIcon from "@mui/icons-material/Logout";
+import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import { me } from "../services/authService";
 import { getAccessToken, getViewAsToken, redirectToLogin, setViewAs } from "../services/apiClient";
 import { logout } from "../services/authService";
 import { useColorMode } from "../theme/colorMode";
+import { getNotifications } from "../services/notificationsService";
 
 type ModuleCard = {
   href: string;
@@ -52,6 +55,7 @@ export default function LandingPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [permissions, setPermissions] = React.useState<string[] | null>(null);
   const [userEmail, setUserEmail] = React.useState<string | null>(null);
+  const [notifCount, setNotifCount] = React.useState(0);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -70,6 +74,11 @@ export default function LandingPage() {
         setPermissions(u.permissions ?? []);
         setUserEmail(u.email ?? null);
         setLoading(false);
+        getNotifications()
+          .then((d) => {
+            if (!cancelled) setNotifCount(d.counts?.unread ?? 0);
+          })
+          .catch(() => {});
       } catch {
         if (cancelled) return;
         // A "view as" session that will not load is a dead end: the admin's own
@@ -122,6 +131,24 @@ export default function LandingPage() {
                 <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5, display: { xs: "none", sm: "block" } }}>
                   {userEmail}
                 </Typography>
+              ) : null}
+              {userEmail ? (
+                <Tooltip
+                  title={
+                    notifCount > 0
+                      ? `${notifCount} unread notification${notifCount === 1 ? "" : "s"}`
+                      : "Notifications"
+                  }
+                >
+                  <IconButton
+                    aria-label="notifications"
+                    onClick={() => router.push("/notifications")}
+                  >
+                    <Badge badgeContent={notifCount} color="error" max={99}>
+                      <NotificationsNoneIcon />
+                    </Badge>
+                  </IconButton>
+                </Tooltip>
               ) : null}
               <Tooltip title={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
                 <IconButton onClick={toggle} aria-label="toggle color mode">

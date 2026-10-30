@@ -1,19 +1,54 @@
 import { apiClient } from "./apiClient";
 
-export interface UpcomingShift {
-  id: number;
-  shift_type: "setup" | "cleanup" | "party";
-  event_date: string;
-  title?: string | null;
+export type FeedKind =
+  | "dues_due"
+  | "house_fee_due"
+  | "shift"
+  | "workday"
+  | "chore_duty"
+  | "makeup";
+
+export type FeedSeverity = "info" | "warning" | "urgent";
+
+export interface FeedItem {
+  // Stable per occurrence — this is what a read mark is stored against.
+  key: string;
+  kind: FeedKind;
+  group: "money" | "activity";
+  title: string;
+  detail?: string | null;
+  date: string;
+  // Negative once the date has passed.
+  days_until: number;
+  severity: FeedSeverity;
+  amount?: number | null;
+  href: string;
+  read: boolean;
+  read_at?: string | null;
 }
 
 export interface INotifications {
-  upcoming_shifts: UpcomingShift[];
+  as_of: string;
+  // Null for an account with no brother record — the feed is empty by design.
+  brother_id: number | null;
+  items: FeedItem[];
+  counts: { total: number; unread: number; by_kind: Partial<Record<FeedKind, number>> };
 }
 
 export async function getNotifications(): Promise<INotifications> {
   const res = await apiClient.get("/notifications");
   return res.data;
+}
+
+/** Mark specific items read, or pass read: false to put them back to unread. */
+export async function markNotificationsRead(keys: string[], read = true): Promise<void> {
+  if (keys.length === 0) return;
+  await apiClient.post("/notifications/read", { keys, read });
+}
+
+/** Marks everything currently in the feed — not anything that appears later. */
+export async function markAllNotificationsRead(): Promise<void> {
+  await apiClient.post("/notifications/read-all");
 }
 
 // Rows carry both outstanding and completed makeups; a makeup_completed_at
