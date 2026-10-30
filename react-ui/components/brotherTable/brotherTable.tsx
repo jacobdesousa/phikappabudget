@@ -1,11 +1,12 @@
-import { Box, Chip, Collapse, IconButton, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
-import { Fragment, useState } from "react";
+import { Box, Chip, Collapse, IconButton, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel, Typography } from "@mui/material";
+import { Fragment, useMemo, useState } from "react";
 import EditIcon from '@mui/icons-material/Edit';
 import SchoolIcon from '@mui/icons-material/School';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import {IBrother, IBrotherOffice} from "../../interfaces/api.interface";
 import { formatPhoneForDisplay } from "../../utils/phone";
+import { sortBrothers, type BrotherSortKey, type SortDirection } from "../../utils/brotherSort";
 
 interface Props {
     data: Array<IBrother>;
@@ -149,6 +150,29 @@ function BrotherDetail({ row }: { row: IBrother }) {
 export default function BrotherTableComponent(props: Props) {
 
     const [open, setOpen] = useState<Record<number, boolean>>({});
+    // First name ascending is what the server already returns, so the default
+    // matches what the page showed before sorting existed.
+    const [sortKey, setSortKey] = useState<BrotherSortKey>("name");
+    const [sortDir, setSortDir] = useState<SortDirection>("asc");
+
+    // Clicking Name cycles first name -> last name -> back, since one column
+    // holds both and people look for either.
+    function toggleSort(key: BrotherSortKey) {
+        if (key === "name") {
+            if (sortKey === "name" && sortDir === "asc") return setSortDir("desc");
+            if (sortKey === "name") return (setSortKey("last_name"), setSortDir("asc"));
+            if (sortKey === "last_name" && sortDir === "asc") return setSortDir("desc");
+            return (setSortKey("name"), setSortDir("asc"));
+        }
+        if (sortKey === key) return setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        setSortKey(key);
+        setSortDir("asc");
+    }
+
+    const rows = useMemo(
+        () => sortBrothers(props.data, sortKey, sortDir),
+        [props.data, sortKey, sortDir]
+    );
 
     function toggleRow(id: number) {
         setOpen((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -220,18 +244,50 @@ export default function BrotherTableComponent(props: Props) {
                         <TableRow>
                             {/* Empty header over the expand chevrons. */}
                             <TableCell sx={{ ...HEAD_SX, width: 32 }} />
-                            <TableCell sx={{ ...HEAD_SX, width: 170 }}>Name</TableCell>
+                            <TableCell sx={{ ...HEAD_SX, width: 170 }} sortDirection={sortKey === "name" ? sortDir : false}>
+                                <TableSortLabel
+                                    active={sortKey === "name" || sortKey === "last_name"}
+                                    direction={sortKey === "name" || sortKey === "last_name" ? sortDir : "asc"}
+                                    onClick={() => toggleSort("name")}
+                                >
+                                    {sortKey === "last_name" ? "Name (last)" : "Name"}
+                                </TableSortLabel>
+                            </TableCell>
                             <TableCell sx={HEAD_SX}>Email</TableCell>
                             <TableCell sx={{ ...HEAD_SX, width: 124 }}>Phone</TableCell>
-                            <TableCell sx={{ ...HEAD_SX, width: 108 }}>Pledge Class</TableCell>
-                            <TableCell sx={{ ...HEAD_SX, width: 60 }}>Grad</TableCell>
+                            <TableCell sx={{ ...HEAD_SX, width: 108 }} sortDirection={sortKey === "pledge_class" ? sortDir : false}>
+                                <TableSortLabel
+                                    active={sortKey === "pledge_class"}
+                                    direction={sortKey === "pledge_class" ? sortDir : "asc"}
+                                    onClick={() => toggleSort("pledge_class")}
+                                >
+                                    Pledge Class
+                                </TableSortLabel>
+                            </TableCell>
+                            <TableCell sx={{ ...HEAD_SX, width: 60 }} sortDirection={sortKey === "graduation" ? sortDir : false}>
+                                <TableSortLabel
+                                    active={sortKey === "graduation"}
+                                    direction={sortKey === "graduation" ? sortDir : "asc"}
+                                    onClick={() => toggleSort("graduation")}
+                                >
+                                    Grad
+                                </TableSortLabel>
+                            </TableCell>
                             <TableCell sx={{ ...HEAD_SX, width: 130 }}>Office</TableCell>
-                            <TableCell sx={{ ...HEAD_SX, width: 96 }}>Status</TableCell>
+                            <TableCell sx={{ ...HEAD_SX, width: 96 }} sortDirection={sortKey === "status" ? sortDir : false}>
+                                <TableSortLabel
+                                    active={sortKey === "status"}
+                                    direction={sortKey === "status" ? sortDir : "asc"}
+                                    onClick={() => toggleSort("status")}
+                                >
+                                    Status
+                                </TableSortLabel>
+                            </TableCell>
                             <TableCell sx={{ ...HEAD_SX, width: 84 }} align="right">Options</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {props.data.map((row: IBrother) => {
+                        {rows.map((row: IBrother) => {
                             const isOpen = Boolean(open[row.id as number]);
                             const showDetail = hasDetail(row);
                             return (
