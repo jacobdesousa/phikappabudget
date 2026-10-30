@@ -122,8 +122,17 @@ const {
   updatePartyDuty,
   deletePartyDuty,
 } = require("../controllers/shiftsController");
-const { getNotifications } = require("../controllers/notificationsController");
+const {
+  getNotifications,
+  markNotificationsRead,
+  markAllNotificationsRead,
+  previewNotifications,
+  getNotificationPrefs,
+  updateNotificationPrefs,
+  runNotificationJob,
+} = require("../controllers/notificationsController");
 const { listEmailLog, getEmailLogEntry } = require("../controllers/emailLogController");
+const { accountSummary } = require("../controllers/accountController");
 const { getAllMakeups, updateMakeup, MAKEUP_READ_PERMISSIONS } = require("../controllers/makeupsController");
 const { getStandings, getLegacyAdjustments, addLegacyAdjustment, deleteLegacyAdjustment } = require("../controllers/roomDrawController");
 const {
@@ -357,7 +366,27 @@ router.delete("/shifts/:id", asyncHandler(deleteShift));
 router.put("/shift-duties/:dutyId", asyncHandler(updatePartyDuty));
 router.delete("/shift-duties/:dutyId", asyncHandler(deletePartyDuty));
 
+// Your own account: money, offices, points, obligations. Auth only — the
+// chapter-wide pages this draws on each sit behind an officer permission.
+router.get("/me/account", asyncHandler(accountSummary));
+
 router.get("/notifications", asyncHandler(getNotifications));
+router.post("/notifications/read", asyncHandler(markNotificationsRead));
+router.post("/notifications/read-all", asyncHandler(markAllNotificationsRead));
+router.get("/notifications/preferences", asyncHandler(getNotificationPrefs));
+router.put("/notifications/preferences", asyncHandler(updateNotificationPrefs));
+// Run a reminder job on demand — dry_run reports who would get what.
+router.post(
+  "/notifications/jobs/:job/run",
+  requirePermission("admin.users"),
+  asyncHandler(runNotificationJob)
+);
+// Someone else's feed, for debugging "I never saw it" — admin only.
+router.get(
+  "/notifications/preview",
+  requirePermission("admin.users"),
+  asyncHandler(previewNotifications)
+);
 
 // Everything the platform has emailed. Admin-only: the bodies include invite
 // and password-reset links.

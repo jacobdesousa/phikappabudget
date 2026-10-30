@@ -924,6 +924,26 @@ async function setupTables() {
     `CREATE INDEX email_log_kind_idx ON email_log (kind, created_at DESC);`
   );
 
+  // Which notification items a brother has already read.
+  //
+  // The feed itself is derived on every request — a shift that moves or a
+  // payment that lands changes it with no row to clean up — so the only thing
+  // worth storing is the read mark. It keys off the item's stable key, which is
+  // why those keys are built from ids and dates rather than anything that
+  // drifts between runs.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notification_reads (
+      brother_id INTEGER NOT NULL REFERENCES brothers(id) ON DELETE CASCADE,
+      item_key   TEXT NOT NULL,
+      read_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (brother_id, item_key)
+    );
+  `);
+  await createIndexIfMissing(
+    "notification_reads_brother_idx",
+    `CREATE INDEX notification_reads_brother_idx ON notification_reads (brother_id, read_at DESC);`
+  );
+
   // Meeting votes: live in-meeting polls created by the Sigma.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS meeting_votes (

@@ -83,6 +83,8 @@ function pageTitle(pathname: string) {
       return "Makeups";
     case "/notifications":
       return "Notifications";
+    case "/account":
+      return "My Account";
     case "/votes/[voteId]":
       return "Vote";
     default:

@@ -424,4 +424,8 @@ module.exports = {
   getChoreConfig,
   saveChoreConfig,
   seedChoreConfig,
+  // The notifications feed answers "is this brother on duty" from the same
+  // schedule the chores page draws, rather than re-deriving the rotation.
+  buildSchedule,
+  loadSettings,
 };

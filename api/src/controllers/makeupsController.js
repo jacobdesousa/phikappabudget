@@ -1,6 +1,7 @@
 const { pool } = require("../db/pool");
 const { loadAuthContext } = require("../middleware/auth");
 const { makeupUpdateSchema } = require("../validation/makeups");
+const { WORKDAY_MAKEUP_STATUSES } = require("../services/makeupQueries");
 
 // Completed makeups are kept for reference, not for working through, so the
 // list is capped at the most recently completed rather than going back forever.
@@ -16,14 +17,6 @@ const MAKEUP_READ_PERMISSIONS = [
   "shifts.party.read",
 ];
 
-// Absences that call for a makeup. Workdays treat Excused the same as Missing —
-// the brother still owes the time — which is what the workday page's own makeup
-// field keys off.
-//
-// Nothing is owed until the event has actually happened: a roster filled in
-// ahead of a workday next week is a plan, not a list of absences, so rows dated
-// in the future are left out until the day arrives.
-const WORKDAY_MAKEUP_STATUSES = ["Missing", "Excused"];
 
 async function getAllMakeups(req, res) {
   const ctx = await loadAuthContext(req);

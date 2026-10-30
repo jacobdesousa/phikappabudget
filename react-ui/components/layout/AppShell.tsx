@@ -21,6 +21,7 @@ import {
 import MenuIcon from "@mui/icons-material/Menu";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import LogoutIcon from "@mui/icons-material/Logout";
@@ -76,6 +77,19 @@ export function AppShell(props: { title: string; children: React.ReactNode }) {
       <Box sx={{ flex: 1 }} />
       <Divider />
       <List sx={{ px: 1, pb: 2 }}>
+        {/* Personal, not a module — it sits with Home rather than in the
+            chapter module list, and every signed-in brother can open it. */}
+        <ListItemButton
+          component={Link as any}
+          href="/account"
+          selected={router.pathname === "/account"}
+          sx={{ borderRadius: 2, mt: 0.5 }}
+        >
+          <ListItemIcon>
+            <PersonOutlineIcon />
+          </ListItemIcon>
+          <ListItemText primary="My Account" />
+        </ListItemButton>
         <ListItemButton
           component={Link as any}
           href="/"

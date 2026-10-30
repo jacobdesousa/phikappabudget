@@ -3,98 +3,16 @@ const { idParamSchema } = require("../validation/common");
 const { currentSchoolYearStart } = require("../utils/schoolYear");
 const { roundMoney } = require("../utils/money");
 const {
+  ASSIGNMENT_SELECT,
+  loadHouseContext: loadContext,
+  decorateAssignment: decorate,
+} = require("../services/houseBalance");
+const {
   yearSessionQuerySchema,
   assignmentCreateSchema,
   assignmentUpdateSchema,
 } = require("../validation/house");
-const {
-  rateForOccupancy,
-  hasOverride,
-  baseAmountFor,
-  sessionBaseFor,
-  rebateFor,
-  totalOwedFor,
-  dueToDateFor,
-  rangesOverlap,
-} = require("../utils/houseFees");
-
-// Session row + instalment schedule + per-room rates for one year/session.
-async function loadContext(year, sessionType) {
-  const [sessionRes, instRes, ratesRes] = await Promise.all([
-    pool.query(
-      `SELECT session_type, terms, start_date::text AS start_date, end_date::text AS end_date,
-              member_rebate, prepay_discount_pct, prepay_deadline::text AS prepay_deadline,
-              security_deposit_amount
-       FROM house_sessions WHERE school_year = $1 AND session_type = $2`,
-      [year, sessionType]
-    ),
-    pool.query(
-      `SELECT seq, due_date::text AS due_date, weight_pct
-       FROM house_session_instalments
-       WHERE school_year = $1 AND session_type = $2 ORDER BY seq ASC`,
-      [year, sessionType]
-    ),
-    pool.query(
-      `SELECT room_id, capacity, rate_per_person
-       FROM house_room_rates WHERE school_year = $1 AND session_type = $2`,
-      [year, sessionType]
-    ),
-  ]);
-
-  return {
-    session: sessionRes.rows[0] ?? null,
-    instalments: instRes.rows,
-    ratesByRoom: new Map(ratesRes.rows.map((r) => [Number(r.room_id), r])),
-  };
-}
-
-const ASSIGNMENT_SELECT = `
-  SELECT a.id, a.school_year, a.session_type, a.room_id, a.bed, a.brother_id,
-         a.occupancy, a.start_date::text AS start_date, a.end_date::text AS end_date,
-         a.base_amount, a.amount_override, a.override_note,
-         a.member_discount, a.double_rebate, a.prepay_discount, a.notes,
-         r.room_code, r.floor, r.sort_order,
-         b.first_name, b.last_name, b.email, b.phone, b.status AS brother_status
-  FROM house_assignments a
-  JOIN house_rooms r ON r.id = a.room_id
-  JOIN brothers b ON b.id = a.brother_id
-`;
-
-function decorate(row, ctx) {
-  const rate = ctx.ratesByRoom.get(Number(row.room_id));
-  const total_owed = totalOwedFor(row, ctx.session, rate);
-
-  // The individual steps are returned so the UI can show its working rather
-  // than re-deriving the arithmetic and drifting from the server.
-  const session_base = sessionBaseFor(row, ctx.session, rate);
-  const rebate_amount = rebateFor(row, ctx.session, rate);
-  // An override is billed as entered, so neither discount applies — report them
-  // as zero rather than letting the UI show a deduction that wasn't taken.
-  const is_override = hasOverride(row);
-  const prepay_pct =
-    !is_override && row.prepay_discount ? Number(ctx.session?.prepay_discount_pct ?? 0) : 0;
-  const prepay_amount = roundMoney((session_base - rebate_amount) * (prepay_pct / 100));
-
-  return {
-    ...row,
-    capacity: rate?.capacity ?? 1,
-    // resolved_rate is per term; session_base is what the whole session costs
-    // before discounts.
-    resolved_rate: rateForOccupancy(rate, row.occupancy),
-    base_amount_effective: baseAmountFor(row, rate),
-    session_base,
-    terms: Number(ctx.session?.terms) || 1,
-    rebate_per_term:
-      !is_override && row.member_discount ? Number(ctx.session?.member_rebate ?? 0) : 0,
-    rebate_beds:
-      row.occupancy === "full_room" && row.double_rebate ? Math.max(rate?.capacity ?? 1, 1) : 1,
-    rebate_amount,
-    prepay_pct,
-    prepay_amount,
-    is_override,
-    total_owed,
-  };
-}
+const { rateForOccupancy, dueToDateFor, rangesOverlap } = require("../utils/houseFees");
 
 // The room's whole capacity is taken by a full_room assignment, so it conflicts
 // with every bed rather than just its own.

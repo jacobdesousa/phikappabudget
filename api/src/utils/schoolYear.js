@@ -22,4 +22,41 @@ function currentSchoolYearStart() {
   return schoolYearStartForDate(new Date());
 }
 
-module.exports = { toLocalDate, schoolYearStartForDate, currentSchoolYearStart };
+// Today as the chapter sees it. The server runs UTC, where anything after 8pm
+// Toronto is already tomorrow — a reminder dated "today" has to mean today
+// here, not in Greenwich.
+function todayInToronto() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+// Calendar-date arithmetic on "YYYY-MM-DD" strings, with no timezone anywhere
+// in the path: Date.UTC in, UTC parts out.
+function addDays(ymd, days) {
+  const [y, m, d] = String(ymd).split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + days));
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`;
+}
+
+// Whole days from `from` to `to`; negative when `to` is in the past.
+function daysBetween(from, to) {
+  const parse = (v) => {
+    const [y, m, d] = String(v).split("-").map(Number);
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((parse(to) - parse(from)) / 86400000);
+}
+
+module.exports = {
+  toLocalDate,
+  schoolYearStartForDate,
+  currentSchoolYearStart,
+  todayInToronto,
+  addDays,
+  daysBetween,
+};
