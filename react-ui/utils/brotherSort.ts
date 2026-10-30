@@ -12,17 +12,29 @@ export type SortDirection = "asc" | "desc";
 /**
  * "Fall 2023" is a date, not a word. Sorted as text, Fall would come before
  * Spring and 2019 would sit next to 2023 only by luck, so it becomes a number:
- * the year, with Spring ahead of Fall because a Spring class pledged earlier
- * in that calendar year.
+ * the year, then the term within it.
+ *
+ * Older records often carry a bare year with no term — the roster has plenty
+ * of "2009" and "1991". Those rank on the year alone and lead it, since an
+ * unknown term can't be placed against a known one. Anything else (a blank, or
+ * free text) has no place on the timeline at all and returns null.
  */
 function pledgeClassRank(value?: string | null): number | null {
-  const m = String(value ?? "")
-    .trim()
-    .match(/^(Fall|Spring)\s+(\d{4})$/i);
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+
+  // Term is optional, and the year may be written either side of it.
+  const m = raw.match(/^(?:(Fall|Spring)\s+)?(\d{4})(?:\s+(Fall|Spring))?$/i);
   if (!m) return null;
+
   const year = Number(m[2]);
   if (!Number.isFinite(year)) return null;
-  return year * 10 + (m[1].toLowerCase() === "spring" ? 0 : 1);
+
+  const term = (m[1] ?? m[3] ?? "").toLowerCase();
+  // 0 = term unknown, 1 = Spring, 2 = Fall. Spring precedes Fall because a
+  // Spring class pledged earlier in that calendar year.
+  const termRank = term === "spring" ? 1 : term === "fall" ? 2 : 0;
+  return year * 10 + termRank;
 }
 
 function text(value?: string | null): string {
